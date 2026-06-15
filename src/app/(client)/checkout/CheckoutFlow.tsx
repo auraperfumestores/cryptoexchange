@@ -395,7 +395,9 @@ export function CheckoutFlow() {
   const [wcTopic, setWcTopic]       = useState('');  // active WC session topic
   const [wcConnecting, setWcConnecting] = useState(false);
   const [wcError, setWcError]       = useState('');
-  const wcApprovalRef = useRef<(() => Promise<any>) | null>(null); // tracks pending approval
+  const wcApprovalRef   = useRef<(() => Promise<any>) | null>(null);
+  const wcInProgressRef = useRef(false); // guard against parallel calls
+  const wcCancelRef     = useRef(false); // local cancellation flag
 
   /* ── Fetch rates ── */
   useEffect(() => {
@@ -674,21 +676,30 @@ export function CheckoutFlow() {
 
   /* ── WalletConnect TRON connection ── */
   async function connectViaWalletConnect() {
+    // Prevent duplicate calls from rapid button taps
+    if (wcInProgressRef.current) return;
+    wcInProgressRef.current = true;
+    wcCancelRef.current     = false;
+    wcApprovalRef.current   = null;
+
     setWcConnecting(true);
     setWcError('');
     setWcUri('');
-    wcApprovalRef.current = null;
+
     try {
+      // Phase 1: init SignClient + create pairing → get URI (~1-3 s)
       const { uri, approval } = await createTronWcSession();
+
+      if (wcCancelRef.current) return; // user cancelled during init
+
       wcApprovalRef.current = approval;
       setWcUri(uri);
-      setWcConnecting(false);
+      setWcConnecting(false); // spinner off — show QR / deep link
 
-      // Await wallet approval — resolves when user approves in Trust Wallet
+      // Phase 2: wait for user to approve in Trust Wallet (up to 5 min WC timeout)
       const session = await approval();
 
-      // Guard: user cancelled while waiting
-      if (!wcApprovalRef.current) return;
+      if (wcCancelRef.current) return;
       wcApprovalRef.current = null;
 
       const addr = tronAddressFromWcSession(session);
@@ -698,20 +709,24 @@ export function CheckoutFlow() {
       setWcError('');
       setStep(mode === 'buy' ? 3 : 2);
     } catch (e: any) {
-      // Ignore errors that happened after user cancelled
-      if (!wcApprovalRef.current && !wcConnecting) return;
+      if (wcCancelRef.current) return; // swallow only genuine cancellations
       wcApprovalRef.current = null;
-      setWcError(e?.message || 'WalletConnect connection failed — please try again.');
+      // Always surface the real error — never silently fail
+      const raw = e?.message || String(e) || 'Unknown error';
+      setWcError(raw.length > 200 ? raw.slice(0, 200) + '…' : raw);
     } finally {
-      setWcConnecting(false);
+      wcInProgressRef.current = false;
+      if (!wcCancelRef.current) setWcConnecting(false);
     }
   }
 
   function cancelWc() {
-    wcApprovalRef.current = null; // signal cancellation to pending approval promise
+    wcCancelRef.current   = true;
+    wcApprovalRef.current = null;
     setWcUri('');
     setWcConnecting(false);
     setWcError('');
+    wcInProgressRef.current = false;
   }
 
   function disconnectTron() {
@@ -964,11 +979,36 @@ export function CheckoutFlow() {
                         </div>
                       </div>
                     )}
-                    {(wcError) && (
+                    {wcError && (
                       <div style={{ padding:'10px 14px', borderRadius:10, background:'rgba(255,92,124,0.08)', border:'1px solid rgba(255,92,124,0.2)', fontSize:12, color:T.red, textAlign:'center', lineHeight:1.5 }}>
                         {wcError}
                       </div>
                     )}
+                    {/* Debug panel — always visible in compact TRC20 to diagnose WC issues */}
+                    <details style={{ cursor:'pointer' }}>
+                      <summary style={{ fontSize:10, color:T.dim, padding:'4px 0', userSelect:'none', listStyle:'none' }}>
+                        ▸ Debug info
+                      </summary>
+                      <div style={{ fontSize:10, color:T.dim, padding:'8px 10px', background:'rgba(0,0,0,0.45)', borderRadius:8, fontFamily:'monospace', marginTop:4, lineHeight:2, wordBreak:'break-all' }}>
+                        {(() => {
+                          if (typeof window === 'undefined') return null;
+                          const w = window as any;
+                          const pid = process.env.NEXT_PUBLIC_WC_PROJECT_ID;
+                          return [
+                            `wc_project_id: ${pid ? `set (${pid.slice(0,8)}…)` : 'NOT SET'}`,
+                            `wcConnecting: ${wcConnecting}`,
+                            `wcError: ${wcError || 'none'}`,
+                            `hasTronLink: ${hasTronLink}`,
+                            `tronLink: ${typeof w.tronLink} ${'tronLink' in w ? '(key)' : ''}`,
+                            `tronWeb: ${typeof w.tronWeb} ${'tronWeb' in w ? '(key)' : ''}`,
+                            `ethereum: ${typeof w.ethereum}`,
+                            `eth.isTrust: ${String(!!w.ethereum?.isTrust)}`,
+                            `trustwallet: ${typeof w.trustwallet}`,
+                            `tw.tronWeb: ${typeof w.trustwallet?.tronWeb}`,
+                          ].map((s, i) => <div key={i}>{s}</div>);
+                        })()}
+                      </div>
+                    </details>
                   </div>
                 )
               ) : (
