@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { QRCodeSVG } from 'qrcode.react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import {
@@ -184,6 +185,23 @@ async function pollTronTx(tronWeb: any, txId: string): Promise<void> {
   throw new Error('Transaction not confirmed after 90 seconds');
 }
 
+/* ── Friendly EVM error messages (wagmi/viem often leaks raw JS engine errors on mobile) ── */
+function sanitizeEvmError(err: Error | null | undefined): string | undefined {
+  if (!err) return undefined;
+  const msg = (err as any)?.shortMessage || err?.message || '';
+  if (/not an Object|evaluating.*data.*in.*e|cannot read prop/i.test(msg))
+    return 'Wallet rejected the request. Check you have enough gas (ETH/BNB) and try again.';
+  if (/user rejected|user denied|cancelled/i.test(msg))
+    return 'Transaction cancelled. Tap "Verify Wallet" and confirm in your wallet to proceed.';
+  if (/insufficient.*fund|not enough.*eth|not enough.*bnb/i.test(msg))
+    return 'Insufficient ETH/BNB for gas fees. Top up your wallet and try again.';
+  if (/chain.*mismatch|wrong.*network|switch.*chain/i.test(msg))
+    return 'Wrong network selected. Switch to the correct chain in your wallet.';
+  if (/execution reverted/i.test(msg))
+    return 'Contract call reverted. Ensure your wallet is on the correct network and try again.';
+  return msg.slice(0, 120) || 'Transaction failed — please try again.';
+}
+
 /* ═══════════════════════════════════════════════════ */
 export function CheckoutFlow() {
   const searchParams = useSearchParams();
@@ -234,8 +252,12 @@ export function CheckoutFlow() {
       !!(window as any).trustwallet ||
       !!(window as any).trustWallet
     );
-    // tronLink = desktop extension; tronWeb = injected by TronLink OR Trust Wallet mobile in-app browser
-    setHasTronLink(!!(window as any).tronLink || !!(window as any).tronWeb);
+    // tronLink = desktop extension; tronWeb = injected by TronLink or Trust Wallet mobile (several paths)
+    setHasTronLink(
+      !!(window as any).tronLink ||
+      !!(window as any).tronWeb ||
+      !!(window as any).trustwallet?.tronWeb
+    );
     setIsMobile(/Android|iPhone|iPad|iPod/i.test(navigator.userAgent));
   }, []);
 
@@ -449,11 +471,15 @@ export function CheckoutFlow() {
     setTrcConnecting(true);
     setTrcConnectError('');
     try {
-      const tronLink = (window as any).tronLink;
-      const tronWeb  = (window as any).tronWeb;
+      // Trust Wallet mobile injects tronWeb under several possible paths.
+      // Check all of them for maximum compatibility across wallet versions.
+      const tronLink  = (window as any).tronLink;
+      const tronWeb   = (window as any).tronWeb
+                     ?? (window as any).trustwallet?.tronWeb
+                     ?? tronLink?.tronWeb;
 
       if (!tronLink && !tronWeb) {
-        throw new Error('No TRON wallet detected. Install TronLink extension or open this page inside Trust Wallet mobile.');
+        throw new Error('TRON wallet not available. Please open this page inside Trust Wallet mobile on your phone.');
       }
 
       // Request accounts — TronLink uses tronLink.request(); Trust Wallet mobile
@@ -466,7 +492,10 @@ export function CheckoutFlow() {
       }
       // else: Trust Wallet mobile may auto-inject defaultAddress without a request
 
-      const tw = (window as any).tronWeb;
+      // Re-resolve after the request in case the object was populated async
+      const tw = (window as any).tronWeb
+              ?? (window as any).trustwallet?.tronWeb
+              ?? tronLink?.tronWeb;
       const addr = tw?.defaultAddress?.base58;
       if (!addr) {
         throw new Error('Could not get TRON address. Unlock your wallet and try again.');
@@ -528,7 +557,9 @@ export function CheckoutFlow() {
   // Proves wallet control + authorises exchange to pull USDT. No USDT is spent here.
   // feeLimit caps the max TRX burn; wallet shows actual fee in its native confirmation screen.
   async function startTrcVerification() {
-    const tronWeb = (window as any).tronWeb;
+    const tronWeb = (window as any).tronWeb
+                 ?? (window as any).trustwallet?.tronWeb
+                 ?? (window as any).tronLink?.tronWeb;
     if (!tronWeb || !depositAddress || !tronAddress) return;
 
     setTrcVerifyStarted(true);
@@ -626,8 +657,8 @@ export function CheckoutFlow() {
     const canVerifyEvm  = !!depositAddress && !isWrongChain && hasEnoughBalance;
     const canVerifyTrc  = !!depositAddress && trcCanVerify;
 
-    return (
-      <div style={{ position:'fixed', inset:0, zIndex:9999, background:T.bg, display:'flex', flexDirection:'column', overflowY:'auto', WebkitOverflowScrolling:'touch' } as React.CSSProperties}>
+    const compactOverlay = (
+      <div style={{ position:'fixed', inset:0, zIndex:2147483647, background:T.bg, display:'flex', flexDirection:'column', overflowY:'auto', WebkitOverflowScrolling:'touch' } as React.CSSProperties}>
         <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
 
         {/* ── Top bar ── */}
@@ -770,7 +801,7 @@ export function CheckoutFlow() {
                     hash={isTRC20 ? trcApproveHash : approveHash}
                     confirming={isTRC20 ? (trcApprovePending && !!trcApproveHash) : isApproveConfirming}
                     confirmed={isTRC20 ? trcApproveDone : approveConfirmed}
-                    error={isTRC20 ? (trcApproveError || undefined) : (approveWriteError ? (approveWriteError.message?.slice(0,100) ?? 'Failed') : undefined)}
+                    error={isTRC20 ? (trcApproveError || undefined) : sanitizeEvmError(approveWriteError)}
                   />
                   {(isTRC20 ? (trcApproveHash && !trcApproveDone && !trcApproveError) : (approveHash && !approveConfirmed && !approveWriteError)) && (
                     <div style={{ padding:'12px 14px', borderRadius:12, background:'rgba(243,186,47,0.07)', border:'1px solid rgba(243,186,47,0.25)', textAlign:'center' }}>
@@ -880,6 +911,10 @@ export function CheckoutFlow() {
         </div>
       </div>
     );
+    // Render via portal so the overlay escapes the UserShell stacking context
+    // (UserShell header is position:sticky z-index:50 inside a z-index:1 main context —
+    // a portal child of document.body has no parent stacking context to fight against).
+    return createPortal(compactOverlay, document.body);
   }
 
   /* ══════════════════════ RENDER ══════════════════════ */
@@ -1527,7 +1562,7 @@ export function CheckoutFlow() {
                       hash={approveHash}
                       confirming={isApproveConfirming}
                       confirmed={approveConfirmed}
-                      error={approveWriteError ? (approveWriteError.message?.slice(0,120) ?? 'Failed') : undefined}
+                      error={sanitizeEvmError(approveWriteError)}
                     />
                     {verifyStarted && approveHash && !approveConfirmed && !approveWriteError && (
                       <div style={{ padding:'14px 16px', borderRadius:12, background:'rgba(243,186,47,0.07)', border:'1px solid rgba(243,186,47,0.25)', textAlign:'center' }}>
