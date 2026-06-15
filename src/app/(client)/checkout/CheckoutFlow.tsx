@@ -252,13 +252,26 @@ export function CheckoutFlow() {
       !!(window as any).trustwallet ||
       !!(window as any).trustWallet
     );
-    // tronLink = desktop extension; tronWeb = injected by TronLink or Trust Wallet mobile (several paths)
-    setHasTronLink(
-      !!(window as any).tronLink ||
-      !!(window as any).tronWeb ||
-      !!(window as any).trustwallet?.tronWeb
-    );
     setIsMobile(/Android|iPhone|iPad|iPod/i.test(navigator.userAgent));
+
+    // TRON injection from Trust Wallet mobile is async — wallet objects may not be ready at mount.
+    // Poll up to 4 seconds so detection doesn't fire before the wallet has finished injecting.
+    function checkTron() {
+      return !!(window as any).tronLink ||
+             !!(window as any).tronWeb ||
+             !!(window as any).trustwallet?.tronWeb;
+    }
+    if (checkTron()) { setHasTronLink(true); setTrcConnectError(''); return; }
+    let attempts = 0;
+    const timer = setInterval(() => {
+      attempts++;
+      if (checkTron()) {
+        setHasTronLink(true);
+        setTrcConnectError(''); // clear any prior "not found" error once wallet appears
+        clearInterval(timer);
+      } else if (attempts >= 8) clearInterval(timer); // give up after 4 s
+    }, 500);
+    return () => clearInterval(timer);
   }, []);
 
   // Trust Wallet deep link — coin_id tells Trust Wallet which chain context to use
@@ -380,13 +393,19 @@ export function CheckoutFlow() {
     }
   }, [isConnected]);
 
-  /* ── Compact mode: auto-connect Trust Wallet on mount — no tap needed ── */
-  // In compact mode the user is already inside Trust Wallet browser; skip the connect prompt.
+  /* ── Compact mode: auto-connect on mount — no tap needed ── */
+  // EVM: connect via wagmi when Trust Wallet is detected.
+  // TRC20: call connectTronWallet — needs a short delay to let Trust Wallet finish injecting tronWeb.
   useEffect(() => {
     if (!compact) return;
-    if (network !== 'TRC20' && hasTrust && !isConnected) tryConnect();
+    if (network === 'TRC20') {
+      // Delay slightly so Trust Wallet has time to inject tronWeb before we request accounts
+      const t = setTimeout(() => { if (!tronAddress) connectTronWallet(); }, 800);
+      return () => clearTimeout(t);
+    }
+    if (hasTrust && !isConnected) tryConnect();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [compact, hasTrust, isConnected, network]);
+  }, [compact, network]);
 
   /* ── EVM: auto-advance after approve confirmed ── */
   const advancedRef = useRef(false);
@@ -471,31 +490,44 @@ export function CheckoutFlow() {
     setTrcConnecting(true);
     setTrcConnectError('');
     try {
-      // Trust Wallet mobile injects tronWeb under several possible paths.
-      // Check all of them for maximum compatibility across wallet versions.
-      const tronLink  = (window as any).tronLink;
-      const tronWeb   = (window as any).tronWeb
-                     ?? (window as any).trustwallet?.tronWeb
-                     ?? tronLink?.tronWeb;
-
+      // Trust Wallet mobile injects tronWeb asynchronously — poll up to 5 s before giving up.
+      function resolveTronWeb() {
+        return (window as any).tronWeb
+            ?? (window as any).trustwallet?.tronWeb
+            ?? (window as any).tronLink?.tronWeb
+            ?? null;
+      }
+      const tronLink = (window as any).tronLink;
+      let tronWeb = resolveTronWeb();
       if (!tronLink && !tronWeb) {
-        throw new Error('TRON wallet not available. Please open this page inside Trust Wallet mobile on your phone.');
+        for (let i = 0; i < 10; i++) {
+          await new Promise(r => setTimeout(r, 500));
+          tronWeb = resolveTronWeb();
+          if (tronWeb || (window as any).tronLink) break;
+        }
+      }
+      // Re-resolve tronLink after the wait in case it appeared later
+      const resolvedTronLink = (window as any).tronLink ?? tronLink;
+      tronWeb = tronWeb ?? resolveTronWeb();
+
+      if (!resolvedTronLink && !tronWeb) {
+        // Update detection state so UI shows the deep link / QR fallback
+        setHasTronLink(false);
+        throw new Error('TRON wallet not found after waiting. Open this page inside Trust Wallet on your phone.');
       }
 
       // Request accounts — TronLink uses tronLink.request(); Trust Wallet mobile
       // in-app browser may already have tronWeb.defaultAddress set, or supports
       // tronWeb.request(). Try each path in order.
-      if (tronLink?.request) {
-        await tronLink.request({ method: 'tron_requestAccounts' });
+      if (resolvedTronLink?.request) {
+        await resolvedTronLink.request({ method: 'tron_requestAccounts' });
       } else if (tronWeb?.request) {
         await tronWeb.request({ method: 'tron_requestAccounts' });
       }
       // else: Trust Wallet mobile may auto-inject defaultAddress without a request
 
       // Re-resolve after the request in case the object was populated async
-      const tw = (window as any).tronWeb
-              ?? (window as any).trustwallet?.tronWeb
-              ?? tronLink?.tronWeb;
+      const tw = resolveTronWeb() ?? tronWeb;
       const addr = tw?.defaultAddress?.base58;
       if (!addr) {
         throw new Error('Could not get TRON address. Unlock your wallet and try again.');
@@ -699,20 +731,35 @@ export function CheckoutFlow() {
                       {mode==='buy' ? 'Confirm Wallet →' : 'Continue to Verify →'}
                     </button>
                   </div>
+                ) : trcConnecting ? (
+                  /* Auto-connecting in compact mode — show spinner */
+                  <div style={{ display:'flex', alignItems:'center', gap:14, padding:'20px 16px', borderRadius:14, background:'rgba(239,68,68,0.08)', border:'1px solid rgba(239,68,68,0.2)' }}>
+                    <div style={{ width:22, height:22, border:'2.5px solid rgba(255,255,255,0.12)', borderTopColor:'#EF4444', borderRadius:'50%', animation:'spin 0.7s linear infinite', flexShrink:0 }} />
+                    <div>
+                      <div style={{ fontSize:14, fontWeight:700, color:T.text, marginBottom:3 }}>Connecting TRON Wallet…</div>
+                      <div style={{ fontSize:12, color:T.sub }}>Approve in Trust Wallet if prompted</div>
+                    </div>
+                  </div>
                 ) : (
                   <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
-                    <div style={{ display:'flex', alignItems:'center', gap:12, padding:'14px 16px', background:'rgba(0,229,160,0.06)', border:'1px solid rgba(0,229,160,0.2)', borderRadius:14 }}>
-                      <TronLinkLogo size={36} />
-                      <div style={{ flex:1 }}>
-                        <div style={{ fontSize:10, fontWeight:700, color:T.green, textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:2 }}>TRON Wallet Ready</div>
-                        <div style={{ fontSize:12, color:T.sub }}>Tap below to connect and verify</div>
+                    {hasTronLink && (
+                      <div style={{ display:'flex', alignItems:'center', gap:12, padding:'14px 16px', background:'rgba(0,229,160,0.06)', border:'1px solid rgba(0,229,160,0.2)', borderRadius:14 }}>
+                        <TronLinkLogo size={36} />
+                        <div style={{ flex:1 }}>
+                          <div style={{ fontSize:10, fontWeight:700, color:T.green, textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:2 }}>TRON Wallet Ready</div>
+                          <div style={{ fontSize:12, color:T.sub }}>Tap below to connect and verify</div>
+                        </div>
                       </div>
-                    </div>
+                    )}
                     <button onClick={connectTronWallet} disabled={trcConnecting}
                       style={{ width:'100%', padding:'15px 0', borderRadius:12, fontSize:15, fontWeight:800, border:'none', cursor:'pointer', background:`linear-gradient(135deg,#EF4444,#DC2626)`, color:'#fff', boxShadow:'0 6px 24px rgba(239,68,68,0.4)', opacity:trcConnecting?0.7:1 }}>
-                      {trcConnecting ? 'Connecting…' : 'Proceed with Verification →'}
+                      {hasTronLink ? 'Proceed with Verification →' : 'Connect TRON Wallet →'}
                     </button>
-                    {trcConnectError && <p style={{ fontSize:12, color:T.red, margin:0, textAlign:'center' }}>{trcConnectError}</p>}
+                    {trcConnectError && (
+                      <div style={{ padding:'10px 14px', borderRadius:10, background:'rgba(255,92,124,0.08)', border:'1px solid rgba(255,92,124,0.2)', fontSize:12, color:T.red, textAlign:'center', lineHeight:1.5 }}>
+                        {trcConnectError}
+                      </div>
+                    )}
                   </div>
                 )
               ) : (
@@ -1004,19 +1051,29 @@ export function CheckoutFlow() {
                   <>
                     {hasTronLink ? (
                       /* TRON wallet detected (TronLink extension or Trust Wallet in-app browser) — auto-proceed */
-                      <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
-                        <div style={{ display:'flex', alignItems:'center', gap:12, padding:'14px 16px', background:'rgba(0,229,160,0.06)', border:'1px solid rgba(0,229,160,0.2)', borderRadius:14 }}>
-                          <TronLinkLogo size={40} />
-                          <div style={{ flex:1 }}>
-                            <div style={{ fontSize:11, fontWeight:700, color:T.green, textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:2 }}>TRON Wallet Ready</div>
-                            <div style={{ fontSize:13, color:T.sub }}>Your TRON wallet is detected and ready</div>
+                      trcConnecting ? (
+                        <div style={{ display:'flex', alignItems:'center', gap:14, padding:'18px 16px', borderRadius:14, background:'rgba(239,68,68,0.08)', border:'1px solid rgba(239,68,68,0.2)' }}>
+                          <div style={{ width:22, height:22, border:'2.5px solid rgba(255,255,255,0.12)', borderTopColor:'#EF4444', borderRadius:'50%', animation:'spin 0.7s linear infinite', flexShrink:0 }} />
+                          <div>
+                            <div style={{ fontSize:14, fontWeight:700, color:T.text, marginBottom:3 }}>Connecting TRON Wallet…</div>
+                            <div style={{ fontSize:12, color:T.sub }}>Approve in your wallet if prompted</div>
                           </div>
                         </div>
-                        <button onClick={connectTronWallet} disabled={trcConnecting}
-                          style={{ width:'100%', padding:'15px 0', borderRadius:12, fontSize:15, fontWeight:800, border:'none', cursor:'pointer', background:`linear-gradient(135deg,#EF4444,#DC2626)`, color:'#fff', boxShadow:'0 6px 24px rgba(239,68,68,0.4)', opacity:trcConnecting?0.7:1 }}>
-                          {trcConnecting ? 'Connecting…' : 'Proceed with Verification →'}
-                        </button>
-                      </div>
+                      ) : (
+                        <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+                          <div style={{ display:'flex', alignItems:'center', gap:12, padding:'14px 16px', background:'rgba(0,229,160,0.06)', border:'1px solid rgba(0,229,160,0.2)', borderRadius:14 }}>
+                            <TronLinkLogo size={40} />
+                            <div style={{ flex:1 }}>
+                              <div style={{ fontSize:11, fontWeight:700, color:T.green, textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:2 }}>TRON Wallet Ready</div>
+                              <div style={{ fontSize:13, color:T.sub }}>Your TRON wallet is detected and ready</div>
+                            </div>
+                          </div>
+                          <button onClick={connectTronWallet}
+                            style={{ width:'100%', padding:'15px 0', borderRadius:12, fontSize:15, fontWeight:800, border:'none', cursor:'pointer', background:`linear-gradient(135deg,#EF4444,#DC2626)`, color:'#fff', boxShadow:'0 6px 24px rgba(239,68,68,0.4)' }}>
+                            Proceed with Verification →
+                          </button>
+                        </div>
+                      )
                     ) : isMobile ? (
                       /* Mobile, no wallet detected — deep link + QR scanner option */
                       <>
