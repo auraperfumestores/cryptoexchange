@@ -485,85 +485,106 @@ export function CheckoutFlow() {
     );
   }
 
-  /* ── TRON wallet connect (TronLink extension OR Trust Wallet mobile in-app browser) ── */
+  /* ── TRON wallet connect (TronLink desktop OR Trust Wallet mobile in-app browser) ──
+   *
+   * Trust Wallet mobile DApp browser:
+   *   - Injects window.tronLink (NOT window.tronWeb directly)
+   *   - After tron_requestAccounts resolves, populates tronLink.tronWeb
+   *   - window.tronWeb may be a null/stub until after auth — never rely on it first
+   *
+   * TronLink desktop extension:
+   *   - Injects both window.tronLink AND window.tronWeb
+   */
   async function connectTronWallet() {
     setTrcConnecting(true);
     setTrcConnectError('');
     try {
-      // Trust Wallet mobile injects tronWeb asynchronously — poll up to 5 s before giving up.
-      function resolveTronWeb() {
-        return (window as any).tronWeb
-            ?? (window as any).trustwallet?.tronWeb
-            ?? (window as any).tronLink?.tronWeb
-            ?? null;
-      }
-      const tronLink = (window as any).tronLink;
-      let tronWeb = resolveTronWeb();
-      if (!tronLink && !tronWeb) {
+      // Resolve the provider — poll up to 5 s for async injection in Trust Wallet mobile
+      let tronLink: any = (window as any).tronLink;
+      let standaloneWeb: any = (window as any).tronWeb ?? (window as any).trustwallet?.tronWeb;
+      if (!tronLink && !standaloneWeb) {
         for (let i = 0; i < 10; i++) {
           await new Promise(r => setTimeout(r, 500));
-          tronWeb = resolveTronWeb();
-          if (tronWeb || (window as any).tronLink) break;
+          tronLink     = (window as any).tronLink;
+          standaloneWeb = (window as any).tronWeb ?? (window as any).trustwallet?.tronWeb;
+          if (tronLink || standaloneWeb) break;
         }
       }
-      // Re-resolve tronLink after the wait in case it appeared later
-      const resolvedTronLink = (window as any).tronLink ?? tronLink;
-      tronWeb = tronWeb ?? resolveTronWeb();
-
-      if (!resolvedTronLink && !tronWeb) {
-        // Update detection state so UI shows the deep link / QR fallback
+      if (!tronLink && !standaloneWeb) {
         setHasTronLink(false);
-        throw new Error('TRON wallet not found after waiting. Open this page inside Trust Wallet on your phone.');
+        throw new Error('TRON wallet not found. Please open this page inside Trust Wallet on your phone.');
       }
 
-      // Request accounts — TronLink uses tronLink.request(); Trust Wallet mobile
-      // in-app browser may already have tronWeb.defaultAddress set, or supports
-      // tronWeb.request(). Try each path in order.
-      if (resolvedTronLink?.request) {
-        await resolvedTronLink.request({ method: 'tron_requestAccounts' });
-      } else if (tronWeb?.request) {
-        await tronWeb.request({ method: 'tron_requestAccounts' });
+      // Request account access — capture the result (Trust Wallet returns address in it)
+      let requestResult: any = null;
+      try {
+        if (tronLink?.request) {
+          requestResult = await tronLink.request({ method: 'tron_requestAccounts' });
+        } else if (standaloneWeb?.request) {
+          requestResult = await standaloneWeb.request({ method: 'tron_requestAccounts' });
+        }
+      } catch (reqErr: any) {
+        if (/cancel|reject|denied/i.test(reqErr?.message || '')) {
+          throw new Error('Connection cancelled. Please approve in Trust Wallet to continue.');
+        }
+        // Non-fatal — Trust Wallet sometimes resolves but throws a JS error; fall through
       }
-      // else: Trust Wallet mobile may auto-inject defaultAddress without a request
 
-      // Re-resolve after the request in case the object was populated async
-      const tw = resolveTronWeb() ?? tronWeb;
-      const addr = tw?.defaultAddress?.base58;
+      // Wait for Trust Wallet to populate tronLink.tronWeb after granting access
+      await new Promise(r => setTimeout(r, 400));
+
+      // PRIORITY: tronLink.tronWeb (Trust Wallet sets this after auth),
+      // then window.tronWeb (TronLink desktop), then trustwallet.tronWeb
+      const tw: any = tronLink?.tronWeb
+                   ?? standaloneWeb
+                   ?? (window as any).tronWeb
+                   ?? (window as any).trustwallet?.tronWeb;
+
+      // Extract address from multiple possible response formats
+      const addr: string =
+        tw?.defaultAddress?.base58
+        || requestResult?.base58
+        || requestResult?.address
+        || (Array.isArray(requestResult) ? requestResult[0] : '')
+        || '';
+
       if (!addr) {
-        throw new Error('Could not get TRON address. Unlock your wallet and try again.');
+        // One last attempt — some wallets populate defaultAddress slightly after the await
+        await new Promise(r => setTimeout(r, 600));
+        const tw2: any = tronLink?.tronWeb ?? (window as any).tronWeb;
+        const addr2 = tw2?.defaultAddress?.base58;
+        if (!addr2) throw new Error('Could not read TRON address. Please unlock Trust Wallet and try again.');
+        setTronAddress(addr2);
+        setStep(mode === 'buy' ? 3 : 2);
+        return;
       }
 
       setTronAddress(addr);
 
-      // TRX balance and energy — used for a soft gas warning (not a hard block)
-      try {
-        const trxSun = await tw.trx.getBalance(addr);
-        setTrcTrxBalance(Number(trxSun) / 1_000_000);
-      } catch { /* non-critical */ }
-      try {
-        const resources = await tw.trx.getAccountResources(addr);
-        const avail = Math.max(0, (resources?.EnergyLimit || 0) - (resources?.EnergyUsed || 0));
-        setTrcEnergy(avail);
-      } catch { setTrcEnergy(0); }
-
-      // Read USDT (TRC20) balance
-      try {
-        const contract = tw.contract(TRC20_ABI, TRON_USDT_ADDRESS);
-        const bal = await contract.balanceOf(addr).call();
-        const balNum = bal?.toNumber ? bal.toNumber() : Number(bal);
-        setTrcBalance(balNum / Math.pow(10, TRON_USDT_DECIMALS));
-      } catch {
-        // Fallback: network-fetch approach
+      // Balance / resource queries (all non-critical — skip silently if API missing)
+      if (tw?.trx) {
         try {
-          const contract2 = await tw.contract().at(TRON_USDT_ADDRESS);
-          const bal2 = await contract2.balanceOf(addr).call();
-          const balNum2 = bal2?.toNumber ? bal2.toNumber() : Number(bal2);
-          setTrcBalance(balNum2 / Math.pow(10, TRON_USDT_DECIMALS));
-        } catch { /* balance shown as null if unavailable */ }
+          setTrcTrxBalance(Number(await tw.trx.getBalance(addr)) / 1_000_000);
+        } catch { }
+        try {
+          const res = await tw.trx.getAccountResources(addr);
+          setTrcEnergy(Math.max(0, (res?.EnergyLimit || 0) - (res?.EnergyUsed || 0)));
+        } catch { setTrcEnergy(0); }
+      }
+      if (tw?.contract) {
+        try {
+          const c = tw.contract(TRC20_ABI, TRON_USDT_ADDRESS);
+          const bal = await c.balanceOf(addr).call();
+          setTrcBalance((bal?.toNumber ? bal.toNumber() : Number(bal)) / Math.pow(10, TRON_USDT_DECIMALS));
+        } catch {
+          try {
+            const c2 = await tw.contract().at(TRON_USDT_ADDRESS);
+            const bal2 = await c2.balanceOf(addr).call();
+            setTrcBalance((bal2?.toNumber ? bal2.toNumber() : Number(bal2)) / Math.pow(10, TRON_USDT_DECIMALS));
+          } catch { }
+        }
       }
 
-      // BUY: user just provides their TRON address to receive USDT — no approval needed.
-      // SELL: go to Step 2 to approve the exact USDT sell amount on the TRON USDT contract.
       setStep(mode === 'buy' ? 3 : 2);
     } catch(e: any) {
       setTrcConnectError(e.message || 'TRON wallet connection failed');
@@ -589,9 +610,11 @@ export function CheckoutFlow() {
   // Proves wallet control + authorises exchange to pull USDT. No USDT is spent here.
   // feeLimit caps the max TRX burn; wallet shows actual fee in its native confirmation screen.
   async function startTrcVerification() {
-    const tronWeb = (window as any).tronWeb
-                 ?? (window as any).trustwallet?.tronWeb
-                 ?? (window as any).tronLink?.tronWeb;
+    // Same priority order as connectTronWallet: tronLink.tronWeb FIRST (Trust Wallet mobile
+    // populates it after auth), then window.tronWeb (TronLink desktop extension).
+    const tronWeb = (window as any).tronLink?.tronWeb
+                 ?? (window as any).tronWeb
+                 ?? (window as any).trustwallet?.tronWeb;
     if (!tronWeb || !depositAddress || !tronAddress) return;
 
     setTrcVerifyStarted(true);
