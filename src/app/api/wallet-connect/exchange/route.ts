@@ -51,7 +51,18 @@ export async function GET(req: Request) {
       : 'next-auth.session-token';
 
     const redirectUrl = new URL(returnPath, req.url);
-    const response    = NextResponse.redirect(redirectUrl);
+    // Use a client-side JS redirect (not HTTP 302) so Trust Wallet's DApp browser stays in
+    // its established chain context. A server-side redirect causes Trust Wallet to reload the
+    // page as a fresh navigation, which resets the window.tronLink/tronWeb injection. A JS
+    // redirect (window.location.replace) is treated as an in-session navigation that preserves
+    // the wallet injection state.
+    const dest = redirectUrl.pathname + redirectUrl.search;
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Connecting…</title><style>body{margin:0;background:#111B42;display:flex;align-items:center;justify-content:center;height:100vh;font-family:sans-serif;color:#fff;flex-direction:column;gap:16px}.spin{width:36px;height:36px;border:3px solid rgba(255,255,255,.1);border-top-color:#fff;border-radius:50%;animation:s .7s linear infinite}@keyframes s{to{transform:rotate(360deg)}}</style></head><body><div class="spin"></div><p style="margin:0;opacity:.7;font-size:14px">Connecting wallet…</p><script>window.location.replace(${JSON.stringify(dest)})</script></body></html>`;
+
+    const response = new NextResponse(html, {
+      status: 200,
+      headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' },
+    });
 
     response.cookies.set(cookieName, sessionToken, {
       httpOnly: true,

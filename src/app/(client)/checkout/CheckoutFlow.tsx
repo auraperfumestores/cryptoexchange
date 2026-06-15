@@ -256,10 +256,17 @@ export function CheckoutFlow() {
 
     // TRON injection from Trust Wallet mobile is async — wallet objects may not be ready at mount.
     // Poll up to 4 seconds so detection doesn't fire before the wallet has finished injecting.
+    // Also check 'key' in window — Trust Wallet may inject tronLink=null (key present but null),
+    // which !!null misses. And add window.tron which some DApp browser builds expose.
     function checkTron() {
-      return !!(window as any).tronLink ||
-             !!(window as any).tronWeb ||
-             !!(window as any).trustwallet?.tronWeb;
+      const w = window as any;
+      return !!(w.tronLink)           ||
+             'tronLink' in w          ||   // key set to null — still means wallet is there
+             !!(w.tronWeb)            ||
+             'tronWeb' in w           ||   // same — key set to null
+             !!(w.tron)               ||   // short-form used by some DApp browsers
+             !!(w.trustwallet?.tronWeb) ||
+             !!(w.trustwallet?.tron);
     }
     if (checkTron()) { setHasTronLink(true); setTrcConnectError(''); return; }
     let attempts = 0;
@@ -501,24 +508,43 @@ export function CheckoutFlow() {
     try {
       /* Step 1 — resolve available providers, polling up to 4 s for async injection */
       function getTronProviders() {
-        const tl: any = (window as any).tronLink ?? null;
+        const w = window as any;
+        // tronLink may be injected as null initially — use presence check, not truthiness
+        const tl: any = w.tronLink ?? null;
         const tw: any = tl?.tronWeb
-                     ?? (window as any).tronWeb
-                     ?? (window as any).trustwallet?.tronWeb
-                     ?? (window as any).trustwallet?.tron
+                     ?? w.tronWeb
+                     ?? w.tron                    // short-form provider (some DApp browsers)
+                     ?? w.trustwallet?.tronWeb
+                     ?? w.trustwallet?.tron
                      ?? null;
         return { tronLink: tl, tronWeb: tw };
       }
+      function hasSomeTron() {
+        const w = window as any;
+        return !!(w.tronLink) || 'tronLink' in w ||
+               !!(w.tronWeb)  || 'tronWeb' in w  ||
+               !!(w.tron)     ||
+               !!(w.trustwallet?.tronWeb) || !!(w.trustwallet?.tron);
+      }
       let { tronLink, tronWeb } = getTronProviders();
-      if (!tronLink && !tronWeb) {
+      if (!hasSomeTron()) {
         for (let i = 0; i < 8; i++) {
           await new Promise(r => setTimeout(r, 500));
+          if (hasSomeTron()) break;
           ({ tronLink, tronWeb } = getTronProviders());
-          if (tronLink || tronWeb) break;
         }
+        // Re-read after polling
+        ({ tronLink, tronWeb } = getTronProviders());
       }
-      if (!tronLink && !tronWeb) {
-        throw new Error('TRON wallet not found. Please open this page inside Trust Wallet on your phone.');
+      if (!hasSomeTron()) {
+        // Detect if we're inside Trust Wallet browser (has ethereum injection) — give a targeted error
+        const inTrustBrowser = !!(window as any).ethereum?.isTrust ||
+                               !!(window as any).trustwallet?.ethereum;
+        throw new Error(
+          inTrustBrowser
+            ? 'Trust Wallet detected but TRON is not accessible here. Please use the TronLink app or a desktop browser with TronLink extension instead.'
+            : 'TRON wallet not found. Please open this page inside Trust Wallet on your phone.'
+        );
       }
 
       /* Step 2 — try reading address directly (no user prompt needed in some TW builds) */
@@ -616,6 +642,7 @@ export function CheckoutFlow() {
     // Same resolution order as connectTronWallet
     const tronWeb = (window as any).tronLink?.tronWeb
                  ?? (window as any).tronWeb
+                 ?? (window as any).tron
                  ?? (window as any).trustwallet?.tronWeb
                  ?? (window as any).trustwallet?.tron;
     if (!tronWeb || !depositAddress || !tronAddress) return;
@@ -782,8 +809,32 @@ export function CheckoutFlow() {
                       {hasTronLink ? 'Proceed with Verification →' : 'Connect TRON Wallet →'}
                     </button>
                     {trcConnectError && (
-                      <div style={{ padding:'10px 14px', borderRadius:10, background:'rgba(255,92,124,0.08)', border:'1px solid rgba(255,92,124,0.2)', fontSize:12, color:T.red, textAlign:'center', lineHeight:1.5 }}>
-                        {trcConnectError}
+                      <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
+                        <div style={{ padding:'10px 14px', borderRadius:10, background:'rgba(255,92,124,0.08)', border:'1px solid rgba(255,92,124,0.2)', fontSize:12, color:T.red, textAlign:'center', lineHeight:1.5 }}>
+                          {trcConnectError}
+                        </div>
+                        {/* Diagnostic panel — shows which TRON properties Trust Wallet injects.
+                            Screenshot this and send it so we can write the correct property path. */}
+                        <details style={{ cursor:'pointer' }}>
+                          <summary style={{ fontSize:10, color:T.dim, padding:'4px 0', userSelect:'none' }}>Debug info (tap to expand)</summary>
+                          <div style={{ fontSize:10, color:T.dim, padding:'8px 10px', background:'rgba(0,0,0,0.5)', borderRadius:8, fontFamily:'monospace', marginTop:4, lineHeight:1.9, wordBreak:'break-all' }}>
+                            {(() => {
+                              if (typeof window === 'undefined') return null;
+                              const w = window as any;
+                              return [
+                                `tronLink: ${typeof w.tronLink} ${'tronLink' in w ? '(key exists)' : '(no key)'}`,
+                                `tronWeb: ${typeof w.tronWeb} ${'tronWeb' in w ? '(key exists)' : '(no key)'}`,
+                                `tron: ${typeof w.tron}`,
+                                `trustwallet: ${typeof w.trustwallet}`,
+                                `tw.tronWeb: ${typeof w.trustwallet?.tronWeb}`,
+                                `tw.tron: ${typeof w.trustwallet?.tron}`,
+                                `ethereum: ${typeof w.ethereum}`,
+                                `eth.isTrust: ${String(!!w.ethereum?.isTrust)}`,
+                                `eth.providers: ${w.ethereum?.providers?.length ?? 0}`,
+                              ].map((s, i) => <div key={i}>{s}</div>);
+                            })()}
+                          </div>
+                        </details>
                       </div>
                     )}
                   </div>
