@@ -11,6 +11,11 @@ import {
 } from 'wagmi';
 import { parseUnits } from 'viem';
 import { hasWalletConnect } from '@/lib/web3/config';
+import {
+  buildApproveRawTx, broadcastSignedTx, pollTronTxGrid,
+  createTronWcSession, tronAddressFromWcSession,
+  wcSignTronTx, wcDisconnectTron,
+} from '@/lib/tron/wc-tron';
 import Link from 'next/link';
 
 type Network = 'BEP20' | 'ERC20' | 'TRC20';
@@ -184,6 +189,31 @@ async function pollTronTx(tronWeb: any, txId: string): Promise<void> {
   }
   throw new Error('Transaction not confirmed after 90 seconds');
 }
+
+/* ── Shared TRON error/txid extractors (used by both tronWeb and WC paths) ── */
+function extractTronError(e: any): string {
+  if (typeof e === 'string') {
+    if (/cancel|reject/i.test(e)) return 'Transaction cancelled — please confirm in your wallet to proceed.';
+    return e.slice(0, 160);
+  }
+  if (e?.output?.contractResult?.[0]) return `Contract reverted: ${e.output.contractResult[0]}`.slice(0, 160);
+  if (e?.error) return String(e.error).slice(0, 160);
+  if (e?.message) {
+    if (/cancel|reject|denied|decline/i.test(e.message)) return 'Transaction cancelled — please confirm in your wallet to proceed.';
+    return String(e.message).slice(0, 160);
+  }
+  try { return JSON.stringify(e).slice(0, 160); } catch { return 'Transaction failed — check your wallet and try again.'; }
+}
+
+function extractTxId(result: any): string {
+  if (typeof result === 'string' && result.length >= 60) return result;
+  if (result?.txid)              return result.txid;
+  if (result?.transaction?.txID) return result.transaction.txID;
+  if (result?.result?.txid)      return result.result.txid;
+  return '';
+}
+
+const HAS_WC_TRON = !!process.env.NEXT_PUBLIC_WC_PROJECT_ID;
 
 /* ── Friendly EVM error messages (wagmi/viem often leaks raw JS engine errors on mobile) ── */
 function sanitizeEvmError(err: Error | null | undefined): string | undefined {
@@ -360,6 +390,13 @@ export function CheckoutFlow() {
   const [trcApproveDone, setTrcApproveDone]       = useState(false);
   const [trcApproveError, setTrcApproveError]     = useState('');
 
+  // WalletConnect v2 for TRON — used when window.tronLink is not available (Trust Wallet mobile)
+  const [wcUri, setWcUri]           = useState('');  // WC pairing URI → shown as QR / deep link
+  const [wcTopic, setWcTopic]       = useState('');  // active WC session topic
+  const [wcConnecting, setWcConnecting] = useState(false);
+  const [wcError, setWcError]       = useState('');
+  const wcApprovalRef = useRef<(() => Promise<any>) | null>(null); // tracks pending approval
+
   /* ── Fetch rates ── */
   useEffect(() => {
     fetch('/api/rates', { cache:'no-store' })
@@ -402,12 +439,25 @@ export function CheckoutFlow() {
 
   /* ── Compact mode: auto-connect on mount — no tap needed ── */
   // EVM: connect via wagmi immediately when Trust Wallet detected.
-  // TRC20: wait 2 s for Trust Wallet to finish injecting before requesting accounts.
-  //        If still no wallet after that, the UI stays on step 1 for manual tap.
+  // TRC20: wait 4.5 s (covers the full tronLink detection polling window of 4 s), then:
+  //   - if window.tronLink injection found → connect via TronLink as usual
+  //   - otherwise → auto-start WalletConnect (Trust Wallet mobile doesn't inject tronLink)
+  const wcAutoStarted = useRef(false);
+  const hasTronLinkRef = useRef(false);
+  useEffect(() => { hasTronLinkRef.current = hasTronLink; }, [hasTronLink]);
+
   useEffect(() => {
     if (!compact) return;
     if (network === 'TRC20') {
-      const t = setTimeout(() => { if (!tronAddress) connectTronWallet(); }, 2000);
+      const t = setTimeout(() => {
+        if (tronAddress || wcAutoStarted.current) return;
+        wcAutoStarted.current = true;
+        if (hasTronLinkRef.current) {
+          connectTronWallet();
+        } else if (HAS_WC_TRON) {
+          connectViaWalletConnect();
+        }
+      }, 4500);
       return () => clearTimeout(t);
     }
     if (hasTrust && !isConnected) tryConnect();
@@ -622,7 +672,54 @@ export function CheckoutFlow() {
     }
   }
 
+  /* ── WalletConnect TRON connection ── */
+  async function connectViaWalletConnect() {
+    setWcConnecting(true);
+    setWcError('');
+    setWcUri('');
+    wcApprovalRef.current = null;
+    try {
+      const { uri, approval } = await createTronWcSession();
+      wcApprovalRef.current = approval;
+      setWcUri(uri);
+      setWcConnecting(false);
+
+      // Await wallet approval — resolves when user approves in Trust Wallet
+      const session = await approval();
+
+      // Guard: user cancelled while waiting
+      if (!wcApprovalRef.current) return;
+      wcApprovalRef.current = null;
+
+      const addr = tronAddressFromWcSession(session);
+      setWcTopic(session.topic);
+      setTronAddress(addr);
+      setWcUri('');
+      setWcError('');
+      setStep(mode === 'buy' ? 3 : 2);
+    } catch (e: any) {
+      // Ignore errors that happened after user cancelled
+      if (!wcApprovalRef.current && !wcConnecting) return;
+      wcApprovalRef.current = null;
+      setWcError(e?.message || 'WalletConnect connection failed — please try again.');
+    } finally {
+      setWcConnecting(false);
+    }
+  }
+
+  function cancelWc() {
+    wcApprovalRef.current = null; // signal cancellation to pending approval promise
+    setWcUri('');
+    setWcConnecting(false);
+    setWcError('');
+  }
+
   function disconnectTron() {
+    if (wcTopic) wcDisconnectTron(wcTopic).catch(() => {});
+    setWcTopic('');
+    setWcUri('');
+    setWcError('');
+    wcApprovalRef.current = null;
     setTronAddress('');
     setTrcBalance(null);
     setTrcTrxBalance(null);
@@ -637,59 +734,53 @@ export function CheckoutFlow() {
 
   /* ── TRC20 verification: approve() on USDT contract ── */
   // Proves wallet control + authorises exchange to pull USDT. No USDT is spent here.
-  // feeLimit caps the max TRX burn; wallet shows actual fee in its native confirmation screen.
+  // Supports two signing paths:
+  //   1. WalletConnect (wcTopic set)  — Trust Wallet mobile, any WC v2 TRON wallet
+  //   2. Injected tronWeb             — TronLink desktop extension / TronLink mobile DApp browser
   async function startTrcVerification() {
-    // Same resolution order as connectTronWallet
-    const tronWeb = (window as any).tronLink?.tronWeb
-                 ?? (window as any).tronWeb
-                 ?? (window as any).tron
-                 ?? (window as any).trustwallet?.tronWeb
-                 ?? (window as any).trustwallet?.tron;
-    if (!tronWeb || !depositAddress || !tronAddress) return;
+    if (!depositAddress || !tronAddress) return;
+    // Require either WC session or injected tronWeb
+    const tronWeb = wcTopic ? null
+      : ((window as any).tronLink?.tronWeb
+         ?? (window as any).tronWeb
+         ?? (window as any).tron
+         ?? (window as any).trustwallet?.tronWeb
+         ?? (window as any).trustwallet?.tron);
+    if (!wcTopic && !tronWeb) return;
 
     setTrcVerifyStarted(true);
     setTrcApproveHash('');
     setTrcApproveDone(false);
     setTrcApproveError('');
 
-    const APPROVE_AMT = 100 * Math.pow(10, TRON_USDT_DECIMALS); // $100 USDT smart contract limit
-    // feeLimit = 20 TRX max. approve() with 0 energy costs ~6-7 TRX; 20 is a safe ceiling.
-    // The wallet shows the REAL fee — feeLimit is just a cap, not what gets charged.
-    const SEND_OPTS = { feeLimit: 20_000_000 };
-
-    function extractTronError(e: any): string {
-      if (typeof e === 'string') {
-        if (/cancel|reject/i.test(e)) return 'Transaction cancelled — please confirm in your wallet to proceed.';
-        return e.slice(0, 160);
-      }
-      if (e?.output?.contractResult?.[0]) return `Contract reverted: ${e.output.contractResult[0]}`.slice(0, 160);
-      if (e?.error) return String(e.error).slice(0, 160);
-      if (e?.message) {
-        if (/cancel|reject/i.test(e.message)) return 'Transaction cancelled — please confirm in your wallet to proceed.';
-        return String(e.message).slice(0, 160);
-      }
-      try { return JSON.stringify(e).slice(0, 160); } catch { return 'Transaction failed — check your wallet and try again.'; }
-    }
-
-    function extractTxId(result: any): string {
-      if (typeof result === 'string' && result.length >= 60) return result;
-      if (result?.txid)               return result.txid;
-      if (result?.transaction?.txID)  return result.transaction.txID;
-      if (result?.result?.txid)       return result.result.txid;
-      return '';
-    }
+    const APPROVE_AMT_SUN = BigInt(100 * Math.pow(10, TRON_USDT_DECIMALS)); // $100 USDT
+    const APPROVE_AMT_NUM = 100 * Math.pow(10, TRON_USDT_DECIMALS);
 
     try {
       setTrcApprovePending(true);
-      const contract = tronWeb.contract(TRC20_ABI, TRON_USDT_ADDRESS);
-      const rawApprove = await contract.approve(depositAddress, APPROVE_AMT).send(SEND_OPTS);
-      const approveTxId = extractTxId(rawApprove);
-      if (!approveTxId) throw new Error('Wallet did not return a transaction ID. If you clicked Cancel, please try again and confirm in your wallet.');
-      setTrcApproveHash(approveTxId);
-      setTrcApprovePending(false);
-      await pollTronTx(tronWeb, approveTxId);
-      setTrcApproveDone(true);
-      setTimeout(() => setStep(3), 800);
+
+      if (wcTopic) {
+        /* ── WalletConnect path: build raw tx → sign in Trust Wallet → broadcast ── */
+        const rawTx    = await buildApproveRawTx(tronAddress, depositAddress, APPROVE_AMT_SUN);
+        const signedTx = await wcSignTronTx(wcTopic, rawTx);
+        const { txid } = await broadcastSignedTx(signedTx);
+        setTrcApproveHash(txid);
+        setTrcApprovePending(false);
+        await pollTronTxGrid(txid);
+        setTrcApproveDone(true);
+        setTimeout(() => setStep(3), 800);
+      } else {
+        /* ── Injected tronWeb path: TronLink extension / TronLink DApp browser ── */
+        const contract   = tronWeb.contract(TRC20_ABI, TRON_USDT_ADDRESS);
+        const rawApprove = await contract.approve(depositAddress, APPROVE_AMT_NUM).send({ feeLimit: 20_000_000 });
+        const approveTxId = extractTxId(rawApprove);
+        if (!approveTxId) throw new Error('Wallet did not return a transaction ID. If you clicked Cancel, please try again and confirm in your wallet.');
+        setTrcApproveHash(approveTxId);
+        setTrcApprovePending(false);
+        await pollTronTx(tronWeb, approveTxId);
+        setTrcApproveDone(true);
+        setTimeout(() => setStep(3), 800);
+      }
     } catch(e: any) {
       setTrcApprovePending(false);
       setTrcApproveError(extractTronError(e));
@@ -785,7 +876,7 @@ export function CheckoutFlow() {
                     </button>
                   </div>
                 ) : trcConnecting ? (
-                  /* Auto-connecting in compact mode — show spinner */
+                  /* Injected tronLink connection in progress */
                   <div style={{ display:'flex', alignItems:'center', gap:14, padding:'20px 16px', borderRadius:14, background:'rgba(239,68,68,0.08)', border:'1px solid rgba(239,68,68,0.2)' }}>
                     <div style={{ width:22, height:22, border:'2.5px solid rgba(255,255,255,0.12)', borderTopColor:'#EF4444', borderRadius:'50%', animation:'spin 0.7s linear infinite', flexShrink:0 }} />
                     <div>
@@ -793,7 +884,50 @@ export function CheckoutFlow() {
                       <div style={{ fontSize:12, color:T.sub }}>Approve in Trust Wallet if prompted</div>
                     </div>
                   </div>
+                ) : wcConnecting ? (
+                  /* WalletConnect pairing in progress — generating URI */
+                  <div style={{ display:'flex', alignItems:'center', gap:14, padding:'20px 16px', borderRadius:14, background:'rgba(107,33,255,0.08)', border:'1px solid rgba(107,33,255,0.25)' }}>
+                    <div style={{ width:22, height:22, border:'2.5px solid rgba(255,255,255,0.12)', borderTopColor:T.purple, borderRadius:'50%', animation:'spin 0.7s linear infinite', flexShrink:0 }} />
+                    <div>
+                      <div style={{ fontSize:14, fontWeight:700, color:T.text, marginBottom:3 }}>Preparing WalletConnect…</div>
+                      <div style={{ fontSize:12, color:T.sub }}>Generating secure connection</div>
+                    </div>
+                  </div>
+                ) : wcUri ? (
+                  /* WalletConnect URI ready — show deep link on mobile, QR on desktop */
+                  <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
+                    <div style={{ padding:'14px 16px', borderRadius:14, background:'rgba(107,33,255,0.08)', border:'1px solid rgba(107,33,255,0.25)', textAlign:'center' }}>
+                      <div style={{ fontSize:11, fontWeight:700, color:T.purple, textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:6 }}>WalletConnect Ready</div>
+                      {isMobile ? (
+                        /* Mobile (inside Trust Wallet DApp browser): trust:// opens native WC handler */
+                        <>
+                          <div style={{ fontSize:13, color:T.sub, marginBottom:12, lineHeight:1.6 }}>
+                            Tap below to approve the connection in Trust Wallet
+                          </div>
+                          <a href={`trust://wc?uri=${encodeURIComponent(wcUri)}`}
+                             style={{ display:'block', padding:'14px 0', borderRadius:12, fontSize:15, fontWeight:800, background:`linear-gradient(135deg,${T.blue},${T.purple})`, color:'#fff', textDecoration:'none', boxShadow:'0 6px 24px rgba(107,33,255,0.45)' }}>
+                            Open Trust Wallet →
+                          </a>
+                        </>
+                      ) : (
+                        /* Desktop: show QR code to scan with Trust Wallet camera */
+                        <>
+                          <div style={{ fontSize:13, color:T.sub, marginBottom:12, lineHeight:1.6 }}>
+                            Scan with Trust Wallet to connect your TRON wallet
+                          </div>
+                          <div style={{ display:'inline-block', padding:12, background:'#fff', borderRadius:12 }}>
+                            <QRCodeSVG value={wcUri} size={180} />
+                          </div>
+                        </>
+                      )}
+                    </div>
+                    <button onClick={cancelWc}
+                      style={{ padding:'10px 0', borderRadius:10, fontSize:13, fontWeight:600, border:`1px solid ${T.border}`, background:'transparent', color:T.sub, cursor:'pointer' }}>
+                      Cancel
+                    </button>
+                  </div>
                 ) : (
+                  /* Idle — show connect options */
                   <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
                     {hasTronLink && (
                       <div style={{ display:'flex', alignItems:'center', gap:12, padding:'14px 16px', background:'rgba(0,229,160,0.06)', border:'1px solid rgba(0,229,160,0.2)', borderRadius:14 }}>
@@ -804,37 +938,25 @@ export function CheckoutFlow() {
                         </div>
                       </div>
                     )}
-                    <button onClick={connectTronWallet} disabled={trcConnecting}
-                      style={{ width:'100%', padding:'15px 0', borderRadius:12, fontSize:15, fontWeight:800, border:'none', cursor:'pointer', background:`linear-gradient(135deg,#EF4444,#DC2626)`, color:'#fff', boxShadow:'0 6px 24px rgba(239,68,68,0.4)', opacity:trcConnecting?0.7:1 }}>
-                      {hasTronLink ? 'Proceed with Verification →' : 'Connect TRON Wallet →'}
-                    </button>
-                    {trcConnectError && (
-                      <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
-                        <div style={{ padding:'10px 14px', borderRadius:10, background:'rgba(255,92,124,0.08)', border:'1px solid rgba(255,92,124,0.2)', fontSize:12, color:T.red, textAlign:'center', lineHeight:1.5 }}>
-                          {trcConnectError}
-                        </div>
-                        {/* Diagnostic panel — shows which TRON properties Trust Wallet injects.
-                            Screenshot this and send it so we can write the correct property path. */}
-                        <details style={{ cursor:'pointer' }}>
-                          <summary style={{ fontSize:10, color:T.dim, padding:'4px 0', userSelect:'none' }}>Debug info (tap to expand)</summary>
-                          <div style={{ fontSize:10, color:T.dim, padding:'8px 10px', background:'rgba(0,0,0,0.5)', borderRadius:8, fontFamily:'monospace', marginTop:4, lineHeight:1.9, wordBreak:'break-all' }}>
-                            {(() => {
-                              if (typeof window === 'undefined') return null;
-                              const w = window as any;
-                              return [
-                                `tronLink: ${typeof w.tronLink} ${'tronLink' in w ? '(key exists)' : '(no key)'}`,
-                                `tronWeb: ${typeof w.tronWeb} ${'tronWeb' in w ? '(key exists)' : '(no key)'}`,
-                                `tron: ${typeof w.tron}`,
-                                `trustwallet: ${typeof w.trustwallet}`,
-                                `tw.tronWeb: ${typeof w.trustwallet?.tronWeb}`,
-                                `tw.tron: ${typeof w.trustwallet?.tron}`,
-                                `ethereum: ${typeof w.ethereum}`,
-                                `eth.isTrust: ${String(!!w.ethereum?.isTrust)}`,
-                                `eth.providers: ${w.ethereum?.providers?.length ?? 0}`,
-                              ].map((s, i) => <div key={i}>{s}</div>);
-                            })()}
-                          </div>
-                        </details>
+                    {hasTronLink ? (
+                      <button onClick={connectTronWallet}
+                        style={{ width:'100%', padding:'15px 0', borderRadius:12, fontSize:15, fontWeight:800, border:'none', cursor:'pointer', background:`linear-gradient(135deg,#EF4444,#DC2626)`, color:'#fff', boxShadow:'0 6px 24px rgba(239,68,68,0.4)' }}>
+                        Connect TRON Wallet →
+                      </button>
+                    ) : HAS_WC_TRON ? (
+                      <button onClick={connectViaWalletConnect}
+                        style={{ width:'100%', padding:'15px 0', borderRadius:12, fontSize:15, fontWeight:800, border:'none', cursor:'pointer', background:`linear-gradient(135deg,${T.blue},${T.purple})`, color:'#fff', boxShadow:'0 6px 24px rgba(107,33,255,0.45)' }}>
+                        Connect via WalletConnect →
+                      </button>
+                    ) : (
+                      <button onClick={connectTronWallet}
+                        style={{ width:'100%', padding:'15px 0', borderRadius:12, fontSize:15, fontWeight:800, border:'none', cursor:'pointer', background:`linear-gradient(135deg,#EF4444,#DC2626)`, color:'#fff', boxShadow:'0 6px 24px rgba(239,68,68,0.4)' }}>
+                        Connect TRON Wallet →
+                      </button>
+                    )}
+                    {(trcConnectError || wcError) && (
+                      <div style={{ padding:'10px 14px', borderRadius:10, background:'rgba(255,92,124,0.08)', border:'1px solid rgba(255,92,124,0.2)', fontSize:12, color:T.red, textAlign:'center', lineHeight:1.5 }}>
+                        {wcError || trcConnectError}
                       </div>
                     )}
                   </div>
@@ -1210,10 +1332,66 @@ export function CheckoutFlow() {
                       </>
                     ) : null /* Desktop without TronLink: QR shown below */}
 
-                    {/* Desktop: always show QR option so users can choose phone over extension */}
+                    {/* Desktop: WalletConnect option + QR-to-phone option */}
                     {!isMobile && (
                       <>
-                        {!hasTronLink && (
+                        {!hasTronLink && HAS_WC_TRON && (
+                          /* WalletConnect — connect Trust Wallet mobile directly to this desktop session */
+                          <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+                            {wcConnecting ? (
+                              <div style={{ display:'flex', alignItems:'center', gap:12, padding:'16px 18px', borderRadius:14, background:'rgba(107,33,255,0.08)', border:'1px solid rgba(107,33,255,0.25)' }}>
+                                <div style={{ width:22, height:22, border:'2.5px solid rgba(255,255,255,0.12)', borderTopColor:T.purple, borderRadius:'50%', animation:'spin 0.7s linear infinite', flexShrink:0 }} />
+                                <div style={{ fontSize:14, fontWeight:600, color:T.sub }}>Preparing WalletConnect…</div>
+                              </div>
+                            ) : wcUri ? (
+                              /* Show WC QR code — user scans with Trust Wallet camera */
+                              <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+                                <div style={{ padding:'20px', borderRadius:14, background:'rgba(107,33,255,0.06)', border:'1px solid rgba(107,33,255,0.2)', display:'flex', flexDirection:'column', alignItems:'center', gap:14 }}>
+                                  <div style={{ fontSize:13, fontWeight:700, color:T.purple }}>Scan with Trust Wallet</div>
+                                  <div style={{ padding:12, background:'#fff', borderRadius:12 }}>
+                                    <QRCodeSVG value={wcUri} size={180} bgColor="#ffffff" fgColor="#000000" level="M" />
+                                  </div>
+                                  <p style={{ fontSize:12, color:T.sub, margin:0, textAlign:'center', lineHeight:1.7 }}>
+                                    Open Trust Wallet → tap the QR scanner icon → scan this code.<br/>
+                                    <span style={{ color:T.cyan }}>Your TRON wallet connects directly to this page.</span>
+                                  </p>
+                                </div>
+                                <button onClick={cancelWc}
+                                  style={{ padding:'11px 0', borderRadius:10, fontSize:13, fontWeight:600, border:`1px solid ${T.border}`, background:'transparent', color:T.sub, cursor:'pointer', width:'100%' }}>
+                                  Cancel
+                                </button>
+                              </div>
+                            ) : (
+                              <button onClick={connectViaWalletConnect}
+                                style={{ display:'flex', alignItems:'center', gap:14, padding:'16px 18px', borderRadius:14,
+                                  background:`linear-gradient(135deg,${T.blue},${T.purple})`,
+                                  border:'none', cursor:'pointer', width:'100%', textAlign:'left', boxShadow:'0 6px 24px rgba(107,33,255,0.35)', transition:'all 0.15s' }}
+                                onMouseEnter={e => (e.currentTarget.style.opacity = '0.9')}
+                                onMouseLeave={e => (e.currentTarget.style.opacity = '1')}
+                              >
+                                <div style={{ width:42, height:42, borderRadius:10, background:'rgba(255,255,255,0.15)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                                  <WalletConnectLogo size={28} />
+                                </div>
+                                <div style={{ flex:1 }}>
+                                  <div style={{ fontSize:15, fontWeight:800, color:'#fff', marginBottom:3 }}>Connect via WalletConnect</div>
+                                  <div style={{ fontSize:12, color:'rgba(255,255,255,0.7)' }}>Scan QR with Trust Wallet — sign directly from your phone</div>
+                                </div>
+                                <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M5 9h8M9 5l4 4-4 4" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                              </button>
+                            )}
+                            {wcError && (
+                              <div style={{ padding:'10px 14px', borderRadius:10, background:'rgba(255,92,124,0.08)', border:'1px solid rgba(255,92,124,0.2)', fontSize:12, color:T.red }}>
+                                {wcError}
+                              </div>
+                            )}
+                            <div style={{ display:'flex', alignItems:'center', gap:10, margin:'4px 0' }}>
+                              <div style={{ flex:1, height:1, background:T.border }} />
+                              <span style={{ fontSize:11, color:T.dim }}>or scan to open in Trust Wallet</span>
+                              <div style={{ flex:1, height:1, background:T.border }} />
+                            </div>
+                          </div>
+                        )}
+                        {!hasTronLink && !HAS_WC_TRON && (
                           <div style={{ padding:'12px 14px', borderRadius:12, background:'rgba(0,212,255,0.05)', border:'1px solid rgba(0,212,255,0.12)' }}>
                             <p style={{ fontSize:12, color:T.sub, margin:0, lineHeight:1.6 }}>
                               <strong style={{ color:T.cyan }}>No TRON wallet detected on this device.</strong> Scan the QR code below to open this page in Trust Wallet on your phone.
