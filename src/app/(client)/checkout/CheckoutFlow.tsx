@@ -949,14 +949,24 @@ export function CheckoutFlow() {
                         Connect via WalletConnect →
                       </button>
                     ) : (
-                      <button onClick={connectTronWallet}
-                        style={{ width:'100%', padding:'15px 0', borderRadius:12, fontSize:15, fontWeight:800, border:'none', cursor:'pointer', background:`linear-gradient(135deg,#EF4444,#DC2626)`, color:'#fff', boxShadow:'0 6px 24px rgba(239,68,68,0.4)' }}>
-                        Connect TRON Wallet →
-                      </button>
+                      /* WC project ID not configured — show setup card, no failing button */
+                      <div style={{ padding:'16px', borderRadius:14, background:'rgba(107,33,255,0.07)', border:'1px solid rgba(107,33,255,0.22)', display:'flex', flexDirection:'column', gap:10 }}>
+                        <div style={{ fontSize:13, fontWeight:700, color:T.text }}>One-time setup required</div>
+                        <div style={{ fontSize:12, color:T.sub, lineHeight:1.7 }}>
+                          Signing TRON transactions from Trust Wallet requires WalletConnect.
+                          Add your free Project ID to Vercel, then redeploy.
+                        </div>
+                        <div style={{ fontSize:11, color:T.cyan, fontFamily:'monospace', padding:'8px 10px', background:'rgba(0,0,0,0.35)', borderRadius:8, wordBreak:'break-all' }}>
+                          NEXT_PUBLIC_WC_PROJECT_ID=&lt;your_id&gt;
+                        </div>
+                        <div style={{ fontSize:11, color:T.dim }}>
+                          Get a free ID → <span style={{ color:T.cyan }}>cloud.walletconnect.com</span>
+                        </div>
+                      </div>
                     )}
-                    {(trcConnectError || wcError) && (
+                    {(wcError) && (
                       <div style={{ padding:'10px 14px', borderRadius:10, background:'rgba(255,92,124,0.08)', border:'1px solid rgba(255,92,124,0.2)', fontSize:12, color:T.red, textAlign:'center', lineHeight:1.5 }}>
-                        {wcError || trcConnectError}
+                        {wcError}
                       </div>
                     )}
                   </div>
