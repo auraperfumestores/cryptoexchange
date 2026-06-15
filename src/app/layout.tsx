@@ -1,4 +1,4 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { Inter, JetBrains_Mono } from 'next/font/google';
 import './globals.css';
 import { Providers } from '@/components/providers';
@@ -10,6 +10,12 @@ export const metadata: Metadata = {
   title: 'SwapINR — USDT to Indian Rupees Exchange',
   description: 'The fastest way to convert USDT to INR. Settle via UPI, bank transfer, or cash. Live rates, zero hidden fees.',
   keywords: ['USDT', 'INR', 'crypto exchange', 'India', 'UPI', 'buy USDT', 'sell USDT'],
+};
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

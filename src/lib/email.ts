@@ -18,8 +18,17 @@ function createTransport() {
   });
 }
 
+// SMTP_FROM is already in "Name <email>" format — use as-is
 const FROM = process.env.SMTP_FROM ?? 'noreply@swapinr.com';
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';
+
+// Resolve app URL: explicit env → VERCEL_URL (auto-set by Vercel) → localhost
+function getAppUrl(): string {
+  const url = process.env.NEXT_PUBLIC_APP_URL;
+  if (url && !url.startsWith('http://localhost')) return url;
+  if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
+  return url ?? 'http://localhost:3000';
+}
+const APP_URL = getAppUrl();
 
 export async function sendVerificationEmail(email: string, name: string, token: string) {
   const link = `${APP_URL}/verify-email?token=${token}`;
@@ -31,7 +40,7 @@ export async function sendVerificationEmail(email: string, name: string, token: 
   }
 
   await transport.sendMail({
-    from: `"SwapINR" <${FROM}>`,
+    from: FROM,
     to: email,
     subject: 'Verify your SwapINR email address',
     html: `
