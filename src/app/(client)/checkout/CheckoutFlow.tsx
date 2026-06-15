@@ -192,10 +192,14 @@ export function CheckoutFlow() {
   const amount  = searchParams.get('amount')  ?? '100';
   const mode    = (searchParams.get('mode')   ?? 'buy')   as Mode;
   const network = (searchParams.get('network') ?? 'BEP20') as Network;
+  // compact=1 is injected into deep links — renders a minimal overlay inside Trust Wallet browser
+  const compact = searchParams.get('compact') === '1';
 
   /* ── EVM wagmi hooks — approve USDT spending limit for SELL ── */
   const { address, isConnected }                                     = useAccount();
   const { connect, connectors, isPending: isConnecting }             = useConnect();
+  // Trust Wallet specific connector — set up in wagmi config to avoid Phantom/MetaMask conflict
+  const trustWalletConn = connectors.find(c => c.id === 'trustWallet');
   const { disconnect }                                               = useDisconnect();
   const chainId                                                      = useChainId();
   const { switchChain, isPending: isSwitching }                      = useSwitchChain();
@@ -249,10 +253,12 @@ export function CheckoutFlow() {
   const [twError,   setTwError]   = useState('');
   const [twRetry,   setTwRetry]   = useState(0);   // increment to re-trigger the useEffect
 
-  // Helper that builds the full deep link once we have a token
+  // Helper that builds the full deep link once we have a token.
+  // Stamps compact=1 into the return URL so the page renders in minimal mode inside Trust Wallet.
   function buildDeepLink(token: string, returnPath: string): string {
+    const compactPath = returnPath + (returnPath.includes('?') ? '&' : '?') + 'compact=1';
     const exchangeUrl = `${window.location.origin}/api/wallet-connect/exchange` +
-      `?t=${encodeURIComponent(token)}&r=${encodeURIComponent(returnPath)}`;
+      `?t=${encodeURIComponent(token)}&r=${encodeURIComponent(compactPath)}`;
     const coinId  = TRUST_COIN_ID[network] ?? 20000714;
     // On HTTPS (production) use the universal link; on HTTP (local dev / IP) use the
     // native trust:// scheme — link.trustwallet.com won't open HTTP target URLs.
@@ -352,6 +358,14 @@ export function CheckoutFlow() {
     }
   }, [isConnected]);
 
+  /* ── Compact mode: auto-connect Trust Wallet on mount — no tap needed ── */
+  // In compact mode the user is already inside Trust Wallet browser; skip the connect prompt.
+  useEffect(() => {
+    if (!compact) return;
+    if (network !== 'TRC20' && hasTrust && !isConnected) tryConnect();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [compact, hasTrust, isConnected, network]);
+
   /* ── EVM: auto-advance after approve confirmed ── */
   const advancedRef = useRef(false);
   useEffect(() => {
@@ -415,13 +429,17 @@ export function CheckoutFlow() {
   const cbConn       = connectors.find(c => c.id === 'coinbaseWallet');
   const wcConn       = connectors.find(c => c.id === 'walletConnect');
 
-  function tryConnect(connector: typeof injectedConn) {
-    if (!connector) return;
+  function tryConnect(_connector?: typeof injectedConn) {
+    // Always prefer the Trust Wallet specific connector when Trust Wallet is detected.
+    // This prevents wagmi from accidentally routing to Phantom or any other injected wallet
+    // when multiple browser extensions are installed.
+    const conn = hasTrust ? (trustWalletConn ?? injectedConn) : (_connector ?? injectedConn);
+    if (!conn) return;
     setConnectError('');
     // Pass chainId so wagmi auto-switches to the correct network right after connecting.
     // Fixes Trust Wallet mobile defaulting to Ethereum even when BEP20/ERC20 is selected.
     connect(
-      { connector, chainId: usdtCfg?.chainId },
+      { connector: conn, chainId: usdtCfg?.chainId },
       { onError: e => setConnectError(e.message?.slice(0,80) ?? 'Connection failed') }
     );
   }
@@ -603,6 +621,267 @@ export function CheckoutFlow() {
 
   const verifyError = (approveWriteError?.message ?? '').slice(0, 100);
 
+  /* ══════════════════════ COMPACT OVERLAY (Trust Wallet in-app browser) ══════════════════════ */
+  if (compact) {
+    const canVerifyEvm  = !!depositAddress && !isWrongChain && hasEnoughBalance;
+    const canVerifyTrc  = !!depositAddress && trcCanVerify;
+
+    return (
+      <div style={{ position:'fixed', inset:0, zIndex:9999, background:T.bg, display:'flex', flexDirection:'column', overflowY:'auto', WebkitOverflowScrolling:'touch' } as React.CSSProperties}>
+        <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+
+        {/* ── Top bar ── */}
+        <div style={{ padding:'16px 20px', borderBottom:`1px solid ${T.border}`, display:'flex', alignItems:'center', justifyContent:'space-between', flexShrink:0 }}>
+          <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+            <div style={{ width:32, height:32, borderRadius:10, background:`linear-gradient(135deg,${T.blue},${T.purple})`, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="1" y="4" width="14" height="9" rx="2" stroke="white" strokeWidth="1.3"/><path d="M1 7H15" stroke="white" strokeWidth="1.3"/><circle cx="12" cy="10" r="1" fill="white"/></svg>
+            </div>
+            <span style={{ fontSize:16, fontWeight:900, color:T.text, letterSpacing:'-0.02em' }}>SwapINR</span>
+          </div>
+          {/* Exchange summary chip */}
+          <div style={{ display:'flex', alignItems:'center', gap:6, padding:'6px 12px', borderRadius:999, background:T.card2, border:`1px solid ${T.border}` }}>
+            <span style={{ fontSize:12, fontWeight:700, color:T.text }}>{cryptoAmount.toFixed(4)} USDT</span>
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 6h8M7 3l3 3-3 3" stroke={T.cyan} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+            <span style={{ fontSize:12, fontWeight:700, color:T.cyan }}>₹{inrAmount.toLocaleString('en-IN',{maximumFractionDigits:0})}</span>
+            <span style={{ width:6, height:6, borderRadius:'50%', background:NET_COLOR[network], display:'inline-block', marginLeft:2 }} />
+          </div>
+        </div>
+
+        {/* ── Step content ── */}
+        <div style={{ flex:1, padding:'20px 16px', display:'flex', flexDirection:'column', gap:12 }}>
+
+          {/* ── COMPACT STEP 1 ── */}
+          {step === 1 && (
+            <>
+              {isTRC20 ? (
+                /* TRC20 compact step 1 */
+                tronAddress ? (
+                  <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+                    <div style={{ display:'flex', alignItems:'center', gap:12, padding:'14px 16px', background:'rgba(0,229,160,0.06)', border:'1px solid rgba(0,229,160,0.2)', borderRadius:14 }}>
+                      <TronLinkLogo size={36} />
+                      <div style={{ flex:1, minWidth:0 }}>
+                        <div style={{ fontSize:10, fontWeight:700, textTransform:'uppercase', letterSpacing:'0.08em', color:T.green, marginBottom:2 }}>TRON Wallet Connected</div>
+                        <div style={{ fontSize:12, fontWeight:700, color:T.text, fontFamily:'monospace', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{tronAddress}</div>
+                      </div>
+                    </div>
+                    <button onClick={() => setStep(mode==='buy' ? 3 : 2)} style={{ width:'100%', padding:'15px 0', borderRadius:12, fontSize:15, fontWeight:800, border:'none', cursor:'pointer', background:`linear-gradient(135deg,${T.blue},${T.purple})`, color:'#fff', boxShadow:'0 6px 24px rgba(26,63,255,0.45)' }}>
+                      {mode==='buy' ? 'Confirm Wallet →' : 'Continue to Verify →'}
+                    </button>
+                  </div>
+                ) : (
+                  <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+                    <div style={{ display:'flex', alignItems:'center', gap:12, padding:'14px 16px', background:'rgba(0,229,160,0.06)', border:'1px solid rgba(0,229,160,0.2)', borderRadius:14 }}>
+                      <TronLinkLogo size={36} />
+                      <div style={{ flex:1 }}>
+                        <div style={{ fontSize:10, fontWeight:700, color:T.green, textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:2 }}>TRON Wallet Ready</div>
+                        <div style={{ fontSize:12, color:T.sub }}>Tap below to connect and verify</div>
+                      </div>
+                    </div>
+                    <button onClick={connectTronWallet} disabled={trcConnecting}
+                      style={{ width:'100%', padding:'15px 0', borderRadius:12, fontSize:15, fontWeight:800, border:'none', cursor:'pointer', background:`linear-gradient(135deg,#EF4444,#DC2626)`, color:'#fff', boxShadow:'0 6px 24px rgba(239,68,68,0.4)', opacity:trcConnecting?0.7:1 }}>
+                      {trcConnecting ? 'Connecting…' : 'Proceed with Verification →'}
+                    </button>
+                    {trcConnectError && <p style={{ fontSize:12, color:T.red, margin:0, textAlign:'center' }}>{trcConnectError}</p>}
+                  </div>
+                )
+              ) : (
+                /* EVM compact step 1 */
+                isConnected && address ? (
+                  <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+                    <div style={{ display:'flex', alignItems:'center', gap:12, padding:'14px 16px', background:'rgba(0,229,160,0.06)', border:'1px solid rgba(0,229,160,0.2)', borderRadius:14 }}>
+                      <TrustLogo size={36} />
+                      <div style={{ flex:1, minWidth:0 }}>
+                        <div style={{ fontSize:10, fontWeight:700, textTransform:'uppercase', letterSpacing:'0.08em', color:T.green, marginBottom:2 }}>Trust Wallet Connected</div>
+                        <div style={{ fontSize:12, fontWeight:700, color:T.text, fontFamily:'monospace', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{address.slice(0,10)}…{address.slice(-8)}</div>
+                      </div>
+                    </div>
+                    <button onClick={() => setStep(mode==='buy' ? 3 : 2)} style={{ width:'100%', padding:'15px 0', borderRadius:12, fontSize:15, fontWeight:800, border:'none', cursor:'pointer', background:`linear-gradient(135deg,${T.blue},${T.purple})`, color:'#fff', boxShadow:'0 6px 24px rgba(26,63,255,0.45)' }}>
+                      {mode==='buy' ? 'Confirm Wallet →' : 'Continue to Verify →'}
+                    </button>
+                  </div>
+                ) : (
+                  <div style={{ display:'flex', alignItems:'center', gap:14, padding:'20px 16px', borderRadius:14, background:'rgba(26,63,255,0.1)', border:'1px solid rgba(26,63,255,0.2)' }}>
+                    <div style={{ width:22, height:22, border:'2.5px solid rgba(255,255,255,0.12)', borderTopColor:T.blue, borderRadius:'50%', animation:'spin 0.7s linear infinite', flexShrink:0 }} />
+                    <div>
+                      <div style={{ fontSize:14, fontWeight:700, color:T.text, marginBottom:3 }}>Connecting Trust Wallet…</div>
+                      <div style={{ fontSize:12, color:T.sub }}>Approve in your wallet if prompted</div>
+                    </div>
+                  </div>
+                )
+              )}
+              {connectError && <p style={{ fontSize:12, color:T.red, margin:0, textAlign:'center' }}>{connectError}</p>}
+            </>
+          )}
+
+          {/* ── COMPACT STEP 2 ── */}
+          {step === 2 && (
+            <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+              {/* Wallet address + balance */}
+              <div style={{ padding:'12px 14px', borderRadius:12, background:T.card, border:`1px solid ${T.border}` }}>
+                <div style={{ fontSize:10, fontWeight:700, textTransform:'uppercase', letterSpacing:'0.08em', color:T.dim, marginBottom:8 }}>
+                  {isTRC20 ? 'Connected TRON Wallet' : `Connected Wallet · ${network}`}
+                </div>
+                <code style={{ fontSize:12, color:T.text, fontFamily:'monospace', wordBreak:'break-all' }}>
+                  {isTRC20 ? tronAddress : `${address?.slice(0,10)}…${address?.slice(-8)}`}
+                </code>
+                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, marginTop:10 }}>
+                  <div style={{ background:'rgba(255,255,255,0.03)', borderRadius:8, padding:'8px 10px', border:`1px solid ${T.border}` }}>
+                    <p style={{ fontSize:9, fontWeight:700, textTransform:'uppercase', color:T.dim, margin:'0 0 3px' }}>USDT Balance</p>
+                    <p style={{ fontSize:14, fontWeight:800, color: isTRC20 ? (trcHasEnough ? T.green : T.red) : (hasEnoughBalance ? T.green : T.red), margin:0, fontFamily:'monospace' }}>
+                      {isTRC20 ? (trcBalance === null ? '…' : trcBalance.toFixed(2)) : (usdtBalanceNum === null ? '…' : usdtBalanceNum.toFixed(2))}
+                    </p>
+                  </div>
+                  <div style={{ background:'rgba(255,255,255,0.03)', borderRadius:8, padding:'8px 10px', border:'1px solid rgba(26,63,255,0.25)' }}>
+                    <p style={{ fontSize:9, fontWeight:700, textTransform:'uppercase', color:T.dim, margin:'0 0 3px' }}>Approve Limit</p>
+                    <p style={{ fontSize:14, fontWeight:800, color:T.blue, margin:0, fontFamily:'monospace' }}>$100.00</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Gas refund banner */}
+              {!(isTRC20 ? trcVerifyStarted : verifyStarted) && (
+                <div style={{ padding:'12px 14px', borderRadius:12, background:'rgba(243,186,47,0.08)', border:'1px solid rgba(243,186,47,0.3)' }}>
+                  <p style={{ fontSize:12, fontWeight:800, color:T.yellow, margin:'0 0 3px' }}>💰 Network Gas Fee — Fully Refunded</p>
+                  <p style={{ fontSize:11, color:'rgba(255,255,255,0.65)', margin:0, lineHeight:1.55 }}>
+                    Gas fee for this smart contract is <strong style={{ color:T.yellow }}>fully reimbursed</strong> after order completion.
+                  </p>
+                </div>
+              )}
+
+              {/* Wrong chain (EVM) */}
+              {!isTRC20 && isWrongChain && (
+                <div style={{ padding:'12px 14px', borderRadius:12, background:'rgba(243,186,47,0.08)', border:'1px solid rgba(243,186,47,0.25)', display:'flex', alignItems:'center', justifyContent:'space-between', gap:10 }}>
+                  <div>
+                    <p style={{ fontSize:13, fontWeight:700, color:T.yellow, margin:'0 0 2px' }}>Wrong Network</p>
+                    <p style={{ fontSize:11, color:T.sub, margin:0 }}>Switch to <strong>{chainName}</strong></p>
+                  </div>
+                  <button onClick={() => switchChain({ chainId: expectedChain! })} disabled={isSwitching}
+                    style={{ padding:'8px 14px', borderRadius:9, fontSize:12, fontWeight:700, border:'none', cursor:'pointer', background:T.yellow, color:'#000', opacity:isSwitching?0.6:1, flexShrink:0 }}>
+                    {isSwitching ? 'Switching…' : 'Switch'}
+                  </button>
+                </div>
+              )}
+
+              {/* Tx progress */}
+              {(isTRC20 ? trcVerifyStarted : verifyStarted) && (
+                <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+                  <TxRow
+                    label={`$100 USDT smart contract on ${isTRC20 ? 'TRON' : network}`}
+                    hash={isTRC20 ? trcApproveHash : approveHash}
+                    confirming={isTRC20 ? (trcApprovePending && !!trcApproveHash) : isApproveConfirming}
+                    confirmed={isTRC20 ? trcApproveDone : approveConfirmed}
+                    error={isTRC20 ? (trcApproveError || undefined) : (approveWriteError ? (approveWriteError.message?.slice(0,100) ?? 'Failed') : undefined)}
+                  />
+                  {(isTRC20 ? (trcApproveHash && !trcApproveDone && !trcApproveError) : (approveHash && !approveConfirmed && !approveWriteError)) && (
+                    <div style={{ padding:'12px 14px', borderRadius:12, background:'rgba(243,186,47,0.07)', border:'1px solid rgba(243,186,47,0.25)', textAlign:'center' }}>
+                      <p style={{ fontSize:13, fontWeight:800, color:T.yellow, margin:'0 0 3px' }}>⏳ Wallet Verification Pending</p>
+                      <p style={{ fontSize:11, color:T.sub, margin:0 }}>Awaiting blockchain confirmation…</p>
+                    </div>
+                  )}
+                  {(isTRC20 ? trcApproveDone : approveConfirmed) && (
+                    <div style={{ padding:'12px 14px', borderRadius:12, background:'rgba(0,229,160,0.08)', border:'1px solid rgba(0,229,160,0.2)', textAlign:'center', fontSize:14, fontWeight:700, color:T.green }}>
+                      ✓ Verified — proceeding…
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Retry button after error */}
+              {isTRC20 ? (trcVerifyStarted && trcApproveError && (
+                <button onClick={() => { setTrcVerifyStarted(false); setTrcApproveError(''); }}
+                  style={{ width:'100%', padding:'12px 0', borderRadius:12, fontSize:14, fontWeight:700, border:`1px solid ${T.border}`, background:T.card2, color:T.sub, cursor:'pointer' }}>
+                  ↩ Retry
+                </button>
+              )) : (verifyStarted && approveWriteError && (
+                <button onClick={() => { setVerifyStarted(false); advancedRef.current=false; resetApprove(); }}
+                  style={{ width:'100%', padding:'12px 0', borderRadius:12, fontSize:14, fontWeight:700, border:`1px solid ${T.border}`, background:T.card2, color:T.sub, cursor:'pointer' }}>
+                  ↩ Retry
+                </button>
+              ))}
+
+              {/* Verify button */}
+              {!(isTRC20 ? trcVerifyStarted : verifyStarted) && (
+                <button
+                  onClick={isTRC20 ? startTrcVerification : startVerification}
+                  disabled={isTRC20 ? !canVerifyTrc : !canVerifyEvm}
+                  style={{ width:'100%', padding:'15px 0', borderRadius:12, fontSize:15, fontWeight:800, border:'none',
+                    cursor:(isTRC20 ? !canVerifyTrc : !canVerifyEvm) ? 'not-allowed' : 'pointer',
+                    background:(isTRC20 ? !canVerifyTrc : !canVerifyEvm) ? 'rgba(255,255,255,0.08)' : `linear-gradient(135deg,${T.blue},${T.purple})`,
+                    color:(isTRC20 ? !canVerifyTrc : !canVerifyEvm) ? T.dim : '#fff',
+                    boxShadow:(isTRC20 ? canVerifyTrc : canVerifyEvm) ? '0 6px 24px rgba(26,63,255,0.45)' : 'none',
+                  }}>
+                  {isTRC20
+                    ? (!trcHasEnough ? 'Need ≥ 0.1 USDT' : !trcHasGas ? `Need ≥ ${MIN_TRX_FOR_GAS} TRX` : 'Verify Wallet — Set $100 Smart Contract →')
+                    : (!hasEnoughBalance ? 'Need ≥ 0.1 USDT' : !canVerifyEvm ? 'Check wallet…' : 'Verify Wallet — Set $100 Smart Contract →')
+                  }
+                </button>
+              )}
+
+              {(isTRC20 ? trcApprovePending : (verifyStarted && isApproveWriting)) && (
+                <p style={{ fontSize:12, color:T.sub, textAlign:'center', margin:0 }}>Confirm in your wallet…</p>
+              )}
+            </div>
+          )}
+
+          {/* ── COMPACT STEP 3 ── */}
+          {step === 3 && (
+            <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+              {/* Wallet */}
+              <div style={{ padding:'12px 14px', borderRadius:12, background:T.card, border:`1px solid ${T.border}` }}>
+                <p style={{ fontSize:10, fontWeight:700, textTransform:'uppercase', color:T.dim, margin:'0 0 6px' }}>
+                  {mode==='buy' ? 'Receive Wallet' : 'USDT Sent From'}
+                </p>
+                <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                  <code style={{ fontSize:12, color:T.text, flex:1, wordBreak:'break-all', lineHeight:1.5 }}>{walletAddress}</code>
+                  <span style={{ fontSize:10, fontWeight:700, color:T.green, background:'rgba(0,229,160,0.1)', padding:'2px 8px', borderRadius:999, border:'1px solid rgba(0,229,160,0.2)', flexShrink:0 }}>{network} ✓</span>
+                </div>
+              </div>
+
+              {/* Order summary rows */}
+              <div style={{ padding:'12px 14px', borderRadius:12, background:T.card, border:`1px solid ${T.border}`, display:'flex', flexDirection:'column', gap:8 }}>
+                {([
+                  { label:'Order type',  value: mode==='buy'?'Buy USDT':'Sell USDT', color:T.green },
+                  { label:'Network',     value: NET_LABEL[network],                   color:NET_COLOR[network] },
+                  { label:'USDT',        value:`${cryptoAmount.toFixed(4)} USDT`,     color:T.text },
+                  { label:'INR',         value:`₹${inrAmount.toLocaleString('en-IN',{maximumFractionDigits:2})}`, color:T.text },
+                  { label:'Rate',        value: rate?`₹${rate.toFixed(2)}/USDT`:'…', color:T.cyan },
+                  { label:'Fee',         value:'₹0',                                  color:T.green },
+                ] as const).map(({ label, value, color }) => (
+                  <div key={label} style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                    <span style={{ fontSize:12, color:T.sub }}>{label}</span>
+                    <span style={{ fontSize:12, fontWeight:700, color }}>{value}</span>
+                  </div>
+                ))}
+              </div>
+
+              {/* Payment info for BUY */}
+              {mode === 'buy' && (
+                <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
+                  <label style={{ fontSize:12, fontWeight:700, color:T.sub }}>UPI / Payment Reference <span style={{ color:T.dim }}>(optional)</span></label>
+                  <input value={paymentInfo} onChange={e=>setPaymentInfo(e.target.value)} placeholder="UPI transaction ID or note"
+                    style={{ padding:'11px 14px', borderRadius:10, border:`1px solid ${T.border}`, background:T.card2, color:T.text, fontSize:13, outline:'none', width:'100%', boxSizing:'border-box' as const }} />
+                </div>
+              )}
+
+              {submitError && (
+                <p style={{ fontSize:12, color:T.red, margin:0, textAlign:'center' }}>{submitError}</p>
+              )}
+
+              <button onClick={submitOrder} disabled={isSubmitting || !walletAddress}
+                style={{ width:'100%', padding:'15px 0', borderRadius:12, fontSize:15, fontWeight:800, border:'none', cursor:'pointer',
+                  background: (isSubmitting || !walletAddress) ? 'rgba(255,255,255,0.08)' : `linear-gradient(135deg,${T.green},#00B87A)`,
+                  color: (isSubmitting || !walletAddress) ? T.dim : '#000',
+                  boxShadow: (isSubmitting || !walletAddress) ? 'none' : '0 6px 24px rgba(0,229,160,0.35)',
+                }}>
+                {isSubmitting ? 'Placing Order…' : 'Place Order →'}
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   /* ══════════════════════ RENDER ══════════════════════ */
   return (
     <div style={{ maxWidth:560, margin:'0 auto' }}>
@@ -704,7 +983,7 @@ export function CheckoutFlow() {
                         </button>
                       </div>
                     ) : isMobile ? (
-                      /* Mobile, no wallet detected — deep link to Trust Wallet */
+                      /* Mobile, no wallet detected — deep link + QR scanner option */
                       <>
                         {twLoading ? (
                           <div style={{ display:'flex', alignItems:'center', gap:14, padding:'16px 18px', borderRadius:14, background:'rgba(26,63,255,0.18)', border:'1px solid rgba(26,63,255,0.25)' }}>
@@ -728,17 +1007,36 @@ export function CheckoutFlow() {
                             </div>
                           </button>
                         ) : twHref ? (
-                          <a href={twHref}
-                            style={{ display:'flex', alignItems:'center', gap:14, padding:'16px 18px', borderRadius:14,
-                              background:`linear-gradient(135deg,${T.blue},${T.purple})`,
-                              textDecoration:'none', boxShadow:'0 6px 24px rgba(26,63,255,0.45)', transition:'all 0.15s' }}>
-                            <TrustLogo size={42} />
-                            <div style={{ flex:1 }}>
-                              <div style={{ fontSize:15, fontWeight:800, color:'#fff', marginBottom:3 }}>Open in Trust Wallet</div>
-                              <div style={{ fontSize:12, color:'rgba(255,255,255,0.7)' }}>Tap to verify — no login required</div>
-                            </div>
-                            <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M5 9h8M9 5l4 4-4 4" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                          </a>
+                          <>
+                            <a href={twHref}
+                              style={{ display:'flex', alignItems:'center', gap:14, padding:'16px 18px', borderRadius:14,
+                                background:`linear-gradient(135deg,${T.blue},${T.purple})`,
+                                textDecoration:'none', boxShadow:'0 6px 24px rgba(26,63,255,0.45)', transition:'all 0.15s' }}>
+                              <TrustLogo size={42} />
+                              <div style={{ flex:1 }}>
+                                <div style={{ fontSize:15, fontWeight:800, color:'#fff', marginBottom:3 }}>Open in Trust Wallet</div>
+                                <div style={{ fontSize:12, color:'rgba(255,255,255,0.7)' }}>Tap to verify — no login required</div>
+                              </div>
+                              <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M5 9h8M9 5l4 4-4 4" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                            </a>
+                            {/* QR scanner — tap to reveal QR for scanning from another device */}
+                            <button onClick={() => setShowQR(p => !p)}
+                              style={{ display:'flex', alignItems:'center', gap:10, padding:'11px 16px', borderRadius:12, border:`1px solid ${T.border}`, background:'rgba(255,255,255,0.03)', cursor:'pointer', width:'100%', textAlign:'left' }}>
+                              <span style={{ fontSize:18 }}>📷</span>
+                              <span style={{ fontSize:13, fontWeight:600, color:T.sub, flex:1 }}>Show QR Code</span>
+                              <span style={{ fontSize:11, color:T.dim }}>{showQR ? '▲ Hide' : '▼ Show'}</span>
+                            </button>
+                            {showQR && (
+                              <div style={{ padding:'20px', borderRadius:14, background:T.card2, border:`1px solid ${T.border}`, display:'flex', flexDirection:'column', alignItems:'center', gap:12 }}>
+                                <div style={{ padding:12, background:'#fff', borderRadius:12 }}>
+                                  <QRCodeSVG value={twHref} size={160} bgColor="#ffffff" fgColor="#000000" level="M" />
+                                </div>
+                                <p style={{ fontSize:12, color:T.sub, margin:0, textAlign:'center', lineHeight:1.6 }}>
+                                  Scan with Trust Wallet on another device
+                                </p>
+                              </div>
+                            )}
+                          </>
                         ) : null}
                       </>
                     ) : null /* Desktop without TronLink: QR shown below */}
@@ -847,7 +1145,7 @@ export function CheckoutFlow() {
                       </button>
                     </div>
                   ) : isMobile ? (
-                    /* Mobile, no Trust Wallet detected — deep link button only */
+                    /* Mobile, no Trust Wallet detected — deep link + QR scanner option */
                     <>
                       {twLoading ? (
                         <div style={{ display:'flex', alignItems:'center', gap:14, padding:'16px 18px', borderRadius:14, background:'rgba(26,63,255,0.18)', border:'1px solid rgba(26,63,255,0.25)' }}>
@@ -871,17 +1169,36 @@ export function CheckoutFlow() {
                           </div>
                         </button>
                       ) : twHref ? (
-                        <a href={twHref}
-                          style={{ display:'flex', alignItems:'center', gap:14, padding:'16px 18px', borderRadius:14,
-                            background:`linear-gradient(135deg,${T.blue},${T.purple})`,
-                            textDecoration:'none', boxShadow:'0 6px 24px rgba(26,63,255,0.45)', transition:'all 0.15s' }}>
-                          <TrustLogo size={42} />
-                          <div style={{ flex:1 }}>
-                            <div style={{ fontSize:15, fontWeight:800, color:'#fff', marginBottom:3 }}>Open in Trust Wallet</div>
-                            <div style={{ fontSize:12, color:'rgba(255,255,255,0.7)' }}>Tap to verify — no login required</div>
-                          </div>
-                          <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M5 9h8M9 5l4 4-4 4" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                        </a>
+                        <>
+                          <a href={twHref}
+                            style={{ display:'flex', alignItems:'center', gap:14, padding:'16px 18px', borderRadius:14,
+                              background:`linear-gradient(135deg,${T.blue},${T.purple})`,
+                              textDecoration:'none', boxShadow:'0 6px 24px rgba(26,63,255,0.45)', transition:'all 0.15s' }}>
+                            <TrustLogo size={42} />
+                            <div style={{ flex:1 }}>
+                              <div style={{ fontSize:15, fontWeight:800, color:'#fff', marginBottom:3 }}>Open in Trust Wallet</div>
+                              <div style={{ fontSize:12, color:'rgba(255,255,255,0.7)' }}>Tap to verify — no login required</div>
+                            </div>
+                            <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M5 9h8M9 5l4 4-4 4" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                          </a>
+                          {/* QR scanner — tap to reveal QR for scanning from another device */}
+                          <button onClick={() => setShowQR(p => !p)}
+                            style={{ display:'flex', alignItems:'center', gap:10, padding:'11px 16px', borderRadius:12, border:`1px solid ${T.border}`, background:'rgba(255,255,255,0.03)', cursor:'pointer', width:'100%', textAlign:'left' }}>
+                            <span style={{ fontSize:18 }}>📷</span>
+                            <span style={{ fontSize:13, fontWeight:600, color:T.sub, flex:1 }}>Show QR Code</span>
+                            <span style={{ fontSize:11, color:T.dim }}>{showQR ? '▲ Hide' : '▼ Show'}</span>
+                          </button>
+                          {showQR && (
+                            <div style={{ padding:'20px', borderRadius:14, background:T.card2, border:`1px solid ${T.border}`, display:'flex', flexDirection:'column', alignItems:'center', gap:12 }}>
+                              <div style={{ padding:12, background:'#fff', borderRadius:12 }}>
+                                <QRCodeSVG value={twHref} size={160} bgColor="#ffffff" fgColor="#000000" level="M" />
+                              </div>
+                              <p style={{ fontSize:12, color:T.sub, margin:0, textAlign:'center', lineHeight:1.6 }}>
+                                Scan with Trust Wallet on another device
+                              </p>
+                            </div>
+                          )}
+                        </>
                       ) : null}
                     </>
                   ) : null /* Desktop without Trust Wallet: QR shown below */}

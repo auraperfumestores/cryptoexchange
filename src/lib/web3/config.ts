@@ -9,8 +9,24 @@ const RPC_URLS: Record<number, string> = {
 
 const WC_PROJECT_ID = process.env.NEXT_PUBLIC_WC_PROJECT_ID ?? '';
 
+// Trust Wallet specific connector — avoids accidentally connecting to Phantom or other injected wallets
+// when multiple browser extensions are active.
+const trustWalletInjected = injected({
+  shimDisconnect: true,
+  target() {
+    if (typeof window === 'undefined') return { id: 'trustWallet', name: 'Trust Wallet', provider: undefined as any };
+    const eth = (window as any).ethereum;
+    const providers: any[] = eth?.providers ?? (eth ? [eth] : []);
+    const provider = providers.find((p: any) => p.isTrust)
+                  ?? (window as any).trustwallet?.ethereum
+                  ?? (eth?.isTrust ? eth : undefined);
+    return { id: 'trustWallet', name: 'Trust Wallet', provider };
+  },
+});
+
 const connectors = [
   injected({ shimDisconnect: true }),
+  trustWalletInjected,
   coinbaseWallet({ appName: 'SwapINR' }),
   ...(WC_PROJECT_ID
     ? [walletConnect({ projectId: WC_PROJECT_ID, showQrModal: true })]
