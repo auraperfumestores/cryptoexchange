@@ -23,7 +23,7 @@ export function ClientShell({ user, rates, children }: ClientShellProps) {
 
   // Admins keep the full sidebar layout
   return (
-    <div className="flex min-h-screen" style={{ background: '#070C1A' }}>
+    <div className="flex min-h-screen" style={{ background: 'var(--fr-black)' }}>
       <Sidebar role={user.role} open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       <div className="flex min-w-0 flex-1 flex-col">
         <Header user={user} />

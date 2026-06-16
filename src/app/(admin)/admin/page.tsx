@@ -8,11 +8,11 @@ import { formatINR } from '@/lib/utils';
 import type { RateDocument } from '@/types';
 
 const T = {
-  card:   'rgba(255,255,255,0.04)',
-  border: 'rgba(255,255,255,0.08)',
-  text:   '#FFFFFF',
-  sub:    'rgba(255,255,255,0.5)',
-  dim:    'rgba(255,255,255,0.25)',
+  card:   'var(--fr-dark-2)',
+  border: 'var(--fr-border-default)',
+  text:   'var(--fr-text-primary)',
+  sub:    'var(--fr-text-secondary)',
+  dim:    'var(--fr-text-tertiary)',
 };
 
 
@@ -48,13 +48,13 @@ export default async function AdminPage() {
 
         {/* Stats grid */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 14 }}>
-          <StatCard label="Total Users" value={totalUsers} sub="Registered clients" accent="#4D9FFF"
+          <StatCard label="Total Users" value={totalUsers} sub="Registered clients" accent="var(--fr-neon-blue)"
             icon={<svg width="20" height="20" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="7" r="3.5" stroke="currentColor" strokeWidth="1.5"/><path d="M3 18C3 14.7 6.1 12 10 12C13.9 12 17 14.7 17 18" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>} />
-          <StatCard label="Pending Orders" value={pendingTx} sub="Require attention" accent="#F3BA2F"
+          <StatCard label="Pending Orders" value={pendingTx} sub="Require attention" accent="var(--fr-text-warning)"
             icon={<svg width="20" height="20" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="7" stroke="currentColor" strokeWidth="1.5"/><path d="M10 6V10.5L13 12.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>} />
-          <StatCard label="Total Orders" value={totalTx} sub={`${completedTx} completed`} accent="#00E5A0"
+          <StatCard label="Total Orders" value={totalTx} sub={`${completedTx} completed`} accent="var(--fr-lime)"
             icon={<svg width="20" height="20" viewBox="0 0 20 20" fill="none"><rect x="3" y="3" width="14" height="14" rx="3" stroke="currentColor" strokeWidth="1.5"/><path d="M7 10L9.5 12.5L13 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>} />
-          <StatCard label="Total Volume" value={formatINR(volume)} sub="Completed trades" accent="#A78BFA"
+          <StatCard label="Total Volume" value={formatINR(volume)} sub="Completed trades" accent="var(--fr-neon-purple)"
             icon={<svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 13L7 9L11 11L17 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/><path d="M14 5H17V8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>} />
         </div>
 

@@ -1,10 +1,11 @@
 import type { Metadata, Viewport } from 'next';
-import { Inter, JetBrains_Mono } from 'next/font/google';
+import { Sora, Inter, JetBrains_Mono } from 'next/font/google';
 import './globals.css';
 import { Providers } from '@/components/providers';
 
-const inter = Inter({ subsets: ['latin'], variable: '--font-inter', display: 'swap' });
-const jetbrainsMono = JetBrains_Mono({ subsets: ['latin'], variable: '--font-mono', display: 'swap' });
+const inter = Inter({ subsets: ['latin'], variable: '--font-inter', weight: ['400','500','600','700','800','900'], display: 'swap' });
+const sora = Sora({ subsets: ['latin'], variable: '--font-sora', weight: ['400','600','700','800'], display: 'swap' });
+const jetbrainsMono = JetBrains_Mono({ subsets: ['latin'], variable: '--font-mono', weight: ['400','500','600','700','800'], display: 'swap' });
 
 export const metadata: Metadata = {
   title: 'SwapINR — USDT to Indian Rupees Exchange',
@@ -20,8 +21,8 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${inter.variable} ${jetbrainsMono.variable}`}>
-      <body style={{ background: 'var(--color-bg)', color: 'var(--color-text)', minHeight: '100vh' }}>
+    <html lang="en" className={`${sora.variable} ${inter.variable} ${jetbrainsMono.variable}`}>
+      <body style={{ background: 'var(--fr-black)', color: 'var(--fr-text-primary)', minHeight: '100vh', fontFamily: 'var(--fr-font-sans)' }}>
         <Providers>{children}</Providers>
       </body>
     </html>
