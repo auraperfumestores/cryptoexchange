@@ -103,7 +103,7 @@ function NetIcon({ network, size=18 }:{ network:Network; size?:number }) {
 
 /* ── Main widget ── */
 export default function ExchangeWidget() {
-  const [mode, setMode]       = useState<Mode>('buy');
+  const [mode, setMode]       = useState<Mode>('sell');
   const [network, setNetwork] = useState<Network>('BEP20');
   const [amount, setAmount]   = useState('1000');
   const [rates, setRates]     = useState<Record<Network, AdminRate | null>>({ BEP20:null, ERC20:null, TRC20:null });

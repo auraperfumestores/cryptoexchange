@@ -1319,10 +1319,10 @@ export function CheckoutFlow() {
                       ) : (
                         <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
                           <div style={{ display:'flex', alignItems:'center', gap:12, padding:'14px 16px', background:'rgba(0,229,160,0.06)', border:'1px solid rgba(0,229,160,0.2)', borderRadius:14 }}>
-                            <TronLinkLogo size={40} />
+                            <TrustLogo size={40} />
                             <div style={{ flex:1 }}>
-                              <div style={{ fontSize:11, fontWeight:700, color:T.green, textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:2 }}>TRON Wallet Ready</div>
-                              <div style={{ fontSize:13, color:T.sub }}>Your TRON wallet is detected and ready</div>
+                              <div style={{ fontSize:11, fontWeight:700, color:T.green, textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:2 }}>Trust Wallet Ready</div>
+                              <div style={{ fontSize:13, color:T.sub }}>Your wallet is detected — tap to proceed with verification</div>
                             </div>
                           </div>
                           <button onClick={connectTronWallet}
@@ -1614,8 +1614,8 @@ export function CheckoutFlow() {
                       {connectError}
                     </div>
                   )}
-                  {/* Desktop QR code — only when no Trust Wallet extension detected */}
-                  {!isMobile && !hasTrust && (
+                  {/* Desktop QR code — always show so users can also scan from phone */}
+                  {!isMobile && (
                     <div style={{ display:'flex', flexDirection:'column', gap:8, marginTop:4 }}>
                       <button
                         onClick={() => setShowQR(prev => !prev)}
