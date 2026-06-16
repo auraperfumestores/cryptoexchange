@@ -420,10 +420,54 @@ export default async function LandingPage() {
 
       {/* ══ 7. PLATFORM FEATURES ══ */}
       <section style={{ padding: '100px 0', background: 'var(--fr-dark-0)', borderTop: '1px solid var(--fr-border-subtle)', borderBottom: '1px solid var(--fr-border-subtle)', position: 'relative', overflow: 'hidden' }}>
-        {/* Indian tricolour gradient — left saffron, right green */}
-        <div aria-hidden="true" style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 0, background: 'linear-gradient(to right, rgba(255,153,51,0.07) 0%, transparent 38%, transparent 62%, rgba(19,136,8,0.06) 100%)' }} />
-        <div aria-hidden="true" style={{ position: 'absolute', top: '40%', left: '-5%', width: 480, height: 480, borderRadius: '50%', background: 'radial-gradient(ellipse, rgba(255,153,51,0.06) 0%, transparent 70%)', pointerEvents: 'none', zIndex: 0 }} />
-        <div aria-hidden="true" style={{ position: 'absolute', bottom: '10%', right: '5%', width: 360, height: 360, borderRadius: '50%', background: 'radial-gradient(ellipse, rgba(19,136,8,0.07) 0%, transparent 70%)', pointerEvents: 'none', zIndex: 0 }} />
+        {/* Indian flag — faded, angled 47°, anchored right */}
+        <div aria-hidden="true" style={{
+          position: 'absolute', inset: 0, zIndex: 0, pointerEvents: 'none', overflow: 'hidden',
+        }}>
+          <svg
+            viewBox="0 0 900 600"
+            preserveAspectRatio="xMidYMid meet"
+            style={{
+              position: 'absolute',
+              width: '72%',
+              height: 'auto',
+              right: '-8%',
+              top: '50%',
+              transform: 'translateY(-50%) rotate(47deg)',
+              transformOrigin: 'center center',
+              opacity: 0.08,
+              maskImage: 'radial-gradient(ellipse 78% 78% at 60% 50%, black 20%, rgba(0,0,0,0.55) 55%, transparent 80%)',
+              WebkitMaskImage: 'radial-gradient(ellipse 78% 78% at 60% 50%, black 20%, rgba(0,0,0,0.55) 55%, transparent 80%)',
+            }}
+          >
+            {/* Three horizontal bands */}
+            <rect x="0" y="0"   width="900" height="200" fill="#FF9933" />
+            <rect x="0" y="200" width="900" height="200" fill="#FFFFFF" />
+            <rect x="0" y="400" width="900" height="200" fill="#138808" />
+
+            {/* Ashoka Chakra — navy, centred in white band */}
+            <circle cx="450" cy="300" r="94"  fill="none" stroke="#000080" strokeWidth="10" />
+            <circle cx="450" cy="300" r="14"  fill="#000080" />
+            {/* 24 spokes */}
+            {Array.from({ length: 24 }).map((_, i) => (
+              <line
+                key={i}
+                x1="450" y1="210"
+                x2="450" y2="287"
+                stroke="#000080"
+                strokeWidth="3.5"
+                strokeLinecap="round"
+                transform={`rotate(${i * 15}, 450, 300)`}
+              />
+            ))}
+            {/* Inner rim ring */}
+            <circle cx="450" cy="300" r="35"  fill="none" stroke="#000080" strokeWidth="2.5" />
+          </svg>
+          {/* Saffron glow — upper-right */}
+          <div style={{ position: 'absolute', top: '-5%', right: '5%', width: 480, height: 480, borderRadius: '50%', background: 'radial-gradient(ellipse, rgba(255,153,51,0.07) 0%, transparent 68%)', pointerEvents: 'none' }} />
+          {/* Green glow — lower-right */}
+          <div style={{ position: 'absolute', bottom: '-8%', right: '18%', width: 380, height: 380, borderRadius: '50%', background: 'radial-gradient(ellipse, rgba(19,136,8,0.075) 0%, transparent 68%)', pointerEvents: 'none' }} />
+        </div>
 
         <div className="fr-container" style={{ position: 'relative', zIndex: 1 }}>
           <div className="fr-platform-section">
