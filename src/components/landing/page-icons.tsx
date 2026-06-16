@@ -84,7 +84,7 @@ const PAYOUTS = [
 
 export function PayoutMethods() {
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 18 }}>
+    <div className="sc-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 18 }}>
       {PAYOUTS.map(({ Icon, title, body, pro }) => (
         <div
           key={title}

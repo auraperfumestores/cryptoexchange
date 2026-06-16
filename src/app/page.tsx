@@ -12,6 +12,7 @@ import {
 } from '@/components/landing/page-icons';
 import StatCounter from '@/components/ui/stat-counter';
 import StaticMesh from '@/components/ui/static-mesh';
+import { SnapCarousel } from '@/components/ui/snap-carousel';
 import { connectToDatabase, Rate, rateToDocument } from '@/lib/db';
 
 /* ─── Data ────────────────────────────────────────────── */
@@ -221,7 +222,7 @@ export default async function LandingPage() {
                   </div>
                   <div>
                     <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--fr-text-primary)' }}>Great</div>
-                    <div style={{ fontSize: 11, color: 'var(--fr-text-tertiary)' }}>4.9 · 10,000+ reviews</div>
+                    <div style={{ fontSize: 11, color: 'var(--fr-text-tertiary)' }}>4.9 · 1000+ reviews</div>
                   </div>
                 </div>
                 <div style={{ width: 1, height: 28, background: 'var(--fr-border-subtle)' }} />
@@ -247,7 +248,7 @@ export default async function LandingPage() {
       {/* ══ 4. STATS BAR ══ */}
       <div style={{ background: 'var(--fr-dark-0)', borderTop: '1px solid var(--fr-border-subtle)', borderBottom: '1px solid var(--fr-border-subtle)' }}>
         <div className="fr-container">
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)' }}>
+          <div className="lp-stats-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)' }}>
             {[
               { label: 'Total Volume Processed', counter: <StatCounter prefix="₹" base={5824600} ratePerSec={20.83} suffix="+"      color="#CCFF00" /> },
               { label: 'Verified Traders',       counter: <StatCounter            base={3142}   ratePerSec={0.00083} suffix="+"    color="#FFFFFF" /> },
@@ -301,7 +302,8 @@ export default async function LandingPage() {
             <Link href="/register" className="fr-btn fr-btn--primary fr-btn--lg" style={{ marginBottom: 56 }}>Get Started <IconArrow /></Link>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 24 }} data-animate-stagger>
+          <SnapCarousel bg="var(--fr-black)">
+          <div className="sc-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 24 }} data-animate-stagger>
 
             {/* Step 01 — purple — network/amount selector UI */}
             <div className="fr-aurora-card fr-aurora-card--purple" style={{ overflow: 'hidden' }}>
@@ -415,6 +417,7 @@ export default async function LandingPage() {
               </div>
             </div>
           </div>
+          </SnapCarousel>
         </div>
       </section>
 
@@ -573,9 +576,11 @@ export default async function LandingPage() {
             <h2 style={{ fontFamily: 'var(--fr-font-display)', fontSize: 'clamp(28px,4vw,52px)', fontWeight: 900, letterSpacing: '-0.025em', marginBottom: 14 }}>Instant Payouts, Your Way</h2>
             <p style={{ fontSize: 16, color: 'var(--fr-text-secondary)', maxWidth: 500, margin: '0 auto' }}>Six ways to receive your INR — from lightning-fast UPI to in-person cash. <span style={{ color: '#CCFF00', fontWeight: 600 }}>Pro users</span> unlock exclusive high-value channels.</p>
           </div>
-          <div data-animate-stagger>
-            <PayoutMethods />
-          </div>
+          <SnapCarousel bg="var(--fr-black)">
+            <div data-animate-stagger>
+              <PayoutMethods />
+            </div>
+          </SnapCarousel>
         </div>
       </section>
 
@@ -596,7 +601,8 @@ export default async function LandingPage() {
             <h2 style={{ fontFamily: 'var(--fr-font-display)', fontSize: 'clamp(28px,4vw,52px)', fontWeight: 900, letterSpacing: '-0.025em', marginBottom: 14 }}>Trusted by 3,000+ traders</h2>
             <p style={{ fontSize: 16, color: 'var(--fr-text-secondary)', maxWidth: 440, margin: '0 auto' }}>Real stories from people who trade with SwapINR every day.</p>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 20 }} data-animate-stagger>
+          <SnapCarousel bg="var(--fr-black)">
+          <div className="sc-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 20 }} data-animate-stagger>
             {TESTIMONIALS.map((t, i) => (
               <div key={i} className="fr-video-card">
                 {/* Photo thumbnail — 3:4 portrait crop */}
@@ -629,6 +635,7 @@ export default async function LandingPage() {
               </div>
             ))}
           </div>
+          </SnapCarousel>
         </div>
       </section>
 
@@ -692,7 +699,8 @@ export default async function LandingPage() {
             </div>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 24 }} data-animate-stagger>
+          <SnapCarousel bg="var(--fr-dark-0)">
+          <div className="sc-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 24 }} data-animate-stagger>
             {NETWORK_DEFS.map(n => {
               const sellRate = liveRates[n.network];
               const rateDisplay = sellRate ? `₹${sellRate.toFixed(2)}` : '—';
@@ -728,6 +736,7 @@ export default async function LandingPage() {
               );
             })}
           </div>
+          </SnapCarousel>
         </div>
       </section>
 
@@ -743,7 +752,7 @@ export default async function LandingPage() {
           </div>
 
           {/* Asymmetric grid — Pro card is wider */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.3fr', gap: 20, maxWidth: 920, margin: '0 auto', alignItems: 'start' }}>
+          <div className="lp-pro-asym" style={{ display: 'grid', gridTemplateColumns: '1fr 1.3fr', gap: 20, maxWidth: 920, margin: '0 auto', alignItems: 'start' }}>
 
             {/* ── Free card ── */}
             <div style={{ background: 'var(--fr-dark-1)', border: '1px solid var(--fr-border-default)', borderRadius: 20, padding: '28px 28px 24px' }}>
@@ -975,7 +984,7 @@ export default async function LandingPage() {
               <span style={{ color: 'var(--fr-lime)' }}>best rates?</span>
             </h2>
             <p style={{ fontSize: 18, color: 'var(--fr-text-secondary)', marginBottom: 40, maxWidth: 460, margin: '0 auto 40px' }}>
-              Join 10,000+ traders already using SwapINR. Free account in 60 seconds.
+              Join 3,000+ traders already using SwapINR. Free account in 60 seconds.
             </p>
             <div style={{ display: 'flex', gap: 16, justifyContent: 'center', flexWrap: 'wrap' }}>
               <Link href="/register" className="fr-btn fr-btn--primary fr-btn--xl">Create Free Account <IconArrow /></Link>
