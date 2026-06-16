@@ -1339,8 +1339,20 @@
 
   /* ── How it works section ── */
   .lp-how-section { padding-top: 56px !important; padding-bottom: 56px !important; }
-  /* hide section meshes — narrow width + full height = stretched on mobile */
-  .lp-how-mesh, .lp-payout-mesh { display: none !important; }
+  /* How-section mesh: hide (no useful visual on mobile) */
+  .lp-how-mesh { display: none !important; }
+
+  /* Payout-section mesh: reposition to a full-width top strip instead of
+     the desktop narrow-left column (which looks stretched on mobile).
+     !important overrides the position/size inline styles on the canvas. */
+  .lp-payout-mesh {
+    display: block !important;
+    width: 100% !important;
+    height: 200px !important;
+    bottom: auto !important;            /* detach from bottom */
+    -webkit-mask-image: linear-gradient(to bottom, black 0%, transparent 100%) !important;
+    mask-image:         linear-gradient(to bottom, black 0%, transparent 100%) !important;
+  }
 
   /* ── Aurora step cards ── */
   /* Fixed height so all 3 carousel cards are identical in size */
