@@ -696,6 +696,14 @@ export function CheckoutFlow() {
       setWcUri(uri);
       setWcConnecting(false); // spinner off — show QR / deep link
 
+      // On mobile, auto-open Trust Wallet immediately — no second tap needed
+      const isMobileUA = /Android|iPhone|iPad|iPod/i.test(
+        typeof navigator !== 'undefined' ? navigator.userAgent : ''
+      );
+      if (isMobileUA) {
+        window.location.href = `trust://wc?uri=${encodeURIComponent(uri)}`;
+      }
+
       // Phase 2: wait for user to approve in Trust Wallet (up to 5 min WC timeout)
       const session = await approval();
 
@@ -900,30 +908,27 @@ export function CheckoutFlow() {
                     </div>
                   </div>
                 ) : wcConnecting ? (
-                  /* WalletConnect pairing in progress — generating URI */
+                  /* Generating WC URI — language-neutral, no WalletConnect branding */
                   <div style={{ display:'flex', alignItems:'center', gap:14, padding:'20px 16px', borderRadius:14, background:'rgba(107,33,255,0.08)', border:'1px solid rgba(107,33,255,0.25)' }}>
                     <div style={{ width:22, height:22, border:'2.5px solid rgba(255,255,255,0.12)', borderTopColor:T.purple, borderRadius:'50%', animation:'spin 0.7s linear infinite', flexShrink:0 }} />
                     <div>
-                      <div style={{ fontSize:14, fontWeight:700, color:T.text, marginBottom:3 }}>Preparing WalletConnect…</div>
-                      <div style={{ fontSize:12, color:T.sub }}>Generating secure connection</div>
+                      <div style={{ fontSize:14, fontWeight:700, color:T.text, marginBottom:3 }}>Connecting Wallet…</div>
+                      <div style={{ fontSize:12, color:T.sub }}>Opening Trust Wallet</div>
                     </div>
                   </div>
                 ) : wcUri ? (
-                  /* WalletConnect URI ready — show deep link on mobile, QR on desktop */
+                  /* URI ready — mobile: already auto-redirected, show waiting state; desktop: QR */
                   <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
-                    <div style={{ padding:'14px 16px', borderRadius:14, background:'rgba(107,33,255,0.08)', border:'1px solid rgba(107,33,255,0.25)', textAlign:'center' }}>
-                      <div style={{ fontSize:11, fontWeight:700, color:T.purple, textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:6 }}>WalletConnect Ready</div>
+                    <div style={{ padding:'18px 16px', borderRadius:14, background:'rgba(107,33,255,0.08)', border:'1px solid rgba(107,33,255,0.25)', textAlign:'center' }}>
                       {isMobile ? (
-                        /* Mobile (inside Trust Wallet DApp browser): trust:// opens native WC handler */
-                        <>
-                          <div style={{ fontSize:13, color:T.sub, marginBottom:12, lineHeight:1.6 }}>
-                            Tap below to approve the connection in Trust Wallet
+                        /* Mobile: trust:// deep link fired automatically — wait for approval */
+                        <div style={{ display:'flex', alignItems:'center', gap:14, justifyContent:'center' }}>
+                          <div style={{ width:20, height:20, border:'2.5px solid rgba(255,255,255,0.12)', borderTopColor:T.purple, borderRadius:'50%', animation:'spin 0.7s linear infinite', flexShrink:0 }} />
+                          <div style={{ textAlign:'left' }}>
+                            <div style={{ fontSize:14, fontWeight:700, color:T.text, marginBottom:2 }}>Waiting for approval…</div>
+                            <div style={{ fontSize:12, color:T.sub }}>Complete the request in Trust Wallet</div>
                           </div>
-                          <a href={`trust://wc?uri=${encodeURIComponent(wcUri)}`}
-                             style={{ display:'block', padding:'14px 0', borderRadius:12, fontSize:15, fontWeight:800, background:`linear-gradient(135deg,${T.blue},${T.purple})`, color:'#fff', textDecoration:'none', boxShadow:'0 6px 24px rgba(107,33,255,0.45)' }}>
-                            Open Trust Wallet →
-                          </a>
-                        </>
+                        </div>
                       ) : (
                         /* Desktop: show QR code to scan with Trust Wallet camera */
                         <>
@@ -961,7 +966,7 @@ export function CheckoutFlow() {
                     ) : HAS_WC_TRON ? (
                       <button onClick={connectViaWalletConnect}
                         style={{ width:'100%', padding:'15px 0', borderRadius:12, fontSize:15, fontWeight:800, border:'none', cursor:'pointer', background:`linear-gradient(135deg,${T.blue},${T.purple})`, color:'#fff', boxShadow:'0 6px 24px rgba(107,33,255,0.45)' }}>
-                        Connect via WalletConnect →
+                        Connect Wallet →
                       </button>
                     ) : (
                       /* WC project ID not configured — show setup card, no failing button */
