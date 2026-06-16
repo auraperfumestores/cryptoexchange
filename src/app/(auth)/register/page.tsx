@@ -1,24 +1,25 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-
-function IconUser()  { return <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="5.5" r="2.5" stroke="currentColor" strokeWidth="1.3"/><path d="M3 13C3 10.2 5.2 8 8 8C10.8 8 13 10.2 13 13" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>; }
-function IconMail()  { return <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="2" y="4" width="12" height="9" rx="2" stroke="currentColor" strokeWidth="1.3"/><path d="M2 6L8 9.5L14 6" stroke="currentColor" strokeWidth="1.3"/></svg>; }
-function IconLock()  { return <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="3" y="7" width="10" height="7" rx="2" stroke="currentColor" strokeWidth="1.3"/><path d="M5 7V5C5 3.3 6.3 2 8 2C9.7 2 11 3.3 11 5V7" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>; }
-function IconEye()   { return <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M1 8C1 8 3.5 4 8 4C12.5 4 15 8 15 8C15 8 12.5 12 8 12C3.5 12 1 8 1 8Z" stroke="currentColor" strokeWidth="1.3"/><circle cx="8" cy="8" r="2" stroke="currentColor" strokeWidth="1.3"/></svg>; }
-function IconEyeOff(){ return <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 2L14 14M6.5 6.6C6.2 7 6 7.5 6 8C6 9.1 6.9 10 8 10C8.5 10 9 9.8 9.4 9.5M4.3 4.4C2.9 5.3 2 7 2 7C2 7 4.5 11 8 11C9.2 11 10.3 10.6 11.2 10" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>; }
-function IconArrow() { return <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8H13M9 4L13 8L9 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>; }
-function IconCheck({ size = 30 }: { size?: number }) { return <svg width={size} height={size} viewBox="0 0 30 30" fill="none"><path d="M6 15L12 21L24 9" stroke="var(--fr-lime)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>; }
-function IconStar()  { return <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 1.5L9.8 5.8H14.5L10.6 8.4L12.1 12.8L8 10.1L3.9 12.8L5.4 8.4L1.5 5.8H6.2L8 1.5Z" fill="currentColor"/></svg>; }
+import {
+  User, Envelope, Lock, Eye, EyeSlash, ArrowRight,
+  CheckCircle, Star, CurrencyInr, Lightning, ArrowsLeftRight,
+  Clock, Shield,
+} from '@phosphor-icons/react';
 
 const FEATURES = [
-  'Best USDT → INR rates in India',
-  'Settle directly to UPI or bank',
-  'BEP-20, ERC-20, TRC-20 networks',
-  'Trades confirmed in under 15 minutes',
-  'No hidden fees, transparent pricing',
+  { Icon: CurrencyInr,       text: 'Best USDT → INR rates — live inter-bank pricing' },
+  { Icon: Lightning,         text: 'Settlement in under 15 min via UPI, IMPS, NEFT & RTGS' },
+  { Icon: ArrowsLeftRight,   text: 'BEP-20, ERC-20, TRC-20 networks supported' },
+  { Icon: Clock,             text: 'PRO members get under 8-min settlement' },
+  { Icon: Shield,            text: 'On-chain verified · Zero hidden fees' },
+];
+
+const REVIEWERS = [
+  { photo: '/testimonials/t1.jpg', name: 'Arjun' },
+  { photo: '/testimonials/t2.jpg', name: 'Vikram' },
+  { photo: '/testimonials/t3.jpg', name: 'Rohit' },
 ];
 
 export default function RegisterPage() {
@@ -63,7 +64,7 @@ export default function RegisterPage() {
           <div style={{ position: 'absolute', inset: 0, backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12'%3E%3Cpolygon points='6,1 11,11 1,11' fill='%23CCFF00' opacity='0.05'/%3E%3C/svg%3E\")", backgroundSize: '12px 12px' }} />
           <div style={{ position: 'relative', zIndex: 1, textAlign: 'center', maxWidth: 380 }}>
             <div style={{ width: 80, height: 80, borderRadius: 20, background: 'rgba(204,255,0,0.08)', border: '1px solid rgba(204,255,0,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px', boxShadow: '0 0 40px rgba(204,255,0,0.1)' }}>
-              <IconCheck size={36} />
+              <CheckCircle size={36} color="#CCFF00" weight="fill" />
             </div>
             <h2 style={{ fontSize: 28, fontWeight: 900, color: 'var(--fr-text-primary)', marginBottom: 12, letterSpacing: '-0.02em' }}>You&apos;re in!</h2>
             <p style={{ fontSize: 15, color: 'var(--fr-text-secondary)', lineHeight: 1.7 }}>Account created successfully. Start trading USDT → INR at the best rates.</p>
@@ -72,7 +73,7 @@ export default function RegisterPage() {
         <div className="fr-auth-form-panel">
           <div className="fr-auth-card" style={{ textAlign: 'center' }}>
             <div style={{ width: 72, height: 72, borderRadius: 18, background: 'rgba(204,255,0,0.08)', border: '1px solid rgba(204,255,0,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px' }}>
-              <IconCheck size={30} />
+              <CheckCircle size={30} color="#CCFF00" weight="fill" />
             </div>
             <h2 style={{ fontSize: 24, fontWeight: 800, color: 'var(--fr-text-primary)', marginBottom: 10, letterSpacing: '-0.02em' }}>Check your inbox</h2>
             <p style={{ fontSize: 14, lineHeight: 1.75, color: 'var(--fr-text-secondary)', marginBottom: 28 }}>
@@ -80,7 +81,7 @@ export default function RegisterPage() {
               Click it to activate your account, then sign in.
             </p>
             <Link href="/login" className="fr-btn fr-btn--primary fr-btn--lg fr-btn--full">
-              Go to sign in <IconArrow />
+              Go to sign in <ArrowRight size={16} weight="bold" />
             </Link>
             <p style={{ marginTop: 16, fontSize: 12, color: 'var(--fr-text-disabled)' }}>
               Didn&apos;t receive it? Check spam or{' '}
@@ -111,22 +112,22 @@ export default function RegisterPage() {
           </Link>
 
           <h1 style={{ fontSize: 'clamp(26px,3.5vw,38px)', fontWeight: 900, letterSpacing: '-0.03em', lineHeight: 1.18, marginBottom: 16 }}>
-            Join 10,000+ traders<br />
+            Join 3,000+ traders<br />
             already using{' '}
             <span style={{ color: 'var(--fr-lime)' }}>SwapINR</span>
           </h1>
-          <p style={{ fontSize: 15, color: 'var(--fr-text-secondary)', lineHeight: 1.75, marginBottom: 40 }}>
-            Create your free account and start converting crypto to INR in minutes. No monthly fees, no lock-ins.
+          <p style={{ fontSize: 15, color: 'var(--fr-text-secondary)', lineHeight: 1.75, marginBottom: 36 }}>
+            Create your free account and start converting USDT to INR in minutes. No monthly fees, no lock-ins.
           </p>
 
           {/* Feature list */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
-            {FEATURES.map(f => (
-              <div key={f} className="fr-academy-feature">
-                <div className="fr-academy-check">
-                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 6L5 9L10 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {FEATURES.map(({ Icon, text }) => (
+              <div key={text} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div style={{ flexShrink: 0, width: 30, height: 30, borderRadius: 8, background: 'rgba(204,255,0,0.07)', border: '1px solid rgba(204,255,0,0.18)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <Icon size={15} color="#CCFF00" weight="fill" />
                 </div>
-                <span>{f}</span>
+                <span style={{ fontSize: 13, color: 'var(--fr-text-secondary)', lineHeight: 1.5 }}>{text}</span>
               </div>
             ))}
           </div>
@@ -134,15 +135,20 @@ export default function RegisterPage() {
           {/* Social proof */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 32, padding: '14px 18px', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--fr-border-subtle)', borderRadius: 12 }}>
             <div style={{ display: 'flex' }}>
-              {['#CCFF00','#00D4C8','#9B5DE5','#F72585'].map((c, i) => (
-                <div key={i} style={{ width: 28, height: 28, borderRadius: '50%', background: c, border: '2px solid var(--fr-dark-0)', marginLeft: i > 0 ? -8 : 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 800, color: '#000' }}>{String.fromCharCode(65+i)}</div>
+              {REVIEWERS.map(({ photo, name }, i) => (
+                <img
+                  key={name}
+                  src={photo}
+                  alt={name}
+                  style={{ width: 30, height: 30, borderRadius: '50%', objectFit: 'cover', objectPosition: 'center 15%', border: '2px solid var(--fr-dark-0)', marginLeft: i > 0 ? -9 : 0 }}
+                />
               ))}
             </div>
             <div>
-              <div style={{ display: 'flex', gap: 1, color: '#F59E0B', fontSize: 12, marginBottom: 2 }}>
-                {[1,2,3,4,5].map(i => <IconStar key={i} />)}
+              <div style={{ display: 'flex', gap: 2, color: '#F59E0B', marginBottom: 3 }}>
+                {[1,2,3,4,5].map(i => <Star key={i} size={12} weight="fill" />)}
               </div>
-              <div style={{ fontSize: 12, color: 'var(--fr-text-tertiary)' }}>Rated 4.9 by 10,000+ traders</div>
+              <div style={{ fontSize: 12, color: 'var(--fr-text-tertiary)' }}>Rated 4.9 by 1,000+ traders</div>
             </div>
           </div>
         </div>
@@ -162,7 +168,7 @@ export default function RegisterPage() {
             <div className="fr-field">
               <label className="fr-field__label">Full name</label>
               <div style={{ position: 'relative' }}>
-                <span style={{ position: 'absolute', left: 13, top: '50%', transform: 'translateY(-50%)', color: 'var(--fr-text-tertiary)', pointerEvents: 'none' }}><IconUser /></span>
+                <span style={{ position: 'absolute', left: 13, top: '50%', transform: 'translateY(-50%)', color: 'var(--fr-text-tertiary)', pointerEvents: 'none' }}><User size={16} /></span>
                 <input type="text" className="fr-field__input" style={{ paddingLeft: 42 }} placeholder="Rahul Sharma" value={name} onChange={e => setName(e.target.value)} autoComplete="name" required />
               </div>
             </div>
@@ -170,7 +176,7 @@ export default function RegisterPage() {
             <div className="fr-field">
               <label className="fr-field__label">Email address</label>
               <div style={{ position: 'relative' }}>
-                <span style={{ position: 'absolute', left: 13, top: '50%', transform: 'translateY(-50%)', color: 'var(--fr-text-tertiary)', pointerEvents: 'none' }}><IconMail /></span>
+                <span style={{ position: 'absolute', left: 13, top: '50%', transform: 'translateY(-50%)', color: 'var(--fr-text-tertiary)', pointerEvents: 'none' }}><Envelope size={16} /></span>
                 <input type="email" className="fr-field__input" style={{ paddingLeft: 42 }} placeholder="you@example.com" value={email} onChange={e => setEmail(e.target.value)} autoComplete="email" required />
               </div>
             </div>
@@ -178,10 +184,10 @@ export default function RegisterPage() {
             <div className="fr-field">
               <label className="fr-field__label">Password</label>
               <div style={{ position: 'relative' }}>
-                <span style={{ position: 'absolute', left: 13, top: '50%', transform: 'translateY(-50%)', color: 'var(--fr-text-tertiary)', pointerEvents: 'none' }}><IconLock /></span>
+                <span style={{ position: 'absolute', left: 13, top: '50%', transform: 'translateY(-50%)', color: 'var(--fr-text-tertiary)', pointerEvents: 'none' }}><Lock size={16} /></span>
                 <input type={showPass ? 'text' : 'password'} className="fr-field__input" style={{ paddingLeft: 42, paddingRight: 42 }} placeholder="Min. 8 characters" value={password} onChange={e => setPassword(e.target.value)} autoComplete="new-password" required minLength={8} />
                 <button type="button" onClick={() => setShowPass(!showPass)} style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--fr-text-tertiary)', padding: 0, display: 'flex' }}>
-                  {showPass ? <IconEyeOff /> : <IconEye />}
+                  {showPass ? <EyeSlash size={16} /> : <Eye size={16} />}
                 </button>
               </div>
               {password.length > 0 && (
@@ -197,7 +203,7 @@ export default function RegisterPage() {
             </div>
 
             <button type="submit" disabled={loading} className="fr-btn fr-btn--primary fr-btn--lg fr-btn--full" style={{ marginTop: 4 }}>
-              {loading ? <><span className="spinner" />Creating account…</> : <>Create free account <IconArrow /></>}
+              {loading ? <><span className="spinner" />Creating account…</> : <>Create free account <ArrowRight size={16} weight="bold" /></>}
             </button>
           </form>
 
