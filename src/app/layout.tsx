@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import { Sora, Inter, JetBrains_Mono } from 'next/font/google';
 import './globals.css';
 import { Providers } from '@/components/providers';
+import PageLoader from '@/components/ui/page-loader';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter', weight: ['400','500','600','700','800','900'], display: 'swap' });
 const sora = Sora({ subsets: ['latin'], variable: '--font-sora', weight: ['400','600','700','800'], display: 'swap' });
@@ -23,6 +24,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" className={`${sora.variable} ${inter.variable} ${jetbrainsMono.variable}`}>
       <body style={{ background: 'var(--fr-black)', color: 'var(--fr-text-primary)', minHeight: '100vh', fontFamily: "'Inter', system-ui, -apple-system, sans-serif" }}>
+        <PageLoader />
+        {/* Noise texture overlay — film-grain depth at 3% opacity */}
+        <div aria-hidden="true" style={{
+          position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 99997,
+          backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E\")",
+          backgroundRepeat: 'repeat', opacity: 0.03,
+        }} />
         <Providers>{children}</Providers>
       </body>
     </html>

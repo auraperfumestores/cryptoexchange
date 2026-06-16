@@ -4,23 +4,14 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth/auth';
 import ExchangeWidget from '@/components/landing/exchange-widget';
 import LandingScripts from '@/components/landing/LandingScripts';
-
-/* ─── Icons ────────────────────────────────────────────── */
-const IconArrow   = () => <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8H13M9 4L13 8L9 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>;
-const IconShield  = () => <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M9 2L3 5V9C3 12.3 5.6 15.4 9 16C12.4 15.4 15 12.3 15 9V5L9 2Z" stroke="currentColor" strokeWidth="1.4"/><path d="M6.5 9L8 10.5L11.5 7" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/></svg>;
-const IconClock   = () => <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><circle cx="9" cy="9" r="6.5" stroke="currentColor" strokeWidth="1.4"/><path d="M9 5.5V9.5L11.5 11" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/></svg>;
-const IconZap     = () => <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M10 2L4 10H9L8 16L14 8H9L10 2Z" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/></svg>;
-const IconLock    = () => <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><rect x="4" y="8" width="10" height="7" rx="2" stroke="currentColor" strokeWidth="1.4"/><path d="M6 8V6C6 4.3 7.3 3 9 3C10.7 3 12 4.3 12 6V8" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/></svg>;
-const IconSwap    = () => <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M5 3V15M5 15L3 13M5 15L7 13M13 3V15M13 3L11 5M13 3L15 5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/></svg>;
-const IconChart   = () => <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M3 13L7 9L10 11L15 5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/><path d="M12 5H15V8" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/></svg>;
-const IconGlobe   = () => <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><circle cx="9" cy="9" r="6.5" stroke="currentColor" strokeWidth="1.4"/><path d="M9 2.5C9 2.5 7 5 7 9C7 13 9 15.5 9 15.5M9 2.5C9 2.5 11 5 11 9C11 13 9 15.5 9 15.5M2.5 9H15.5" stroke="currentColor" strokeWidth="1.4"/></svg>;
-const IconUpi     = () => <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><rect x="2" y="4" width="14" height="10" rx="2" stroke="currentColor" strokeWidth="1.4"/><path d="M2 7.5H16" stroke="currentColor" strokeWidth="1.4"/><rect x="4" y="10" width="4" height="2" rx="0.75" fill="currentColor"/></svg>;
-const IconStar    = () => <svg width="13" height="13" viewBox="0 0 13 13" fill="currentColor"><path d="M6.5 1L8 5H12.5L9 7.5L10.3 12L6.5 9.5L2.7 12L4 7.5L0.5 5H5L6.5 1Z"/></svg>;
-const IconCheck   = () => <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2 7L5.5 10.5L12 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>;
-const IconPlay    = () => <svg width="18" height="18" viewBox="0 0 18 18" fill="currentColor"><path d="M6 4L14 9L6 14V4Z"/></svg>;
-const IconX       = () => <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M4 4L14 14M14 4L4 14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>;
-const IconPro     = () => <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 1L9.8 5.5H14.5L10.5 8.5L12 13L8 10L4 13L5.5 8.5L1.5 5.5H6.2L8 1Z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round"/></svg>;
-const IconTrend   = ({ up }: { up: boolean }) => <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d={up ? 'M2 9L5 6L7 8L10 4' : 'M2 4L5 7L7 5L10 9'} stroke={up ? '#4ADE80' : '#F87171'} strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/></svg>;
+import HeroBg3D from '@/components/landing/HeroBg3D';
+import {
+  IconArrow, IconShield, IconClock, IconZap, IconLock, IconSwap,
+  IconChart, IconGlobe, IconUpi, IconStar, IconCheck, IconPlay,
+  IconX, IconPro, IconTrend, PlatformFeatures,
+} from '@/components/landing/page-icons';
+import StatCounter from '@/components/ui/stat-counter';
+import StaticMesh from '@/components/ui/static-mesh';
 
 /* ─── Data ────────────────────────────────────────────── */
 const TICKER_ITEMS = [
@@ -175,11 +166,10 @@ export default async function LandingPage() {
       </div>
 
       {/* ══ 3. HERO ══ */}
-      <section style={{ position: 'relative', paddingTop: 80, paddingBottom: 96, overflow: 'hidden' }}>
-        <div style={{ position: 'absolute', top: -200, left: -200, width: 600, height: 600, borderRadius: '50%', background: 'radial-gradient(circle, rgba(204,255,0,0.05) 0%, transparent 70%)', pointerEvents: 'none' }} />
-        <div style={{ position: 'absolute', top: -80, right: -80, width: 480, height: 480, borderRadius: '50%', background: 'radial-gradient(circle, rgba(0,212,200,0.04) 0%, transparent 70%)', pointerEvents: 'none' }} />
-        <div className="fr-halftone fr-halftone--hero-right" />
-        <div className="fr-container">
+      <section style={{ position: 'relative', paddingTop: 80, paddingBottom: 96, overflow: 'hidden', minHeight: 640 }}>
+        {/* Interactive 3D background — cursor tracking, particles, coin + rupee */}
+        <HeroBg3D />
+        <div className="fr-container" style={{ position: 'relative', zIndex: 1 }}>
           <div className="lp-hero-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 460px', gap: 64, alignItems: 'center' }}>
             {/* Left copy */}
             <div data-animate="fade-up">
@@ -192,13 +182,13 @@ export default async function LandingPage() {
 
               {/* Headline — Sora display font for hero */}
               <h1 style={{ fontFamily: 'var(--fr-font-display)', fontSize: 'clamp(38px,5.5vw,72px)', fontWeight: 900, letterSpacing: '-0.03em', lineHeight: 1.07, marginBottom: 24, color: 'var(--fr-text-primary)' }}>
-                Convert Crypto<br />
-                to <span className="fr-gradient-text">Indian Rupees</span><br />
-                <span style={{ color: 'var(--fr-text-secondary)', fontWeight: 700, fontSize: '0.68em' }}>Instantly · Securely</span>
+                Sell USDT.<br />
+                Get <span className="fr-gradient-text">₹ INR</span>.<br />
+                <span style={{ color: 'var(--fr-text-secondary)', fontWeight: 700, fontSize: '0.68em' }}>In Under 15 Minutes.</span>
               </h1>
 
               <p style={{ fontSize: 17, lineHeight: 1.78, color: 'var(--fr-text-secondary)', marginBottom: 36, maxWidth: 480 }}>
-                India&apos;s most trusted P2P crypto exchange. Send USDT and receive INR directly in your UPI or bank — in under 15 minutes.
+                India&apos;s most trusted USDT ↔ INR exchange. Send USDT on BEP-20, TRC-20, or ERC-20 and receive INR directly in your UPI or bank account — zero hidden fees, live rates.
               </p>
 
               {/* CTAs */}
@@ -249,13 +239,13 @@ export default async function LandingPage() {
         <div className="fr-container">
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)' }}>
             {[
-              { value: '₹83 Cr+', label: 'Total Volume Processed', color: 'var(--fr-lime)' },
-              { value: '10,000+', label: 'Verified Traders', color: 'var(--fr-neon-teal)' },
-              { value: '< 15 min', label: 'Avg Settlement Time', color: 'var(--fr-neon-purple)' },
-              { value: '4.9 / 5.0', label: 'Trader Rating', color: 'var(--fr-neon-orange)' },
-            ].map(({ value, label, color }, i, arr) => (
+              { label: 'Total Volume Processed', color: 'var(--fr-lime)',         counter: <StatCounter prefix="₹" target={83}   suffix=" Cr+" color="var(--fr-lime)" /> },
+              { label: 'Verified Traders',       color: 'var(--fr-neon-teal)',    counter: <StatCounter target={10000} suffix="+" color="var(--fr-neon-teal)" /> },
+              { label: 'Avg Settlement Time',    color: 'var(--fr-neon-purple)',  counter: <StatCounter prefix="< " target={15}  suffix=" min" color="var(--fr-neon-purple)" /> },
+              { label: 'Trader Rating',          color: 'var(--fr-neon-orange)',  counter: <StatCounter target={4.9} suffix=" / 5.0" decimals={1} color="var(--fr-neon-orange)" /> },
+            ].map(({ label, counter }, i, arr) => (
               <div key={label} style={{ padding: '24px 28px', borderRight: i < arr.length - 1 ? '1px solid var(--fr-border-subtle)' : 'none', textAlign: 'center' }}>
-                <div style={{ fontSize: 'clamp(22px,2.5vw,34px)', fontWeight: 900, color, fontFamily: 'var(--fr-font-mono)', letterSpacing: '-0.02em', lineHeight: 1 }}>{value}</div>
+                {counter}
                 <div style={{ fontSize: 11, color: 'var(--fr-text-tertiary)', marginTop: 6, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em' }}>{label}</div>
               </div>
             ))}
@@ -278,7 +268,21 @@ export default async function LandingPage() {
       </div>
 
       {/* ══ 6. HOW IT WORKS — aurora cards with INNER UI MOCKUPS ══ */}
-      <section id="how" style={{ padding: '100px 0', background: 'var(--fr-black)' }}>
+      <section id="how" style={{ padding: '100px 0', background: 'var(--fr-black)', position: 'relative' }}>
+        {/* Curved 3D mesh — right 30% of section */}
+        <StaticMesh
+          cols={22} rows={18}
+          opacity={0.28}
+          lineColor="255,255,255"
+          waveAmp={80}
+          waveT={2.1}
+          diagonals={true}
+          style={{
+            position: 'absolute', top: 0, right: 0, bottom: 0, width: '34%', height: '100%',
+            WebkitMaskImage: 'linear-gradient(to right, transparent 0%, black 50%)',
+            maskImage: 'linear-gradient(to right, transparent 0%, black 50%)',
+          }}
+        />
         <div className="fr-container">
           <div style={{ textAlign: 'center', marginBottom: 16 }} data-animate="fade-up">
             <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 14px', border: '1px solid var(--fr-border-default)', borderRadius: 999, fontSize: 11, fontWeight: 700, color: 'var(--fr-text-tertiary)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 20 }}>Simple Process</div>
@@ -290,22 +294,45 @@ export default async function LandingPage() {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 24 }} data-animate-stagger>
 
             {/* Step 01 — purple — network/amount selector UI */}
-            <div className="fr-aurora-card fr-aurora-card--purple">
-              <span className="fr-aurora-card__step">STEP 01</span>
-              <h3 className="fr-aurora-card__title">Send Your Crypto</h3>
-              <p className="fr-aurora-card__body">Select the network and amount. Send USDT to our verified wallet address.</p>
-              {/* Inner UI: network selector */}
-              <div style={{ marginTop: 20 }}>
-                {[
-                  { label: '500 USDT', sub: 'via BEP-20', active: true },
-                  { label: '1,000 USDT', sub: 'via TRC-20', active: false },
-                  { label: '2,500 USDT', sub: 'via ERC-20', active: false },
-                ].map(item => (
-                  <div key={item.label} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', borderRadius: 10, background: item.active ? 'var(--fr-lime)' : 'rgba(255,255,255,0.05)', marginBottom: 8 }}>
-                    <span style={{ fontSize: 13, fontWeight: 700, color: item.active ? '#000' : 'rgba(255,255,255,0.6)', fontFamily: 'var(--fr-font-mono)' }}>{item.label}</span>
-                    <span style={{ fontSize: 11, color: item.active ? 'rgba(0,0,0,0.6)' : 'rgba(255,255,255,0.35)' }}>{item.sub}</span>
+            <div className="fr-aurora-card fr-aurora-card--purple" style={{ overflow: 'hidden' }}>
+              {/* Curved 3D mesh — bottom half of card, fades toward top */}
+              <StaticMesh
+                cols={16} rows={12}
+                opacity={0.38}
+                lineColor="210,190,255"
+                waveAmp={55}
+                waveT={0.8}
+                diagonals={true}
+                style={{
+                  position: 'absolute', bottom: 0, left: 0, right: 0, height: '70%', zIndex: 0,
+                  WebkitMaskImage: 'linear-gradient(to bottom, transparent 0%, black 45%)',
+                  maskImage: 'linear-gradient(to bottom, transparent 0%, black 45%)',
+                }}
+              />
+              <span className="fr-aurora-card__step" style={{ position: 'relative', zIndex: 1 }}>STEP 01</span>
+              <h3 className="fr-aurora-card__title" style={{ position: 'relative', zIndex: 1 }}>Send Your Crypto</h3>
+              <p className="fr-aurora-card__body" style={{ position: 'relative', zIndex: 1 }}>Select the network and amount. Send USDT to our verified wallet address.</p>
+              {/* Inner UI: send crypto flow */}
+              <div style={{ marginTop: 20, position: 'relative', zIndex: 1 }}>
+                {/* Wallet address row */}
+                <div style={{ background: 'rgba(0,0,0,0.35)', borderRadius: 10, padding: '10px 14px', marginBottom: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div>
+                    <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.09em', textTransform: 'uppercase', color: 'rgba(196,163,255,0.6)', marginBottom: 3 }}>To Wallet</div>
+                    <div style={{ fontSize: 12, fontFamily: 'var(--fr-font-mono)', color: 'rgba(255,255,255,0.8)' }}>0x4f2a…d8C3</div>
                   </div>
-                ))}
+                  <div style={{ fontSize: 10, padding: '3px 9px', borderRadius: 6, background: 'rgba(196,163,255,0.15)', color: '#C4A3FF', fontWeight: 700, border: '1px solid rgba(196,163,255,0.25)' }}>Copy</div>
+                </div>
+                {/* Network pills */}
+                <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
+                  {[['BEP-20', true], ['TRC-20', false], ['ERC-20', false]].map(([n, active]) => (
+                    <div key={String(n)} style={{ flex: 1, textAlign: 'center', padding: '5px 0', borderRadius: 7, background: active ? 'rgba(196,163,255,0.18)' : 'rgba(255,255,255,0.04)', border: `1px solid ${active ? 'rgba(196,163,255,0.45)' : 'rgba(255,255,255,0.07)'}`, fontSize: 10, fontWeight: 700, color: active ? '#C4A3FF' : 'rgba(255,255,255,0.35)' }}>{n}</div>
+                  ))}
+                </div>
+                {/* Amount highlighted */}
+                <div style={{ background: 'rgba(204,255,0,0.1)', border: '1px solid rgba(204,255,0,0.28)', borderRadius: 10, padding: '11px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <span style={{ fontFamily: 'var(--fr-font-mono)', fontSize: 18, fontWeight: 800, color: '#CCFF00', letterSpacing: '-0.02em' }}>500 USDT</span>
+                  <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)' }}>≈ ₹41,750</span>
+                </div>
               </div>
             </div>
 
@@ -314,23 +341,36 @@ export default async function LandingPage() {
               <span className="fr-aurora-card__step">STEP 02</span>
               <h3 className="fr-aurora-card__title">We Verify On-Chain</h3>
               <p className="fr-aurora-card__body">Our system detects your deposit and confirms it on the blockchain in minutes.</p>
-              {/* Inner UI: live confirmation rows */}
+              {/* Inner UI: on-chain verification flow */}
               <div style={{ marginTop: 20 }}>
+                {/* TXN hash */}
+                <div style={{ background: 'rgba(0,0,0,0.3)', borderRadius: 10, padding: '9px 13px', marginBottom: 10 }}>
+                  <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.09em', textTransform: 'uppercase', color: 'rgba(94,234,228,0.6)', marginBottom: 3 }}>Transaction Hash</div>
+                  <div style={{ fontSize: 11, fontFamily: 'var(--fr-font-mono)', color: 'rgba(255,255,255,0.7)' }}>0x7c3f4a…b2e91d</div>
+                </div>
+                {/* Confirmations progress */}
+                <div style={{ marginBottom: 10 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5 }}>
+                    <span style={{ fontSize: 10, fontWeight: 600, color: 'rgba(255,255,255,0.45)' }}>Block Confirmations</span>
+                    <span style={{ fontSize: 10, fontFamily: 'var(--fr-font-mono)', fontWeight: 700, color: '#5EEAE4' }}>8 / 12</span>
+                  </div>
+                  <div style={{ height: 4, background: 'rgba(0,0,0,0.35)', borderRadius: 99 }}>
+                    <div style={{ height: '100%', width: '66%', background: 'linear-gradient(to right, #00D4C8, #5EEAE4)', borderRadius: 99 }} />
+                  </div>
+                </div>
+                {/* Status checklist */}
                 {[
-                  { name: 'Arjun M.', amount: '₹44,225', up: true, pct: '2.1 min' },
-                  { name: 'Priya S.', amount: '₹88,450', up: true, pct: '4.5 min' },
-                  { name: 'Rohit V.', amount: '₹22,113', up: false, pct: 'Pending' },
-                ].map((row, i) => (
-                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', borderRadius: 8, background: 'rgba(0,0,0,0.25)', marginBottom: 6 }}>
-                    <div style={{ width: 28, height: 28, borderRadius: '50%', background: `hsl(${i * 60 + 160},70%,50%)`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 800, color: '#000', flexShrink: 0 }}>{row.name[0]}</div>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: 12, fontWeight: 600, color: 'rgba(255,255,255,0.9)' }}>{row.name}</div>
-                      <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)' }}>{row.pct}</div>
+                  { label: 'Deposit Detected', done: true },
+                  { label: 'Network Confirmed', done: true },
+                  { label: 'Identity Verified', done: true },
+                  { label: 'Releasing Funds', done: false, active: true },
+                ].map(item => (
+                  <div key={item.label} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 0', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                    <div style={{ width: 15, height: 15, borderRadius: '50%', flexShrink: 0, background: item.done ? '#00D4C8' : 'rgba(0,212,200,0.12)', border: item.active ? '1.5px solid #00D4C8' : 'none', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      {item.done && <svg width="8" height="8" viewBox="0 0 8 8"><path d="M1.5 4L3 5.5L6.5 2" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>}
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                      <IconTrend up={row.up} />
-                      <span style={{ fontSize: 12, fontWeight: 700, fontFamily: 'var(--fr-font-mono)', color: row.up ? '#4ADE80' : '#F87171' }}>{row.amount}</span>
-                    </div>
+                    <span style={{ fontSize: 11, fontWeight: item.active ? 600 : 400, color: item.done ? 'rgba(255,255,255,0.8)' : item.active ? '#5EEAE4' : 'rgba(255,255,255,0.28)' }}>{item.label}</span>
+                    {item.active && <span style={{ marginLeft: 'auto', fontSize: 8, color: '#5EEAE4', animation: 'none' }}>●</span>}
                   </div>
                 ))}
               </div>
@@ -341,29 +381,26 @@ export default async function LandingPage() {
               <span className="fr-aurora-card__step">STEP 03</span>
               <h3 className="fr-aurora-card__title">Get Funded &amp; Receive INR</h3>
               <p className="fr-aurora-card__body">INR lands in your UPI or bank. Typically under 15 minutes, zero hidden fees.</p>
-              {/* Inner UI: mini chart + stat */}
+              {/* Inner UI: INR payout receipt */}
               <div style={{ marginTop: 20 }}>
-                <div style={{ fontSize: 9, fontWeight: 700, color: 'rgba(255,255,255,0.35)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 10, display: 'flex', gap: 8 }}>
-                  {['1m','5m','15m'].map((t,i) => <span key={t} style={{ padding: '2px 8px', borderRadius: 4, background: i === 0 ? 'rgba(255,255,255,0.12)' : 'transparent', color: i === 0 ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.3)' }}>{t}</span>)}
+                {/* Big INR amount */}
+                <div style={{ background: 'rgba(0,0,0,0.35)', borderRadius: 10, padding: '14px', marginBottom: 8, textAlign: 'center' }}>
+                  <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(255,138,184,0.65)', marginBottom: 6 }}>Amount Credited</div>
+                  <div style={{ fontSize: 28, fontWeight: 900, fontFamily: 'var(--fr-font-mono)', color: '#fff', letterSpacing: '-0.03em', lineHeight: 1 }}>₹41,750</div>
+                  <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', marginTop: 4 }}>500 USDT · Rate ₹83.50</div>
                 </div>
-                {/* Candlestick-style bars */}
-                <div style={{ display: 'flex', alignItems: 'flex-end', gap: 3, height: 60 }}>
-                  {[
-                    { h: 30, up: false }, { h: 45, up: true }, { h: 35, up: false },
-                    { h: 55, up: true  }, { h: 42, up: true }, { h: 65, up: true  },
-                    { h: 50, up: false }, { h: 70, up: true }, { h: 58, up: true  },
-                    { h: 80, up: true  }, { h: 68, up: true }, { h: 90, up: true  },
-                  ].map((bar, i) => (
-                    <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
-                      <div style={{ width: '60%', height: 2, background: bar.up ? 'rgba(74,222,128,0.5)' : 'rgba(248,113,113,0.5)', borderRadius: 1 }} />
-                      <div style={{ width: '100%', height: `${bar.h}%`, background: bar.up ? 'rgba(74,222,128,0.7)' : 'rgba(248,113,113,0.7)', borderRadius: '2px 2px 0 0' }} />
-                      <div style={{ width: '60%', height: 2, background: bar.up ? 'rgba(74,222,128,0.5)' : 'rgba(248,113,113,0.5)', borderRadius: 1 }} />
-                    </div>
-                  ))}
+                {/* UPI row */}
+                <div style={{ background: 'rgba(0,0,0,0.25)', borderRadius: 8, padding: '9px 13px', marginBottom: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div>
+                    <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.09em', textTransform: 'uppercase', color: 'rgba(255,138,184,0.55)', marginBottom: 2 }}>Via UPI</div>
+                    <div style={{ fontSize: 12, fontFamily: 'var(--fr-font-mono)', color: 'rgba(255,255,255,0.75)' }}>raj***@okaxis</div>
+                  </div>
+                  <div style={{ fontSize: 10, padding: '3px 9px', borderRadius: 6, background: 'rgba(74,222,128,0.15)', color: '#4ADE80', fontWeight: 700, border: '1px solid rgba(74,222,128,0.25)' }}>✓ Sent</div>
                 </div>
-                <div style={{ marginTop: 12, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)' }}>USDT/INR · Live</span>
-                  <span style={{ fontSize: 14, fontWeight: 800, fontFamily: 'var(--fr-font-mono)', color: '#4ADE80' }}>+2.3%</span>
+                {/* Settlement time */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 13px', borderRadius: 8, background: 'rgba(247,37,133,0.1)', border: '1px solid rgba(247,37,133,0.2)' }}>
+                  <svg width="12" height="12" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="5.5" stroke="#FF8AB8" strokeWidth="1.2"/><path d="M7 4v3.2L9.2 9" stroke="#FF8AB8" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                  <span style={{ fontSize: 11, fontWeight: 600, color: 'rgba(255,138,184,0.9)' }}>Settled in 11 min 43 sec</span>
                 </div>
               </div>
             </div>
@@ -371,27 +408,29 @@ export default async function LandingPage() {
         </div>
       </section>
 
-      {/* ══ 7. PLATFORM MOCKUP ══ */}
-      <section style={{ padding: '100px 0', background: 'var(--fr-dark-0)', borderTop: '1px solid var(--fr-border-subtle)', borderBottom: '1px solid var(--fr-border-subtle)' }}>
-        <div className="fr-container">
+      {/* ══ 7. PLATFORM FEATURES ══ */}
+      <section style={{ padding: '100px 0', background: 'var(--fr-dark-0)', borderTop: '1px solid var(--fr-border-subtle)', borderBottom: '1px solid var(--fr-border-subtle)', position: 'relative', overflow: 'hidden' }}>
+        {/* Indian tricolour gradient — left saffron, right green */}
+        <div aria-hidden="true" style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 0, background: 'linear-gradient(to right, rgba(255,153,51,0.07) 0%, transparent 38%, transparent 62%, rgba(19,136,8,0.06) 100%)' }} />
+        <div aria-hidden="true" style={{ position: 'absolute', top: '40%', left: '-5%', width: 480, height: 480, borderRadius: '50%', background: 'radial-gradient(ellipse, rgba(255,153,51,0.06) 0%, transparent 70%)', pointerEvents: 'none', zIndex: 0 }} />
+        <div aria-hidden="true" style={{ position: 'absolute', bottom: '10%', right: '5%', width: 360, height: 360, borderRadius: '50%', background: 'radial-gradient(ellipse, rgba(19,136,8,0.07) 0%, transparent 70%)', pointerEvents: 'none', zIndex: 0 }} />
+
+        <div className="fr-container" style={{ position: 'relative', zIndex: 1 }}>
           <div className="fr-platform-section">
             <div data-animate="fade-up">
-              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 14px', border: '1px solid var(--fr-border-default)', borderRadius: 999, fontSize: 11, fontWeight: 700, color: 'var(--fr-text-tertiary)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 20 }}>Trading Platform</div>
-              <h2 style={{ fontFamily: 'var(--fr-font-display)', fontSize: 'clamp(28px,4vw,48px)', fontWeight: 900, letterSpacing: '-0.025em', lineHeight: 1.12, marginBottom: 20 }}>
-                A professional<br />
-                <span style={{ color: 'var(--fr-lime)' }}>trading experience</span><br />
-                built for India
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 14px', border: '1px solid var(--fr-border-default)', borderRadius: 999, fontSize: 11, fontWeight: 700, color: 'var(--fr-text-tertiary)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 20 }}>Why SwapINR</div>
+              <h2 style={{ fontFamily: 'var(--fr-font-display)', fontSize: 'clamp(28px,4vw,48px)', fontWeight: 900, letterSpacing: '-0.025em', lineHeight: 1.12, marginBottom: 16 }}>
+                India's most trusted<br />
+                <span style={{ color: 'var(--fr-lime)' }}>USDT ↔ INR</span><br />
+                exchange
               </h2>
-              <p style={{ fontSize: 15, color: 'var(--fr-text-secondary)', lineHeight: 1.78, marginBottom: 36, maxWidth: 420 }}>
-                Complete control over your trades with real-time rates, live order tracking, and instant payment confirmations.
+              <p style={{ fontSize: 15, color: 'var(--fr-text-secondary)', lineHeight: 1.75, marginBottom: 40, maxWidth: 400 }}>
+                Built exclusively for the Indian market. Convert USDT to INR — or INR to USDT — with bank-level security, live rates, and instant UPI payouts.
               </p>
-              {PERKS.map(p => (
-                <div key={p} className="fr-perk-item">
-                  <div className="fr-perk-icon"><IconCheck /></div>
-                  <span style={{ fontSize: 14, color: 'var(--fr-text-secondary)', lineHeight: 1.55 }}>{p}</span>
-                </div>
-              ))}
-              <div style={{ marginTop: 36, display: 'flex', gap: 12 }}>
+
+              <PlatformFeatures />
+
+              <div style={{ display: 'flex', gap: 12 }}>
                 <Link href="/register" className="fr-btn fr-btn--primary fr-btn--lg">Start Trading <IconArrow /></Link>
                 <Link href="#how" className="fr-btn fr-btn--ghost fr-btn--lg">Learn More</Link>
               </div>

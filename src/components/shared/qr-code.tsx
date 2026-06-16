@@ -2,7 +2,7 @@
 
 import { QRCodeSVG } from 'qrcode.react';
 import { useState } from 'react';
-import { Copy, Check } from 'lucide-react';
+import { Copy, Check } from '@phosphor-icons/react';
 import { cn, shortenAddress } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 

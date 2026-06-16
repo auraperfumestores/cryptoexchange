@@ -1,5 +1,5 @@
 import { cn } from '@/lib/utils/cn';
-import { FileQuestion } from 'lucide-react';
+import { FileQuestion } from '@phosphor-icons/react';
 import type { ReactNode } from 'react';
 
 interface EmptyStateProps {

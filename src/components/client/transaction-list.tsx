@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { EmptyState } from '@/components/ui/empty-state';
-import { Receipt, Search } from 'lucide-react';
+import { Receipt, MagnifyingGlass } from '@phosphor-icons/react';
 import { formatINR, formatCrypto, timeAgo, shortenAddress, getNetworkConfig } from '@/lib/utils';
 import type { TransactionDocument } from '@/types';
 
@@ -67,7 +67,7 @@ export function TransactionList({ transactions, isAdmin = false }: TransactionLi
               placeholder="Search by order ID, user, or tx hash"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              leftAddon={<Search className="h-4 w-4" />}
+              leftAddon={<MagnifyingGlass className="h-4 w-4" />}
             />
           </div>
           <div className="flex gap-2">

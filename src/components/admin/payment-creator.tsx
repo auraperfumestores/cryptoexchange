@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from '@/components/ui/toast';
-import { Plus } from 'lucide-react';
+import { Plus } from '@phosphor-icons/react';
 import type { PaymentMethodType } from '@/types';
 
 export function PaymentCreator() {

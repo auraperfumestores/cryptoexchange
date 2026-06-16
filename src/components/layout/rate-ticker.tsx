@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { ArrowUp, ArrowDown, Activity } from 'lucide-react';
+import { ArrowUp, ArrowDown, Pulse } from '@phosphor-icons/react';
 import { formatRate } from '@/lib/utils';
 import type { RateDocument } from '@/types';
 
@@ -10,7 +10,7 @@ function TickerItem({ label, value, previousValue }: { label: string; value: num
   const up = previousValue !== undefined ? previousValue <= value : true;
   return (
     <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
-      <Activity className="h-3 w-3 text-blue-400 animate-pulse" />
+      <Pulse className="h-3 w-3 text-blue-400 animate-pulse" />
       <span className="text-xs text-slate-500">{label}</span>
       <span className="text-xs font-bold text-white font-mono">₹{formatRate(value)}</span>
       {changed && (up

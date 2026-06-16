@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { create } from 'zustand';
 import { cn } from '@/lib/utils';
-import { CheckCircle2, AlertCircle, Info, X, XCircle } from 'lucide-react';
+import { CheckCircle, WarningCircle, Info, X, XCircle } from '@phosphor-icons/react';
 
 type ToastVariant = 'success' | 'error' | 'info' | 'warning';
 
@@ -36,11 +36,11 @@ export const toast = {
   warning: (message: string, duration?: number) => useToastStore.getState().add({ message, variant: 'warning', duration }),
 };
 
-const icons: Record<ToastVariant, typeof CheckCircle2> = {
-  success: CheckCircle2,
+const icons: Record<ToastVariant, typeof CheckCircle> = {
+  success: CheckCircle,
   error: XCircle,
   info: Info,
-  warning: AlertCircle,
+  warning: WarningCircle,
 };
 
 const styles: Record<ToastVariant, string> = {

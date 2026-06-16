@@ -3,7 +3,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm, Controller } from 'react-hook-form';
-import { ArrowDownUp, Copy, Check, Info, AlertTriangle } from 'lucide-react';
+import { ArrowsDownUp, Copy, Check, Info, Warning } from '@phosphor-icons/react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -185,7 +185,7 @@ export function TradeForm({ type, rates, paymentMethods, wallets, defaultSymbol 
                 </div>
               ) : (
                 <div className="mt-4 flex items-center gap-2 rounded-lg bg-warning/10 border border-warning/30 px-4 py-2.5">
-                  <AlertTriangle className="h-4 w-4 text-amber-600" />
+                  <Warning className="h-4 w-4 text-amber-600" />
                   <p className="text-sm text-amber-800">No active rate set for this combination.</p>
                 </div>
               )}
@@ -209,7 +209,7 @@ export function TradeForm({ type, rates, paymentMethods, wallets, defaultSymbol 
                     className="rounded-full bg-mist p-1.5 text-muted hover:bg-primary-50 hover:text-primary transition-colors"
                     title="Toggle edit field"
                   >
-                    <ArrowDownUp className="h-4 w-4" />
+                    <ArrowsDownUp className="h-4 w-4" />
                   </button>
                 </div>
                 <Input

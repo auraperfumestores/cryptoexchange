@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
-import { Copy, Check, ExternalLink, Upload, ArrowRight, AlertCircle } from 'lucide-react';
+import { Copy, Check, ArrowSquareOut, UploadSimple, ArrowRight, WarningCircle } from '@phosphor-icons/react';
 import { toast } from '@/components/ui/toast';
 import { QRDisplay } from '@/components/shared/qr-code';
 import { PaymentMethodTabs } from '@/components/client/payment-method-tabs';
@@ -184,7 +184,7 @@ export function TransactionDetail({ tx, paymentMethod, currentUserRole, isOwner 
                       {copied === 'addr' ? <Check className="h-4 w-4 text-success" /> : <Copy className="h-4 w-4" />}
                     </button>
                     <a href={addressExplorerUrl(tx.network, tx.depositAddress)} target="_blank" rel="noopener noreferrer" className="text-muted hover:text-primary">
-                      <ExternalLink className="h-4 w-4" />
+                      <ArrowSquareOut className="h-4 w-4" />
                     </a>
                   </div>
                 </div>
@@ -229,7 +229,7 @@ export function TransactionDetail({ tx, paymentMethod, currentUserRole, isOwner 
                     htmlFor="proof-upload"
                     className="flex-1 cursor-pointer rounded-lg border border-dashed border-mist bg-mist/30 px-4 py-6 text-center text-sm text-muted hover:border-primary hover:bg-primary-50/30 transition-colors"
                   >
-                    <Upload className="mx-auto mb-1 h-5 w-5" />
+                    <UploadSimple className="mx-auto mb-1 h-5 w-5" />
                     {uploading ? 'Uploading…' : proofUrl ? 'Replace screenshot' : 'Click to upload screenshot'}
                   </label>
                 </div>
@@ -335,7 +335,7 @@ export function TransactionDetail({ tx, paymentMethod, currentUserRole, isOwner 
                 rel="noopener noreferrer"
                 className="font-mono-crypto text-sm text-secondary hover:text-primary inline-flex items-center gap-1"
               >
-                {shortenAddress(tx.walletAddress, 6)} <ExternalLink className="h-3 w-3" />
+                {shortenAddress(tx.walletAddress, 6)} <ArrowSquareOut className="h-3 w-3" />
               </a>
             </div>
             {tx.txHash && (
@@ -347,7 +347,7 @@ export function TransactionDetail({ tx, paymentMethod, currentUserRole, isOwner 
                   rel="noopener noreferrer"
                   className="font-mono-crypto text-sm text-secondary hover:text-primary inline-flex items-center gap-1"
                 >
-                  {shortenTxHash(tx.txHash, 6)} <ExternalLink className="h-3 w-3" />
+                  {shortenTxHash(tx.txHash, 6)} <ArrowSquareOut className="h-3 w-3" />
                 </a>
               </div>
             )}

@@ -9,7 +9,7 @@ import { Select } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from '@/components/ui/toast';
-import { Edit, Save, X, Plus, Power, Smartphone, Building2, MapPin } from 'lucide-react';
+import { PencilSimple, FloppyDisk, X, Plus, Power, DeviceMobile, Buildings, MapPin } from '@phosphor-icons/react';
 import { formatDate } from '@/lib/utils';
 import type { PaymentMethodDocument, PaymentMethodType } from '@/types';
 
@@ -32,7 +32,7 @@ function MethodRow({ method }: { method: PaymentMethodDocument }) {
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  const Icon = method.type === 'upi' ? Smartphone : method.type === 'bank_transfer' ? Building2 : MapPin;
+  const Icon = method.type === 'upi' ? DeviceMobile : method.type === 'bank_transfer' ? Buildings : MapPin;
   const typeLabel = method.type === 'bank_transfer' ? 'Bank transfer' : method.type === 'upi' ? 'UPI' : 'Cash';
 
   async function toggleActive() {
@@ -89,7 +89,7 @@ function MethodRow({ method }: { method: PaymentMethodDocument }) {
             <Power className="h-3.5 w-3.5" /> {method.isActive ? 'Deactivate' : 'Activate'}
           </Button>
           <Button size="sm" variant="secondary" onClick={() => setEditing(true)}>
-            <Edit className="h-3.5 w-3.5" /> Edit
+            <PencilSimple className="h-3.5 w-3.5" /> Edit
           </Button>
         </div>
       </div>
@@ -221,7 +221,7 @@ function MethodEditor({ method, onCancel, onSaved }: { method: PaymentMethodDocu
       </div>
       <div className="mt-4 flex justify-end gap-2">
         <Button variant="ghost" onClick={onCancel}><X className="h-4 w-4" /> Cancel</Button>
-        <Button onClick={save} loading={saving}><Save className="h-4 w-4" /> Save</Button>
+        <Button onClick={save} loading={saving}><FloppyDisk className="h-4 w-4" /> Save</Button>
       </div>
     </Card>
   );

@@ -10,7 +10,7 @@ import { toast } from '@/components/ui/toast';
 import { WalletConnect } from '@/components/client/wallet-connect';
 import { PageLoading } from '@/components/ui/loading';
 import { shortenAddress, getNetworkLabel } from '@/lib/utils';
-import { Trash2, Wallet as WalletIcon } from 'lucide-react';
+import { Trash, Wallet as WalletIcon } from '@phosphor-icons/react';
 import type { WalletDocument } from '@/types';
 
 export default function WalletsPage() {
@@ -103,7 +103,7 @@ export default function WalletsPage() {
                   </div>
                 </div>
                 <Button variant="ghost" size="sm" onClick={() => removeWallet(w._id)}>
-                  <Trash2 className="h-4 w-4 text-error" />
+                  <Trash className="h-4 w-4 text-error" />
                 </Button>
               </div>
             </Card>

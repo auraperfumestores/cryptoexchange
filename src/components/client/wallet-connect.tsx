@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Wallet, Copy, Check, LogOut, ChevronRight, ExternalLink } from 'lucide-react';
+import { Wallet, Copy, Check, SignOut, CaretRight, ArrowSquareOut } from '@phosphor-icons/react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -139,14 +139,14 @@ export function WalletConnect({
               className="rounded-lg p-2 text-muted hover:bg-cloud hover:text-secondary transition-colors"
               title="View on explorer"
             >
-              <ExternalLink className="h-4 w-4" />
+              <ArrowSquareOut className="h-4 w-4" />
             </a>
             <button
               onClick={() => disconnect()}
               className="rounded-lg p-2 text-muted hover:bg-cloud hover:text-error transition-colors"
               title="Disconnect"
             >
-              <LogOut className="h-4 w-4" />
+              <SignOut className="h-4 w-4" />
             </button>
           </div>
         </div>
@@ -182,7 +182,7 @@ export function WalletConnect({
                         className="rounded-md p-1.5 text-muted hover:bg-mist hover:text-primary transition-colors"
                         title="Use this wallet"
                       >
-                        <ChevronRight className="h-4 w-4" />
+                        <CaretRight className="h-4 w-4" />
                       </button>
                     )}
                     {onSavedRemove && (
@@ -191,7 +191,7 @@ export function WalletConnect({
                         className="rounded-md p-1.5 text-muted hover:bg-mist hover:text-error transition-colors"
                         title="Remove"
                       >
-                        <LogOut className="h-4 w-4" />
+                        <SignOut className="h-4 w-4" />
                       </button>
                     )}
                   </div>
