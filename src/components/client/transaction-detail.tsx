@@ -257,7 +257,7 @@ export function TransactionDetail({ tx, paymentMethod, currentUserRole, isOwner 
         {/* Awaiting confirmation */}
         {tx.status === 'awaiting_payment' && isSell && tx.txHash && (
           <Card padding="md" className="flex items-center gap-3 bg-amber-50/50 border-amber-200">
-            <AlertCircle className="h-5 w-5 text-amber-600" />
+            <WarningCircle className="h-5 w-5 text-amber-600" />
             <div className="flex-1">
               <p className="text-sm font-semibold text-amber-800">Awaiting admin confirmation</p>
               <p className="text-xs text-amber-700">Your transaction hash is in. Admin will release the INR once the deposit is confirmed.</p>
