@@ -150,21 +150,9 @@ export function SnapCarousel({
     /* sc-outer: full container including dots */
     <div ref={outerRef} className="sc-outer">
 
-      {/* sc-wrap: overflow:hidden so fades clip correctly */}
+      {/* sc-wrap: mask-image on this element creates the edge dissolve */}
       <div className="sc-wrap">
         {children}
-
-        {/* Edge fades — clipped by sc-wrap overflow:hidden */}
-        <div
-          className="sc-fade sc-fade-l"
-          style={{ background: `linear-gradient(to right,${bg} 50%,transparent)` }}
-          aria-hidden="true"
-        />
-        <div
-          className="sc-fade sc-fade-r"
-          style={{ background: `linear-gradient(to left,${bg} 50%,transparent)` }}
-          aria-hidden="true"
-        />
       </div>
 
       {/* Dot indicators — outside sc-wrap, not clipped */}

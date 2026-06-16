@@ -1294,6 +1294,7 @@
 
 /* ── SnapCarousel: desktop state (hidden) ─────────────────── */
 .sc-fade, .sc-dots { display: none; }
+/* mask on sc-wrap is desktop-safe — it only activates via mobile .sc-grid flex rules */
 
 @media (max-width: 768px) {
 
@@ -1385,34 +1386,47 @@
   ───────────────────────────────────────────────────────── */
 
   /* sc-outer: full carousel wrapper including dots */
-  .sc-outer {
-    /* plain block container — no extra styles needed */
-  }
+  .sc-outer { /* plain block container */ }
 
-  /* sc-wrap: clips the edge-fade overlays */
+  /* sc-wrap: mask-image creates natural fade at edges — no dark overlays */
   .sc-wrap {
     position: relative;
     overflow: hidden;
+    /* Fade the first/last ~13 vw to transparent so peeking cards dissolve cleanly */
+    -webkit-mask-image: linear-gradient(
+      to right,
+      transparent 0%,
+      black 13vw,
+      black calc(100% - 13vw),
+      transparent 100%
+    );
+    mask-image: linear-gradient(
+      to right,
+      transparent 0%,
+      black 13vw,
+      black calc(100% - 13vw),
+      transparent 100%
+    );
   }
 
-  /* The grid becomes a horizontal scroll container */
+  /* The grid becomes a horizontal scroll container.
+     padding-inline = (100% - card_width) / 2 = (100vw - 72vw) / 2 = 14vw
+     This ensures card 0 is perfectly centred at scrollLeft = 0. */
   .sc-grid {
     display: flex !important;
     overflow-x: auto;
     scroll-snap-type: x mandatory;
     -webkit-overflow-scrolling: touch;
     gap: 14px !important;
-    padding: 4px 20px 12px !important;
+    padding: 4px 14vw 12px !important;
+    scroll-padding-inline: 14vw;
     scrollbar-width: none;
-    scroll-padding-inline: 20px;
-    /* override inline grid styles */
     grid-template-columns: unset !important;
-    /* stretch makes all cards the same height as the tallest */
     align-items: stretch !important;
   }
   .sc-grid::-webkit-scrollbar { display: none; }
 
-  /* Each card: 72 vw wide so ~14 vw of adjacent card peeks */
+  /* Cards: 72 vw — leaves 14 vw on each side (matching padding) */
   .sc-grid > * {
     flex: 0 0 72vw !important;
     width: 72vw !important;
@@ -1420,31 +1434,18 @@
     max-width: none !important;
     scroll-snap-align: center;
     box-sizing: border-box;
-    /* dim non-active cards */
-    opacity: 0.42;
-    filter: blur(0.8px);
+    /* gently dim non-active cards */
+    opacity: 0.55;
+    filter: blur(0.5px);
     transition: opacity 0.3s ease, filter 0.3s ease;
   }
-  /* JS adds this to the centred (active) card */
+  /* JS adds this class to the centred (active) card */
   .sc-card--active {
     opacity: 1 !important;
     filter: none !important;
   }
 
-  /* Edge fade overlays — inside sc-wrap so they're clipped correctly */
-  .sc-fade {
-    display: block !important;
-    position: absolute;
-    top: 0;
-    bottom: 0;          /* full height of sc-wrap; dots are outside */
-    width: 88px;
-    pointer-events: none;
-    z-index: 3;
-  }
-  .sc-fade-l { left: 0; }
-  .sc-fade-r { right: 0; }
-
-  /* Dot indicators — outside sc-wrap so not clipped */
+  /* Dot indicators — outside sc-wrap so mask doesn't affect them */
   .sc-dots {
     display: flex !important;
     justify-content: center;
