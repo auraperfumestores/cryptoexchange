@@ -220,7 +220,7 @@ export default async function LandingPage() {
                 <span style={{ fontSize: 11, color: 'var(--fr-text-tertiary)', fontFamily: 'var(--fr-font-mono)' }}>USDT/INR ₹88.45</span>
               </div>
 
-              {/* Headline — Sora display font for hero */}
+              {/* Hero headline */}
               <h1 style={{ fontFamily: 'var(--fr-font-display)', fontSize: 'clamp(38px,5.5vw,72px)', fontWeight: 900, letterSpacing: '-0.03em', lineHeight: 1.07, marginBottom: 24, color: 'var(--fr-text-primary)' }}>
                 Sell USDT.<br />
                 Get <span className="fr-gradient-text">₹ INR</span>.<br />

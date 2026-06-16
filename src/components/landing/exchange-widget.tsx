@@ -36,7 +36,7 @@ const FR = {
   danger:     '#F87171',
   teal:       '#00D4C8',
   mono:       "'JetBrains Mono','Fira Code','Courier New',monospace",
-  sans:       "'Inter','Sora',system-ui,sans-serif",
+  sans:       "var(--font-inter),system-ui,sans-serif",
 };
 
 const NET_COLOR: Record<Network, string> = { BEP20: '#F3BA2F', ERC20: '#627EEA', TRC20: '#EF4444' };

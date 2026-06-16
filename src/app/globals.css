@@ -87,9 +87,9 @@
   --fr-radius-sm:   4px;  --fr-radius-md:  8px;  --fr-radius-lg:  12px;
   --fr-radius-xl:   16px; --fr-radius-2xl: 20px; --fr-radius-pill: 999px;
 
-  /* Fonts — Inter primary, Sora for display headings, JetBrains Mono for all numbers */
+  /* Fonts — Inter for all text (variable font, all weights), JetBrains Mono for numbers */
   --fr-font-sans:    var(--font-inter), system-ui, -apple-system, sans-serif;
-  --fr-font-display: var(--font-sora), var(--font-inter), system-ui, -apple-system, sans-serif;
+  --fr-font-display: var(--font-inter), system-ui, -apple-system, sans-serif;
   --fr-font-mono:    var(--font-mono), 'Fira Code', 'Courier New', monospace;
 
   /* Z-index */
@@ -140,7 +140,7 @@
   }
 
   h1,h2,h3,h4,h5,h6 {
-    font-family: var(--font-sora), var(--font-inter), system-ui, -apple-system, sans-serif;
+    font-family: var(--font-inter), system-ui, -apple-system, sans-serif;
     color: var(--fr-text-primary);
     font-weight: 700;
     line-height: 1.2;
