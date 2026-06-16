@@ -1,6 +1,6 @@
 'use client';
 
-import { DeviceMobile, Buildings, MapPin, Copy, Check } from '@phosphor-icons/react';
+import { DeviceMobile as Smartphone, Buildings as Building2, MapPin, Copy, Check } from '@phosphor-icons/react';
 import { useState } from 'react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';

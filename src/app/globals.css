@@ -291,10 +291,10 @@
     letter-spacing: 0.06em;
     text-transform: uppercase;
     white-space: nowrap;
-    color: var(--fr-text-tertiary);
+    color: rgba(255,255,255,0.78);
   }
   .fr-ticker-item--accent { color: var(--fr-lime); }
-  .fr-ticker-item--warn { color: #CCFF00; font-weight: 800; letter-spacing: 0.04em; text-shadow: 0 0 12px rgba(204,255,0,0.4); }
+  .fr-ticker-item--warn { color: #FFFFFF; font-weight: 800; letter-spacing: 0.04em; text-shadow: 0 0 10px rgba(255,255,255,0.25); }
   .fr-ticker-item::after { content: '✦'; font-size: 7px; color: var(--fr-lime); margin-left: var(--fr-sp-3); opacity: 0.5; }
   .fr-ticker-item:last-child::after { display: none; }
 

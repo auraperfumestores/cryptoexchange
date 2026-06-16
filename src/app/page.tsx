@@ -15,18 +15,7 @@ import StaticMesh from '@/components/ui/static-mesh';
 import { connectToDatabase, Rate, rateToDocument } from '@/lib/db';
 
 /* ─── Data ────────────────────────────────────────────── */
-const TICKER_ITEMS = [
-  { label: 'USDT/INR', value: '₹88.45', accent: true },
-  { label: 'BEP-20 Fee', value: '0.5%', accent: false },
-  { label: '⚠ OFFICIAL SITE ONLY', value: 'swapinr.com — Beware of phishing', warn: true },
-  { label: '24H Volume', value: '₹4.2 Cr', accent: true },
-  { label: 'Trades Today', value: '1,247', accent: false },
-  { label: 'Avg Payout', value: '< 15 min', accent: true },
-  { label: 'ERC-20 Rate', value: '₹87.90', accent: false },
-  { label: '⚠ DO NOT SHARE', value: 'Login · OTP · Wallet Keys with anyone', warn: true },
-  { label: 'TRC-20 Rate', value: '₹88.10', accent: true },
-  { label: 'Users Online', value: '834', accent: false },
-];
+// TICKER_ITEMS built dynamically inside LandingPage() using live rates
 
 
 const LIVE_TRADES = [
@@ -113,6 +102,19 @@ export default async function LandingPage() {
       liveRates[doc.network] = doc.sellRate;
     }
   } catch { /* fall back to empty — cards show '—' */ }
+
+  const fmt = (r: number | undefined, fb: string) => r ? `₹${r.toFixed(2)}` : fb;
+  const TICKER_ITEMS = [
+    { label: 'USDT/INR',     value: fmt(liveRates['BEP20'], '₹88.45'), accent: true  },
+    { label: 'ERC-20 Rate',  value: fmt(liveRates['ERC20'], '₹87.90'), accent: false },
+    { label: 'BEP-20 Rate',  value: fmt(liveRates['BEP20'], '₹88.45'), accent: true  },
+    { label: 'TRC-20 Rate',  value: fmt(liveRates['TRC20'], '₹88.10'), accent: false },
+    { label: 'BEP-20 Fee',   value: '0.5%',                            accent: true  },
+    { label: 'Trades (24H)', value: '1,247',                           accent: false },
+    { label: 'Avg Payout',   value: '< 15 min',                        accent: true  },
+    { label: 'Users Online', value: '834',                             accent: false },
+    { label: '💬 Need Help?', value: 'Contact Support for instant help', warn: true  },
+  ];
 
   const tickerDoubled = [...TICKER_ITEMS, ...TICKER_ITEMS];
   const marqueeDoubled = [...MARQUEE_ITEMS, ...MARQUEE_ITEMS];
