@@ -50,18 +50,39 @@ export default function PageLoader() {
   return (
     <>
       <style>{`
-        @keyframes pl-spin {
-          to { transform: rotate(360deg); }
+        @keyframes pl-bar {
+          0%, 100% { transform: scaleY(0.35); opacity: 0.35; }
+          50%       { transform: scaleY(1);    opacity: 1; }
         }
-        @keyframes pl-fade-in {
-          from { opacity: 0; transform: translate(-50%, -50%) scale(0.92); }
+        @keyframes pl-in {
+          from { opacity: 0; transform: translate(-50%, -50%) scale(0.88); }
           to   { opacity: 1; transform: translate(-50%, -50%) scale(1); }
         }
-        @keyframes pl-fade-out {
+        @keyframes pl-out {
           from { opacity: 1; transform: translate(-50%, -50%) scale(1); }
-          to   { opacity: 0; transform: translate(-50%, -50%) scale(0.92); }
+          to   { opacity: 0; transform: translate(-50%, -50%) scale(0.88); }
         }
+        @keyframes pl-bg-in  { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes pl-bg-out { from { opacity: 1; } to { opacity: 0; } }
       `}</style>
+
+      {/* Blur backdrop — single GPU-composited layer, no per-element repaint */}
+      <div
+        aria-hidden="true"
+        style={{
+          position: 'fixed',
+          inset: 0,
+          zIndex: 99998,
+          pointerEvents: 'none',
+          backdropFilter: 'blur(5px)',
+          WebkitBackdropFilter: 'blur(5px)',
+          background: 'rgba(0,0,0,0.18)',
+          willChange: 'opacity',
+          animation: fading
+            ? 'pl-bg-out 0.32s cubic-bezier(0.4,0,0.2,1) forwards'
+            : 'pl-bg-in  0.22s cubic-bezier(0.4,0,0.2,1) forwards',
+        }}
+      />
 
       <div
         aria-hidden="true"
@@ -74,40 +95,33 @@ export default function PageLoader() {
           pointerEvents: 'none',
           display: 'flex',
           alignItems: 'center',
-          gap: 12,
-          padding: '14px 20px',
-          background: 'rgba(10, 10, 10, 0.88)',
-          border: '1px solid rgba(204, 255, 0, 0.13)',
+          justifyContent: 'center',
+          gap: 5,
+          width: 52,
+          height: 44,
+          background: 'rgba(10, 10, 10, 0.85)',
+          border: '1px solid rgba(204, 255, 0, 0.12)',
           borderRadius: 12,
           backdropFilter: 'blur(16px)',
-          boxShadow: '0 8px 40px rgba(0,0,0,0.6), 0 0 0 1px rgba(204,255,0,0.05)',
+          boxShadow: '0 8px 32px rgba(0,0,0,0.55)',
           animation: fading
-            ? 'pl-fade-out 0.32s cubic-bezier(0.4,0,0.2,1) forwards'
-            : 'pl-fade-in 0.22s cubic-bezier(0.4,0,0.2,1) forwards',
+            ? 'pl-out 0.3s cubic-bezier(0.4,0,0.2,1) forwards'
+            : 'pl-in  0.2s cubic-bezier(0.4,0,0.2,1) forwards',
         }}
       >
-        {/* Spinner ring */}
-        <div style={{
-          width: 20,
-          height: 20,
-          borderRadius: '50%',
-          border: '2px solid rgba(204,255,0,0.15)',
-          borderTopColor: '#CCFF00',
-          animation: 'pl-spin 0.65s linear infinite',
-          flexShrink: 0,
-        }} />
-
-        {/* Label */}
-        <span style={{
-          fontSize: 12,
-          fontWeight: 500,
-          color: 'rgba(255,255,255,0.55)',
-          letterSpacing: '0.04em',
-          fontFamily: 'inherit',
-          userSelect: 'none',
-        }}>
-          Loading
-        </span>
+        {[0, 1, 2].map((i) => (
+          <div
+            key={i}
+            style={{
+              width: 3,
+              height: 16,
+              borderRadius: 99,
+              background: '#CCFF00',
+              transformOrigin: 'center',
+              animation: `pl-bar 0.75s ease-in-out ${i * 0.13}s infinite`,
+            }}
+          />
+        ))}
       </div>
     </>
   );

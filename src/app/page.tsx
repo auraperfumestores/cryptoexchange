@@ -8,31 +8,26 @@ import HeroBg3D from '@/components/landing/HeroBg3D';
 import {
   IconArrow, IconShield, IconClock, IconZap, IconLock, IconSwap,
   IconChart, IconGlobe, IconUpi, IconStar, IconCheck, IconPlay,
-  IconX, IconPro, IconTrend, PlatformFeatures,
+  IconX, IconPro, IconTrend, PlatformFeatures, PayoutMethods,
 } from '@/components/landing/page-icons';
 import StatCounter from '@/components/ui/stat-counter';
 import StaticMesh from '@/components/ui/static-mesh';
+import { connectToDatabase, Rate, rateToDocument } from '@/lib/db';
 
 /* ─── Data ────────────────────────────────────────────── */
 const TICKER_ITEMS = [
   { label: 'USDT/INR', value: '₹88.45', accent: true },
   { label: 'BEP-20 Fee', value: '0.5%', accent: false },
+  { label: '⚠ OFFICIAL SITE ONLY', value: 'swapinr.com — Beware of phishing', warn: true },
   { label: '24H Volume', value: '₹4.2 Cr', accent: true },
   { label: 'Trades Today', value: '1,247', accent: false },
   { label: 'Avg Payout', value: '< 15 min', accent: true },
   { label: 'ERC-20 Rate', value: '₹87.90', accent: false },
+  { label: '⚠ DO NOT SHARE', value: 'Login · OTP · Wallet Keys with anyone', warn: true },
   { label: 'TRC-20 Rate', value: '₹88.10', accent: true },
   { label: 'Users Online', value: '834', accent: false },
 ];
 
-const FEATURES = [
-  { icon: <IconZap />, title: 'Instant Settlement', body: 'Most trades settle in 10–15 minutes. No banking delays, day or night.', color: 'var(--fr-lime)' },
-  { icon: <IconChart />, title: 'Best Market Rates', body: 'We monitor rates continuously to ensure you always get maximum value.', color: 'var(--fr-neon-teal)' },
-  { icon: <IconShield />, title: '100% Secure', body: 'Every transaction verified on-chain. No custody risk, no exposure.', color: 'var(--fr-neon-purple)' },
-  { icon: <IconGlobe />, title: 'Multi-Network', body: 'BEP-20, ERC-20, TRC-20 — trade from any blockchain ecosystem.', color: 'var(--fr-neon-blue)' },
-  { icon: <IconUpi />, title: 'UPI · Bank · Cash', body: 'Receive directly to UPI ID, IMPS bank transfer, or in-person cash.', color: 'var(--fr-neon-orange)' },
-  { icon: <IconClock />, title: '24/7 Support', body: 'Real humans on every trade. WhatsApp, Telegram, or email anytime.', color: 'var(--fr-neon-pink)' },
-];
 
 const LIVE_TRADES = [
   { name: 'Raj***', amount: '₹42,500',  txid: 'TXN***4521', network: 'BEP-20', time: '1 min ago',  color: 'teal',   nameColor: '#00D4C8' },
@@ -54,25 +49,27 @@ const LIVE_TRADES = [
 ];
 
 const PRO_FEATURES = [
-  { label: 'Exchange rates', standard: 'Market rate', pro: '+0.3% better rate' },
-  { label: 'Daily volume limit', standard: '₹10 lakhs', pro: 'Unlimited' },
-  { label: 'Settlement speed', standard: '10–20 min', pro: 'Priority < 8 min' },
-  { label: 'Payment methods', standard: 'UPI + Bank', pro: 'UPI + Bank + Cash' },
-  { label: 'Support', standard: 'Email / Telegram', pro: 'Dedicated manager' },
-  { label: 'Cash deals', standard: false, pro: true },
-  { label: 'Bulk pricing', standard: false, pro: true },
+  { label: 'Trust Wallet',   standard: 'Required',                        pro: 'Required'                                  },
+  { label: 'USDT Networks',  standard: 'ERC-20 · BEP-20 · TRC-20',       pro: 'ERC-20 · BEP-20 · TRC-20'                 },
+  { label: 'Exchange rate',  standard: 'Market rate',                     pro: '+0.3% better rate'                         },
+  { label: 'Daily limit',    standard: '₹1 lakh',                         pro: 'Unlimited'                                 },
+  { label: 'Settlement',     standard: '10–20 min',                       pro: '< 8 min*'                                  },
+  { label: 'Payout methods', standard: 'UPI · NEFT · RTGS · IMPS',       pro: 'UPI · NEFT · RTGS · IMPS · CDM · Cash'    },
+  { label: '24×7 Support',   standard: 'Chat · Email · Telegram',         pro: 'Dedicated manager'                         },
+  { label: 'CDM access',     standard: false,                             pro: true                                        },
+  { label: 'Cash deals',     standard: false,                             pro: true                                        },
 ];
 
 const TESTIMONIALS = [
-  { name: 'Arjun M.', location: 'Mumbai', trade: '₹5,00,000', rating: 5, quote: 'Fastest crypto-to-INR service I\'ve used. Got ₹5 lakhs credited within 12 minutes. Absolutely seamless.' },
-  { name: 'Priya S.', location: 'Bangalore', trade: '₹2,50,000', rating: 5, quote: 'Finally an exchange that works in India. Best rates I\'ve found, and the team is super responsive.' },
-  { name: 'Rohit V.', location: 'Delhi', trade: '₹8,00,000', rating: 5, quote: 'My go-to for 6 months. Done 20+ trades and never had an issue. Trust them completely.' },
+  { name: 'Arjun M.',  location: 'Mumbai',    trade: '₹5,00,000', rating: 5, photo: '/testimonials/t1.jpg', quote: 'Fastest crypto-to-INR service I\'ve used. Got ₹5 lakhs credited within 12 minutes. Absolutely seamless.' },
+  { name: 'Vikram R.', location: 'Bangalore', trade: '₹2,50,000', rating: 5, photo: '/testimonials/t2.jpg', quote: 'Finally an exchange that works in India. Best rates I\'ve found, and the team is super responsive.' },
+  { name: 'Rohit V.',  location: 'Delhi NCR', trade: '₹8,00,000', rating: 5, photo: '/testimonials/t3.jpg', quote: 'My go-to for 6 months. Done 20+ trades and never had an issue. Trust them completely.' },
 ];
 
-const NETWORKS = [
-  { name: 'Ethereum (ERC-20)', short: 'ERC-20', color: 'blue' as const, rate: '₹87.90', fee: '0.8%', time: '~15 min', desc: 'Trade USDT on Ethereum mainnet. High security, supported across all major wallets.' },
-  { name: 'BNB Chain (BEP-20)', short: 'BEP-20', color: 'teal' as const, rate: '₹88.45', fee: '0.5%', time: '~8 min', desc: 'Fastest and cheapest network. Ideal for frequent traders who want minimal fees.' },
-  { name: 'TRON (TRC-20)', short: 'TRC-20', color: 'green' as const, rate: '₹88.10', fee: '0.6%', time: '~10 min', desc: 'Most popular USDT network globally. Near-zero fees with fast confirmation times.' },
+const NETWORK_DEFS = [
+  { network: 'ERC20' as const, short: 'ERC-20', color: 'blue'  as const, name: 'Ethereum (ERC-20)',  fee: '~0.8%', time: '~15 min', desc: 'Ethereum mainnet — the most secure standard. Best for large one-off USDT transfers where on-chain verifiability matters most.' },
+  { network: 'BEP20' as const, short: 'BEP-20', color: 'teal'  as const, name: 'BNB Chain (BEP-20)', fee: '~0.5%', time: '~8 min',  desc: 'Lowest gas fees and fastest confirmations. Our most popular network for traders who send USDT frequently.' },
+  { network: 'TRC20' as const, short: 'TRC-20', color: 'green' as const, name: 'TRON (TRC-20)',      fee: '~0.6%', time: '~10 min', desc: "World's most-used USDT network by volume. Near-zero gas, widely supported across wallets and exchanges." },
 ];
 
 const FAQ_ITEMS = [
@@ -106,6 +103,17 @@ export default async function LandingPage() {
   const session = await getServerSession(authOptions);
   if (session?.user) redirect('/dashboard');
 
+  // Fetch live USDT sell rates from DB for the networks section
+  let liveRates: Record<string, number> = {};
+  try {
+    await connectToDatabase();
+    const rates = await Rate.find({ isActive: true, symbol: 'USDT' }).lean();
+    for (const r of rates) {
+      const doc = rateToDocument(r as any);
+      liveRates[doc.network] = doc.sellRate;
+    }
+  } catch { /* fall back to empty — cards show '—' */ }
+
   const tickerDoubled = [...TICKER_ITEMS, ...TICKER_ITEMS];
   const marqueeDoubled = [...MARQUEE_ITEMS, ...MARQUEE_ITEMS];
 
@@ -117,7 +125,7 @@ export default async function LandingPage() {
       <div className="fr-ticker-strip">
         <div className="fr-ticker-track">
           {tickerDoubled.map((item, i) => (
-            <span key={i} className={`fr-ticker-item${item.accent ? ' fr-ticker-item--accent' : ''}`}>
+            <span key={i} className={`fr-ticker-item${item.accent ? ' fr-ticker-item--accent' : item.warn ? ' fr-ticker-item--warn' : ''}`}>
               {item.label}&nbsp;
               <span style={{ fontFamily: 'var(--fr-font-mono)', fontWeight: 700 }}>{item.value}</span>
             </span>
@@ -239,10 +247,10 @@ export default async function LandingPage() {
         <div className="fr-container">
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)' }}>
             {[
-              { label: 'Total Volume Processed', color: 'var(--fr-lime)',         counter: <StatCounter prefix="₹" target={83}   suffix=" Cr+" color="var(--fr-lime)" /> },
-              { label: 'Verified Traders',       color: 'var(--fr-neon-teal)',    counter: <StatCounter target={10000} suffix="+" color="var(--fr-neon-teal)" /> },
-              { label: 'Avg Settlement Time',    color: 'var(--fr-neon-purple)',  counter: <StatCounter prefix="< " target={15}  suffix=" min" color="var(--fr-neon-purple)" /> },
-              { label: 'Trader Rating',          color: 'var(--fr-neon-orange)',  counter: <StatCounter target={4.9} suffix=" / 5.0" decimals={1} color="var(--fr-neon-orange)" /> },
+              { label: 'Total Volume Processed', counter: <StatCounter prefix="₹" base={5824600} ratePerSec={20.83} suffix="+"      color="#CCFF00" /> },
+              { label: 'Verified Traders',       counter: <StatCounter            base={3142}   ratePerSec={0.00083} suffix="+"    color="#FFFFFF" /> },
+              { label: 'Avg Settlement Time',    counter: <StatCounter prefix="< " base={15}                        suffix=" min"  color="#CCFF00" /> },
+              { label: 'Trader Rating',          counter: <StatCounter            base={4.9}                        suffix=" / 5.0" decimals={1} color="#FFFFFF" /> },
             ].map(({ label, counter }, i, arr) => (
               <div key={label} style={{ padding: '24px 28px', borderRight: i < arr.length - 1 ? '1px solid var(--fr-border-subtle)' : 'none', textAlign: 'center' }}>
                 {counter}
@@ -497,22 +505,30 @@ export default async function LandingPage() {
         </div>
       </section>
 
-      {/* ══ 8. WHY SWAPINR ══ */}
-      <section id="features" style={{ padding: '100px 0', background: 'var(--fr-black)' }}>
+      {/* ══ 8. PAYOUT METHODS ══ */}
+      <section id="features" style={{ padding: '100px 0', background: 'var(--fr-black)', position: 'relative' }}>
+        {/* Curved 3D mesh — left 34% of section, fading right */}
+        <StaticMesh
+          cols={22} rows={18}
+          opacity={0.28}
+          lineColor="255,255,255"
+          waveAmp={80}
+          waveT={2.1}
+          diagonals={true}
+          style={{
+            position: 'absolute', top: 0, left: 0, bottom: 0, width: '34%', height: '100%',
+            WebkitMaskImage: 'linear-gradient(to left, transparent 0%, black 50%)',
+            maskImage: 'linear-gradient(to left, transparent 0%, black 50%)',
+          }}
+        />
         <div className="fr-container">
-          <div style={{ textAlign: 'center', marginBottom: 64 }} data-animate="fade-up">
-            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 14px', border: '1px solid var(--fr-border-default)', borderRadius: 999, fontSize: 11, fontWeight: 700, color: 'var(--fr-text-tertiary)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 20 }}>Why SwapINR</div>
-            <h2 style={{ fontFamily: 'var(--fr-font-display)', fontSize: 'clamp(28px,4vw,52px)', fontWeight: 900, letterSpacing: '-0.025em', marginBottom: 14 }}>Built for serious traders</h2>
-            <p style={{ fontSize: 16, color: 'var(--fr-text-secondary)', maxWidth: 460, margin: '0 auto' }}>Everything you need to trade crypto for INR — nothing you don&apos;t.</p>
+          <div style={{ textAlign: 'center', marginBottom: 56 }} data-animate="fade-up">
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 14px', border: '1px solid var(--fr-border-default)', borderRadius: 999, fontSize: 11, fontWeight: 700, color: 'var(--fr-text-tertiary)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 20 }}>Payout Methods</div>
+            <h2 style={{ fontFamily: 'var(--fr-font-display)', fontSize: 'clamp(28px,4vw,52px)', fontWeight: 900, letterSpacing: '-0.025em', marginBottom: 14 }}>Instant Payouts, Your Way</h2>
+            <p style={{ fontSize: 16, color: 'var(--fr-text-secondary)', maxWidth: 500, margin: '0 auto' }}>Six ways to receive your INR — from lightning-fast UPI to in-person cash. <span style={{ color: '#CCFF00', fontWeight: 600 }}>Pro users</span> unlock exclusive high-value channels.</p>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 20 }} data-animate-stagger>
-            {FEATURES.map(f => (
-              <div key={f.title} className="lp-hover-card" style={{ background: 'var(--fr-dark-1)', border: '1px solid var(--fr-border-subtle)', borderRadius: 'var(--fr-radius-xl)', padding: 28 }}>
-                <div style={{ width: 48, height: 48, borderRadius: 12, background: 'rgba(255,255,255,0.04)', border: '1px solid var(--fr-border-subtle)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: f.color, marginBottom: 20 }}>{f.icon}</div>
-                <h3 style={{ fontSize: 16, fontWeight: 700, color: 'var(--fr-text-primary)', marginBottom: 8, letterSpacing: '-0.01em' }}>{f.title}</h3>
-                <p style={{ fontSize: 13, color: 'var(--fr-text-tertiary)', lineHeight: 1.65 }}>{f.body}</p>
-              </div>
-            ))}
+          <div data-animate-stagger>
+            <PayoutMethods />
           </div>
         </div>
       </section>
@@ -531,34 +547,41 @@ export default async function LandingPage() {
         <div className="fr-container">
           <div style={{ textAlign: 'center', marginBottom: 64 }} data-animate="fade-up">
             <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 14px', border: '1px solid var(--fr-border-default)', borderRadius: 999, fontSize: 11, fontWeight: 700, color: 'var(--fr-text-tertiary)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 20 }}>Testimonials</div>
-            <h2 style={{ fontFamily: 'var(--fr-font-display)', fontSize: 'clamp(28px,4vw,52px)', fontWeight: 900, letterSpacing: '-0.025em', marginBottom: 14 }}>Trusted by 10,000+ traders</h2>
+            <h2 style={{ fontFamily: 'var(--fr-font-display)', fontSize: 'clamp(28px,4vw,52px)', fontWeight: 900, letterSpacing: '-0.025em', marginBottom: 14 }}>Trusted by 3,000+ traders</h2>
             <p style={{ fontSize: 16, color: 'var(--fr-text-secondary)', maxWidth: 440, margin: '0 auto' }}>Real stories from people who trade with SwapINR every day.</p>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 20 }} data-animate-stagger>
-            {TESTIMONIALS.map((t, i) => {
-              const colors = ['#CCFF00','#00D4C8','#9B5DE5'];
-              const bgs = ['linear-gradient(135deg,#1a0533,#3B1D8A)','linear-gradient(135deg,#041520,#1D9575)','linear-gradient(135deg,#1a0208,#8A1A2A)'];
-              return (
-                <div key={i} className="fr-video-card">
-                  <div className="fr-video-thumb" style={{ height: 160, background: bgs[i] }}>
-                    <div style={{ width: 64, height: 64, borderRadius: '50%', background: colors[i], display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, fontWeight: 900, color: '#000', border: '3px solid rgba(255,255,255,0.15)' }}>{t.name[0]}</div>
-                    <div className="fr-video-play" style={{ position: 'absolute', top: 12, right: 12, width: 36, height: 36 }}><IconPlay /></div>
-                    <div style={{ position: 'absolute', bottom: 10, left: 12, fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,0.7)', background: 'rgba(0,0,0,0.4)', borderRadius: 6, padding: '3px 8px', fontFamily: 'var(--fr-font-mono)' }}>Trade: {t.trade}</div>
-                  </div>
-                  <div style={{ padding: '18px 20px' }}>
-                    <div className="fr-stars">{Array.from({length:t.rating}).map((_,j)=><IconStar key={j}/>)}</div>
-                    <p style={{ fontSize: 13, color: 'var(--fr-text-secondary)', lineHeight: 1.65, marginBottom: 14 }}>&ldquo;{t.quote}&rdquo;</p>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <div style={{ width: 28, height: 28, borderRadius: '50%', background: colors[i], display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 800, color: '#000' }}>{t.name[0]}</div>
-                      <div>
-                        <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--fr-text-primary)' }}>{t.name}</div>
-                        <div style={{ fontSize: 11, color: 'var(--fr-text-tertiary)' }}>🇮🇳 {t.location}</div>
-                      </div>
+            {TESTIMONIALS.map((t, i) => (
+              <div key={i} className="fr-video-card">
+                {/* Photo thumbnail — 3:4 portrait crop */}
+                <div style={{ position: 'relative', width: '100%', aspectRatio: '3/4', maxHeight: 260, overflow: 'hidden' }}>
+                  <img
+                    src={t.photo}
+                    alt={t.name}
+                    style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center 15%', display: 'block' }}
+                  />
+                  {/* Bottom gradient for trade label legibility */}
+                  <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.72) 0%, transparent 55%)' }} />
+                  <div style={{ position: 'absolute', bottom: 12, left: 14, fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,0.85)', background: 'rgba(0,0,0,0.45)', borderRadius: 6, padding: '3px 9px', fontFamily: 'var(--fr-font-mono)', backdropFilter: 'blur(4px)' }}>Trade: {t.trade}</div>
+                </div>
+
+                <div style={{ padding: '18px 20px' }}>
+                  <div className="fr-stars">{Array.from({length: t.rating}).map((_,j) => <IconStar key={j}/>)}</div>
+                  <p style={{ fontSize: 13, color: 'var(--fr-text-secondary)', lineHeight: 1.65, marginBottom: 14 }}>&ldquo;{t.quote}&rdquo;</p>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <img
+                      src={t.photo}
+                      alt={t.name}
+                      style={{ width: 30, height: 30, borderRadius: '50%', objectFit: 'cover', objectPosition: 'center 15%', flexShrink: 0 }}
+                    />
+                    <div>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--fr-text-primary)' }}>{t.name}</div>
+                      <div style={{ fontSize: 11, color: 'var(--fr-text-tertiary)' }}>🇮🇳 {t.location}</div>
                     </div>
                   </div>
                 </div>
-              );
-            })}
+              </div>
+            ))}
           </div>
         </div>
       </section>
@@ -566,30 +589,98 @@ export default async function LandingPage() {
       {/* ══ 11. NETWORKS ══ */}
       <section id="networks" style={{ padding: '100px 0', background: 'var(--fr-dark-0)', borderTop: '1px solid var(--fr-border-subtle)' }}>
         <div className="fr-container">
-          <div style={{ textAlign: 'center', marginBottom: 64 }} data-animate="fade-up">
-            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 14px', border: '1px solid var(--fr-border-default)', borderRadius: 999, fontSize: 11, fontWeight: 700, color: 'var(--fr-text-tertiary)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 20 }}>Supported Networks</div>
-            <h2 style={{ fontFamily: 'var(--fr-font-display)', fontSize: 'clamp(28px,4vw,52px)', fontWeight: 900, letterSpacing: '-0.025em', marginBottom: 14 }}>Trade from any blockchain</h2>
-            <p style={{ fontSize: 16, color: 'var(--fr-text-secondary)', maxWidth: 460, margin: '0 auto' }}>Send USDT from whichever network works best — we handle the rest.</p>
+          <div style={{ textAlign: 'center', marginBottom: 40 }} data-animate="fade-up">
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 14px', border: '1px solid var(--fr-border-default)', borderRadius: 999, fontSize: 11, fontWeight: 700, color: 'var(--fr-text-tertiary)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 20 }}>USDT · 3 Networks</div>
+            <h2 style={{ fontFamily: 'var(--fr-font-display)', fontSize: 'clamp(28px,4vw,52px)', fontWeight: 900, letterSpacing: '-0.025em', marginBottom: 14 }}>We accept USDT on 3 Networks</h2>
+            <p style={{ fontSize: 16, color: 'var(--fr-text-secondary)', maxWidth: 500, margin: '0 auto' }}>Send USDT from ERC-20, BEP-20, or TRC-20 — receive INR directly in your bank or UPI. Rates shown are live sell rates from our exchange desk.</p>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 24 }} data-animate-stagger>
-            {NETWORKS.map(n => (
-              <div key={n.name} className={`fr-neon-card fr-neon-card--${n.color}`}>
-                <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '5px 14px', borderRadius: 999, background: 'rgba(255,255,255,0.04)', border: '1px solid var(--fr-border-subtle)', fontSize: 11, fontWeight: 700, color: 'var(--fr-text-secondary)', letterSpacing: '0.06em', marginBottom: 20 }}>{n.short}</div>
-                <h3 style={{ fontSize: 18, fontWeight: 800, color: 'var(--fr-text-primary)', marginBottom: 10, letterSpacing: '-0.01em' }}>{n.name}</h3>
-                <p style={{ fontSize: 13, color: 'var(--fr-text-tertiary)', lineHeight: 1.65, marginBottom: 24 }}>{n.desc}</p>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12 }}>
-                  {[{ label: 'Rate', value: n.rate }, { label: 'Fee', value: n.fee }, { label: 'Time', value: n.time }].map(({ label, value }) => (
-                    <div key={label}>
-                      <div style={{ fontSize: 9, fontWeight: 700, color: 'var(--fr-text-disabled)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 4 }}>{label}</div>
-                      <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--fr-text-primary)', fontFamily: 'var(--fr-font-mono)' }}>{value}</div>
-                    </div>
-                  ))}
-                </div>
-                <div style={{ marginTop: 24 }}>
-                  <Link href="/register" className="fr-btn fr-btn--ghost fr-btn--md fr-btn--full">Trade {n.short} <IconArrow /></Link>
-                </div>
+
+          {/* Trust Wallet notice */}
+          <div style={{
+            position: 'relative', overflow: 'hidden',
+            display: 'flex', alignItems: 'center', gap: 18,
+            padding: '20px 28px',
+            background: 'linear-gradient(115deg, rgba(0,5,255,0.12) 0%, rgba(0,180,140,0.07) 55%, rgba(0,5,255,0.05) 100%)',
+            border: '1px solid rgba(80,130,255,0.28)',
+            borderLeft: '3px solid #3375BB',
+            borderRadius: 16,
+            maxWidth: 640, margin: '0 auto 52px',
+            boxShadow: '0 0 40px rgba(0,80,255,0.09), inset 0 1px 0 rgba(255,255,255,0.05)',
+          }}>
+            {/* Large shield watermark */}
+            <svg aria-hidden="true" style={{ position: 'absolute', right: -18, top: -12, width: 150, height: 165, opacity: 0.13, pointerEvents: 'none' }} viewBox="0 0 140 170" fill="none">
+              <defs>
+                <linearGradient id="tw-bg" x1="0" y1="0" x2="1" y2="1">
+                  <stop offset="0%" stopColor="#1EFFBC" />
+                  <stop offset="100%" stopColor="#0088FF" />
+                </linearGradient>
+              </defs>
+              <path d="M70,6 L130,30 L130,98 C130,136 70,166 70,166 L70,6Z" fill="#1A00FF" />
+              <path d="M70,6 L10,30 L10,98 C10,136 70,166 70,166 L70,6Z" fill="url(#tw-bg)" />
+            </svg>
+
+            {/* Small Trust Wallet shield icon */}
+            <div style={{ flexShrink: 0 }}>
+              <svg width="36" height="42" viewBox="0 0 140 170" fill="none">
+                <defs>
+                  <linearGradient id="tw-icon" x1="0" y1="0" x2="1" y2="1">
+                    <stop offset="0%" stopColor="#1EFFBC" />
+                    <stop offset="100%" stopColor="#0088FF" />
+                  </linearGradient>
+                </defs>
+                <path d="M70,6 L130,30 L130,98 C130,136 70,166 70,166 L70,6Z" fill="#1A00FF" />
+                <path d="M70,6 L10,30 L10,98 C10,136 70,166 70,166 L70,6Z" fill="url(#tw-icon)" />
+              </svg>
+            </div>
+
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: 'rgba(255,255,255,0.95)', marginBottom: 5, letterSpacing: '-0.01em' }}>
+                Automatic transfers supported via{' '}
+                <span style={{ background: 'linear-gradient(90deg,#1EFFBC,#3375BB)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', fontWeight: 800 }}>
+                  Trust Wallet
+                </span>
               </div>
-            ))}
+              <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.42)', lineHeight: 1.65 }}>
+                Connect your Trust Wallet for the fastest automated processing. Other EVM-compatible wallets (MetaMask, Coinbase Wallet) are accepted via manual transfer.
+              </div>
+            </div>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 24 }} data-animate-stagger>
+            {NETWORK_DEFS.map(n => {
+              const sellRate = liveRates[n.network];
+              const rateDisplay = sellRate ? `₹${sellRate.toFixed(2)}` : '—';
+              return (
+                <div key={n.name} className={`fr-neon-card fr-neon-card--${n.color}`}>
+                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '5px 14px', borderRadius: 999, background: 'rgba(255,255,255,0.04)', border: '1px solid var(--fr-border-subtle)', fontSize: 11, fontWeight: 700, color: 'var(--fr-text-secondary)', letterSpacing: '0.06em', marginBottom: 20 }}>{n.short}</div>
+                  <h3 style={{ fontSize: 18, fontWeight: 800, color: 'var(--fr-text-primary)', marginBottom: 10, letterSpacing: '-0.01em' }}>{n.name}</h3>
+                  <p style={{ fontSize: 13, color: 'var(--fr-text-tertiary)', lineHeight: 1.65, marginBottom: 24 }}>{n.desc}</p>
+
+                  {/* Live rate row */}
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: 'rgba(255,255,255,0.03)', borderRadius: 10, border: '1px solid rgba(255,255,255,0.06)', marginBottom: 16 }}>
+                    <div>
+                      <div style={{ fontSize: 9, fontWeight: 700, color: 'var(--fr-text-disabled)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 3 }}>Live Sell Rate</div>
+                      <div style={{ fontSize: 22, fontWeight: 900, color: '#CCFF00', fontFamily: 'var(--fr-font-mono)', letterSpacing: '-0.02em' }}>{rateDisplay}</div>
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                      <div style={{ fontSize: 9, fontWeight: 700, color: 'var(--fr-text-disabled)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 3 }}>per USDT</div>
+                      <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 10, fontWeight: 700, color: '#CCFF00', background: 'rgba(204,255,0,0.08)', border: '1px solid rgba(204,255,0,0.18)', borderRadius: 6, padding: '3px 8px' }}>● LIVE</div>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 20 }}>
+                    {[{ label: 'Platform Fee', value: n.fee }, { label: 'Avg. Time', value: n.time }].map(({ label, value }) => (
+                      <div key={label} style={{ padding: '8px 10px', background: 'rgba(255,255,255,0.02)', borderRadius: 8, border: '1px solid rgba(255,255,255,0.05)' }}>
+                        <div style={{ fontSize: 9, fontWeight: 700, color: 'var(--fr-text-disabled)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 3 }}>{label}</div>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--fr-text-primary)', fontFamily: 'var(--fr-font-mono)' }}>{value}</div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <Link href="/register" className="fr-btn fr-btn--ghost fr-btn--md fr-btn--full">Sell USDT via {n.short} <IconArrow /></Link>
+                </div>
+              );
+            })}
           </div>
         </div>
       </section>
@@ -605,41 +696,102 @@ export default async function LandingPage() {
             <p style={{ fontSize: 16, color: 'var(--fr-text-secondary)', maxWidth: 480, margin: '0 auto' }}>For serious traders who want the best rates, priority support, and exclusive cash deals.</p>
           </div>
 
-          <div className="lp-pro-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24, maxWidth: 860, margin: '0 auto' }}>
-            {/* Standard */}
-            <div style={{ background: 'var(--fr-dark-1)', border: '1px solid var(--fr-border-default)', borderRadius: 20, padding: 32 }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--fr-text-tertiary)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 16 }}>Standard</div>
-              <div style={{ marginBottom: 28 }}>
-                <span style={{ fontFamily: 'var(--fr-font-display)', fontSize: 42, fontWeight: 900, color: 'var(--fr-text-primary)' }}>Free</span>
-                <span style={{ fontSize: 14, color: 'var(--fr-text-tertiary)', marginLeft: 8 }}>forever</span>
-              </div>
-              {PRO_FEATURES.map(f => (
-                <div key={f.label} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '11px 0', borderBottom: '1px solid var(--fr-border-subtle)' }}>
-                  <span style={{ fontSize: 13, color: 'var(--fr-text-tertiary)' }}>{f.label}</span>
-                  <span style={{ fontSize: 13, fontWeight: 600, color: f.standard === false ? 'var(--fr-text-disabled)' : 'var(--fr-text-secondary)' }}>{f.standard === false ? '—' : String(f.standard)}</span>
-                </div>
-              ))}
-              <Link href="/register" className="fr-btn fr-btn--ghost fr-btn--lg fr-btn--full" style={{ marginTop: 28 }}>Get Started Free</Link>
-            </div>
+          {/* Asymmetric grid — Pro card is wider */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.3fr', gap: 20, maxWidth: 920, margin: '0 auto', alignItems: 'start' }}>
 
-            {/* PRO */}
-            <div style={{ background: 'linear-gradient(145deg,#0a1a00,#0d2200,#050505)', border: '1px solid rgba(204,255,0,0.25)', borderRadius: 20, padding: 32, position: 'relative', boxShadow: '0 0 60px rgba(204,255,0,0.06)' }}>
-              <div style={{ position: 'absolute', top: -14, left: '50%', transform: 'translateX(-50%)', background: 'var(--fr-lime)', color: '#000', fontSize: 10, fontWeight: 800, letterSpacing: '0.1em', textTransform: 'uppercase', padding: '4px 16px', borderRadius: 999, whiteSpace: 'nowrap' }}>Most Popular</div>
-              <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--fr-lime)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 16 }}>PRO</div>
-              <div style={{ marginBottom: 28 }}>
-                <span style={{ fontFamily: 'var(--fr-font-mono)', fontSize: 42, fontWeight: 900, color: 'var(--fr-text-primary)' }}>₹499</span>
-                <span style={{ fontSize: 14, color: 'var(--fr-text-tertiary)', marginLeft: 8 }}>/month</span>
+            {/* ── Free card ── */}
+            <div style={{ background: 'var(--fr-dark-1)', border: '1px solid var(--fr-border-default)', borderRadius: 20, padding: '28px 28px 24px' }}>
+              <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--fr-text-disabled)', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 14 }}>Standard</div>
+              <div style={{ marginBottom: 6 }}>
+                <span style={{ fontFamily: 'var(--fr-font-display)', fontSize: 40, fontWeight: 900, color: 'var(--fr-text-primary)', letterSpacing: '-0.03em' }}>Free</span>
+                <span style={{ fontSize: 13, color: 'var(--fr-text-tertiary)', marginLeft: 8 }}>forever</span>
               </div>
+
+              {/* Trust Wallet pill — green */}
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 10px', borderRadius: 8, background: 'rgba(204,255,0,0.06)', border: '1px solid rgba(204,255,0,0.18)', fontSize: 11, fontWeight: 600, color: '#CCFF00', marginBottom: 24 }}>
+                <svg width="11" height="13" viewBox="0 0 140 170" fill="none"><path d="M70,6 L130,30 L130,98 C130,136 70,166 70,166 L70,6Z" fill="#1A00FF"/><path d="M70,6 L10,30 L10,98 C10,136 70,166 70,166 L70,6Z" fill="#1EFFBC"/></svg>
+                Trust Wallet required
+              </div>
+
               {PRO_FEATURES.map(f => (
-                <div key={f.label} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '11px 0', borderBottom: '1px solid rgba(204,255,0,0.08)' }}>
-                  <span style={{ fontSize: 13, color: 'var(--fr-text-secondary)' }}>{f.label}</span>
-                  <span style={{ fontSize: 13, fontWeight: 700, color: f.pro === true ? 'var(--fr-lime)' : 'var(--fr-text-primary)', display: 'flex', alignItems: 'center', gap: 4 }}>
-                    {f.pro === true ? <><span style={{ color: 'var(--fr-lime)' }}><IconCheck /></span>Yes</> : String(f.pro)}
+                <div key={f.label} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '10px 0', borderBottom: '1px solid var(--fr-border-subtle)' }}>
+                  <span style={{ fontSize: 12, color: 'var(--fr-text-tertiary)', flexShrink: 0 }}>{f.label}</span>
+                  <span style={{ fontSize: 12, fontWeight: 600, textAlign: 'right',
+                    color: f.standard === false ? 'var(--fr-text-disabled)'
+                      : (f.label === 'Trust Wallet' || f.label === '24×7 Support') ? '#CCFF00'
+                      : 'var(--fr-text-secondary)'
+                  }}>
+                    {f.standard === false ? '—' : String(f.standard)}
                   </span>
                 </div>
               ))}
-              <Link href="/register" className="fr-btn fr-btn--primary fr-btn--lg fr-btn--full" style={{ marginTop: 28 }}>Upgrade to PRO <IconArrow /></Link>
+              <Link href="/register" className="fr-btn fr-btn--ghost fr-btn--lg fr-btn--full" style={{ marginTop: 24 }}>Get Started Free</Link>
             </div>
+
+            {/* ── PRO card ── */}
+            <div style={{
+              position: 'relative', overflow: 'hidden',
+              borderRadius: 22, padding: '36px 32px 30px',
+              background: 'linear-gradient(145deg,#091800,#0d2200,#060806)',
+              border: '1px solid rgba(204,255,0,0.3)',
+              boxShadow: '0 0 70px rgba(204,255,0,0.07), 0 0 0 1px rgba(204,255,0,0.05)',
+            }}>
+              {/* Same curved mesh as purple step card */}
+              <StaticMesh
+                cols={16} rows={12}
+                opacity={0.22}
+                lineColor="180,255,80"
+                waveAmp={55}
+                waveT={1.4}
+                diagonals={true}
+                style={{
+                  position: 'absolute', bottom: 0, left: 0, right: 0, height: '65%', zIndex: 0,
+                  WebkitMaskImage: 'linear-gradient(to bottom, transparent 0%, black 50%)',
+                  maskImage: 'linear-gradient(to bottom, transparent 0%, black 50%)',
+                }}
+              />
+              {/* Content sits above mesh */}
+              <div style={{ position: 'relative', zIndex: 1 }}>
+                {/* Most popular badge */}
+                <div style={{ position: 'absolute', top: -37, left: '50%', transform: 'translateX(-50%)', background: '#CCFF00', color: '#000', fontSize: 10, fontWeight: 800, letterSpacing: '0.1em', textTransform: 'uppercase', padding: '5px 18px', borderRadius: '0 0 10px 10px', whiteSpace: 'nowrap' }}>Most Popular</div>
+
+                <div style={{ fontSize: 10, fontWeight: 800, color: '#CCFF00', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 14 }}>PRO</div>
+                <div style={{ marginBottom: 6 }}>
+                  <span style={{ fontFamily: 'var(--fr-font-mono)', fontSize: 46, fontWeight: 900, color: 'var(--fr-text-primary)', letterSpacing: '-0.03em' }}>₹499</span>
+                  <span style={{ fontSize: 13, color: 'var(--fr-text-tertiary)', marginLeft: 8 }}>/month</span>
+                </div>
+
+                {/* Trust Wallet pill — green */}
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 10px', borderRadius: 8, background: 'rgba(204,255,0,0.07)', border: '1px solid rgba(204,255,0,0.22)', fontSize: 11, fontWeight: 600, color: '#CCFF00', marginBottom: 24 }}>
+                  <svg width="11" height="13" viewBox="0 0 140 170" fill="none"><path d="M70,6 L130,30 L130,98 C130,136 70,166 70,166 L70,6Z" fill="#1A00FF"/><path d="M70,6 L10,30 L10,98 C10,136 70,166 70,166 L70,6Z" fill="#1EFFBC"/></svg>
+                  Trust Wallet required
+                </div>
+
+                {PRO_FEATURES.map(f => (
+                  <div key={f.label} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '10px 0', borderBottom: '1px solid rgba(204,255,0,0.07)' }}>
+                    <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.55)', flexShrink: 0 }}>{f.label}</span>
+                    <span style={{ fontSize: 12, fontWeight: 700, textAlign: 'right', display: 'flex', alignItems: 'center', gap: 5,
+                      color: f.pro === true || f.label === 'Trust Wallet' || f.label === 'CDM access' || f.label === 'Cash deals' ? '#CCFF00' : 'rgba(255,255,255,0.9)'
+                    }}>
+                      {f.pro === true ? <><IconCheck />Yes</> : String(f.pro)}
+                    </span>
+                  </div>
+                ))}
+
+                {/* Settlement T&C footnote */}
+                <div style={{ marginTop: 10, fontSize: 10, color: 'rgba(255,255,255,0.3)', lineHeight: 1.5 }}>
+                  * &lt; 8 min settlement applies to online UPI / IMPS / NEFT / RTGS transactions. CDM &amp; Cash Deals may take longer depending on location.
+                </div>
+
+                {/* CDM + Cash highlight note */}
+                <div style={{ marginTop: 12, padding: '10px 14px', borderRadius: 10, background: 'rgba(204,255,0,0.05)', border: '1px solid rgba(204,255,0,0.15)', fontSize: 11, color: 'rgba(255,255,255,0.5)', lineHeight: 1.6 }}>
+                  <span style={{ color: '#CCFF00', fontWeight: 700 }}>PRO exclusive:</span> CDM &amp; in-person Cash Deals unlocked for verified Pro members in select cities.
+                </div>
+
+                <Link href="/register" className="fr-btn fr-btn--primary fr-btn--lg fr-btn--full" style={{ marginTop: 22 }}>Upgrade to PRO <IconArrow /></Link>
+              </div>
+            </div>
+
           </div>
         </div>
       </section>
@@ -739,28 +891,8 @@ export default async function LandingPage() {
                   </div>
                 ))}
               </div>
-              <Link href="/register" className="fr-btn fr-btn--primary fr-btn--lg">Access Free Guides <IconArrow /></Link>
+              <button disabled className="fr-btn fr-btn--primary fr-btn--lg" style={{ opacity: 0.6, cursor: 'not-allowed' }}>Coming Soon</button>
             </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ══ 15. SECURITY ══ */}
-      <section style={{ padding: '80px 0', background: 'var(--fr-dark-0)', borderTop: '1px solid var(--fr-border-subtle)' }}>
-        <div className="fr-container">
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 20 }} data-animate-stagger>
-            {[
-              { icon: <IconShield />, title: 'On-Chain Verified', body: 'Every deposit confirmed via blockchain APIs.', color: 'var(--fr-lime)' },
-              { icon: <IconLock />, title: '256-bit Encryption', body: 'All data and comms protected with TLS.', color: 'var(--fr-neon-teal)' },
-              { icon: <IconClock />, title: 'Real-Time Tracking', body: 'Live confirmation updates on every trade.', color: 'var(--fr-neon-purple)' },
-              { icon: <IconGlobe />, title: 'FEMA Compliant', body: 'Operating under Indian financial regulations.', color: 'var(--fr-neon-blue)' },
-            ].map(({ icon, title, body, color }) => (
-              <div key={title} style={{ textAlign: 'center', padding: '24px 16px' }}>
-                <div style={{ width: 52, height: 52, borderRadius: 14, background: 'rgba(255,255,255,0.04)', border: '1px solid var(--fr-border-subtle)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px', color }}>{icon}</div>
-                <h3 style={{ fontSize: 14, fontWeight: 700, color: 'var(--fr-text-primary)', marginBottom: 8 }}>{title}</h3>
-                <p style={{ fontSize: 12, color: 'var(--fr-text-tertiary)', lineHeight: 1.65 }}>{body}</p>
-              </div>
-            ))}
           </div>
         </div>
       </section>

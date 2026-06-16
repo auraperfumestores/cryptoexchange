@@ -294,6 +294,7 @@
     color: var(--fr-text-tertiary);
   }
   .fr-ticker-item--accent { color: var(--fr-lime); }
+  .fr-ticker-item--warn { color: #CCFF00; font-weight: 800; letter-spacing: 0.04em; text-shadow: 0 0 12px rgba(204,255,0,0.4); }
   .fr-ticker-item::after { content: '✦'; font-size: 7px; color: var(--fr-lime); margin-left: var(--fr-sp-3); opacity: 0.5; }
   .fr-ticker-item:last-child::after { display: none; }
 
