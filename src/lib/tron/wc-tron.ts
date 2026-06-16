@@ -249,7 +249,7 @@ export async function wcSignAndSendTronTx(
   } catch (err: any) {
     // Method not supported by this Trust Wallet build → fall back to sign + broadcast
     const msg = err?.message ?? String(err);
-    if (/unsupported|not supported|method not found|not implement/i.test(msg)) {
+    if (/unsupported|not supported|method not found|not implement|missing|invalid/i.test(msg)) {
       const signed = await (client.request as any)({
         topic,
         chainId: TRON_WC_CHAIN,
