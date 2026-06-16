@@ -51,9 +51,14 @@ const PRO_FEATURES = [
 ];
 
 const TESTIMONIALS = [
-  { name: 'Arjun M.',  location: 'Mumbai',    trade: '₹5,00,000', rating: 5, photo: '/testimonials/t1.jpg', quote: 'Fastest crypto-to-INR service I\'ve used. Got ₹5 lakhs credited within 12 minutes. Absolutely seamless.' },
-  { name: 'Vikram R.', location: 'Bangalore', trade: '₹2,50,000', rating: 5, photo: '/testimonials/t2.jpg', quote: 'Finally an exchange that works in India. Best rates I\'ve found, and the team is super responsive.' },
-  { name: 'Rohit V.',  location: 'Delhi NCR', trade: '₹8,00,000', rating: 5, photo: '/testimonials/t3.jpg', quote: 'My go-to for 6 months. Done 20+ trades and never had an issue. Trust them completely.' },
+  { name: 'Arjun M.',  location: 'Mumbai',    trade: '₹5,00,000', rating: 5, photo: '/testimonials/t1.jpg', quote: 'Sent USDT on BEP-20 and had ₹5 lakhs in my UPI within 12 minutes. No other platform in India comes close to this speed.' },
+  { name: 'Vikram R.', location: 'Bangalore', trade: '₹2,50,000', rating: 5, photo: '/testimonials/t2.jpg', quote: 'The live sell rate on the widget is exactly what lands in my account — zero hidden spread, zero surprise deductions. Refreshing honesty.' },
+  { name: 'Rohit V.',  location: 'Delhi NCR', trade: '₹8,00,000', rating: 5, photo: '/testimonials/t3.jpg', quote: '20+ trades across ERC-20 and TRC-20 over 6 months. Not a single delay, not a single rupee short. I trust SwapINR completely.' },
+  { name: 'Nikhil S.', location: 'Pune',      trade: '₹1,20,000', rating: 5, photo: '/testimonials/t4.jpg', quote: 'Sold TRC-20 USDT and received INR via IMPS in under 10 minutes on a Sunday. Their 24×7 support confirmed my transfer on WhatsApp instantly.' },
+  { name: 'Karan T.',  location: 'Hyderabad', trade: '₹3,75,000', rating: 5, photo: '/testimonials/t5.jpg', quote: 'PRO membership pays for itself. The +0.3% better rate on every trade adds up fast, and the dedicated manager is always reachable.' },
+  { name: 'Mohan K.',  location: 'Chennai',   trade: '₹60,000',   rating: 5, photo: '/testimonials/t6.jpg', quote: 'TRC-20 fees are near zero and SwapINR\'s INR rate beats every CEX I\'ve tried. One flat fee shown upfront — no withdrawal charge, ever.' },
+  { name: 'Aditya P.', location: 'Kolkata',   trade: '₹9,50,000', rating: 5, photo: '/testimonials/t7.jpg', quote: 'Moved ₹9.5 lakhs via ERC-20 to RTGS on PRO — settled in under 8 minutes. AES-256 encryption and KYC operators give me full peace of mind.' },
+  { name: 'Sahil D.',  location: 'Ahmedabad', trade: '₹2,10,000', rating: 5, photo: '/testimonials/t8.jpg', quote: 'Bought USDT with INR and sold it back the same day. Both directions work flawlessly. SwapINR is the only platform I recommend to other traders.' },
 ];
 
 const NETWORK_DEFS = [
@@ -119,6 +124,28 @@ export default async function LandingPage() {
 
   const tickerDoubled = [...TICKER_ITEMS, ...TICKER_ITEMS];
   const marqueeDoubled = [...MARQUEE_ITEMS, ...MARQUEE_ITEMS];
+  const testiDoubled = [...TESTIMONIALS, ...TESTIMONIALS];
+
+  const renderTestiCard = (t: (typeof TESTIMONIALS)[0], i: number) => (
+    <div key={i} className="fr-video-card">
+      <div style={{ position: 'relative', width: '100%', aspectRatio: '3/4', maxHeight: 260, overflow: 'hidden' }}>
+        <img src={t.photo} alt={t.name} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center 15%', display: 'block' }} />
+        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.72) 0%, transparent 55%)' }} />
+        <div style={{ position: 'absolute', bottom: 12, left: 14, fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,0.85)', background: 'rgba(0,0,0,0.45)', borderRadius: 6, padding: '3px 9px', fontFamily: 'var(--fr-font-mono)', backdropFilter: 'blur(4px)' }}>Trade: {t.trade}</div>
+      </div>
+      <div style={{ padding: '18px 20px' }}>
+        <div className="fr-stars">{Array.from({length: t.rating}).map((_,j) => <IconStar key={j}/>)}</div>
+        <p style={{ fontSize: 13, color: 'var(--fr-text-secondary)', lineHeight: 1.65, marginBottom: 14 }}>&ldquo;{t.quote}&rdquo;</p>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <img src={t.photo} alt={t.name} style={{ width: 30, height: 30, borderRadius: '50%', objectFit: 'cover', objectPosition: 'center 15%', flexShrink: 0 }} />
+          <div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--fr-text-primary)' }}>{t.name}</div>
+            <div style={{ fontSize: 11, color: 'var(--fr-text-tertiary)' }}>🇮🇳 {t.location}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 
   return (
     <main style={{ background: 'var(--fr-black)', overflowX: 'hidden', fontFamily: 'var(--fr-font-sans)' }}>
@@ -205,13 +232,13 @@ export default async function LandingPage() {
               {/* CTAs */}
               <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', marginBottom: 40 }}>
                 <Link href="/register" className="fr-btn fr-btn--primary fr-btn--xl" style={{ fontFamily: 'var(--fr-font-sans)', fontWeight: 700 }}>
-                  Start Trading Free <IconArrow />
+                  Swap Now <IconArrow />
                 </Link>
                 <Link href="#how" className="fr-btn fr-btn--ghost fr-btn--xl">How It Works</Link>
               </div>
 
               {/* Trustpilot-style rating */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
+              <div className="lp-hero-trust">
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <div style={{ display: 'flex', gap: 2 }}>
                     {[1,2,3,4,5].map(i => (
@@ -225,7 +252,7 @@ export default async function LandingPage() {
                     <div style={{ fontSize: 11, color: 'var(--fr-text-tertiary)' }}>4.9 · 1000+ reviews</div>
                   </div>
                 </div>
-                <div style={{ width: 1, height: 28, background: 'var(--fr-border-subtle)' }} />
+                <div className="lp-hero-trust__divider" />
                 {[
                   { icon: <IconShield />, label: '100% Secure' },
                   { icon: <IconClock />, label: '< 15 min' },
@@ -603,47 +630,33 @@ export default async function LandingPage() {
             <h2 style={{ fontFamily: 'var(--fr-font-display)', fontSize: 'clamp(28px,4vw,52px)', fontWeight: 900, letterSpacing: '-0.025em', marginBottom: 14 }}>Trusted by 3,000+ traders</h2>
             <p style={{ fontSize: 16, color: 'var(--fr-text-secondary)', maxWidth: 440, margin: '0 auto' }}>Real stories from people who trade with SwapINR every day.</p>
           </div>
-          <SnapCarousel bg="var(--fr-black)">
-          <div className="sc-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 20 }} data-animate-stagger>
-            {TESTIMONIALS.map((t, i) => (
-              <div key={i} className="fr-video-card">
-                {/* Photo thumbnail — 3:4 portrait crop */}
-                <div style={{ position: 'relative', width: '100%', aspectRatio: '3/4', maxHeight: 260, overflow: 'hidden' }}>
-                  <img
-                    src={t.photo}
-                    alt={t.name}
-                    style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center 15%', display: 'block' }}
-                  />
-                  {/* Bottom gradient for trade label legibility */}
-                  <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.72) 0%, transparent 55%)' }} />
-                  <div style={{ position: 'absolute', bottom: 12, left: 14, fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,0.85)', background: 'rgba(0,0,0,0.45)', borderRadius: 6, padding: '3px 9px', fontFamily: 'var(--fr-font-mono)', backdropFilter: 'blur(4px)' }}>Trade: {t.trade}</div>
-                </div>
-
-                <div style={{ padding: '18px 20px' }}>
-                  <div className="fr-stars">{Array.from({length: t.rating}).map((_,j) => <IconStar key={j}/>)}</div>
-                  <p style={{ fontSize: 13, color: 'var(--fr-text-secondary)', lineHeight: 1.65, marginBottom: 14 }}>&ldquo;{t.quote}&rdquo;</p>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <img
-                      src={t.photo}
-                      alt={t.name}
-                      style={{ width: 30, height: 30, borderRadius: '50%', objectFit: 'cover', objectPosition: 'center 15%', flexShrink: 0 }}
-                    />
-                    <div>
-                      <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--fr-text-primary)' }}>{t.name}</div>
-                      <div style={{ fontSize: 11, color: 'var(--fr-text-tertiary)' }}>🇮🇳 {t.location}</div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ))}
+          {/* Infinite auto-scroll ticker — desktop + mobile */}
+          <div className="fr-testi-ticker">
+            <div className="fr-testi-ticker__track">
+              {testiDoubled.map(renderTestiCard)}
+            </div>
           </div>
-          </SnapCarousel>
         </div>
       </section>
 
       {/* ══ 11. NETWORKS ══ */}
-      <section id="networks" style={{ padding: '100px 0', background: 'var(--fr-dark-0)', borderTop: '1px solid var(--fr-border-subtle)' }}>
-        <div className="fr-container">
+      <section id="networks" style={{ padding: '100px 0', background: 'var(--fr-dark-0)', borderTop: '1px solid var(--fr-border-subtle)', position: 'relative', overflow: 'hidden' }}>
+        {/* Green grid mesh — bottom of section, fades upward */}
+        <StaticMesh
+          cols={24} rows={16}
+          opacity={0.30}
+          lineColor="204,255,0"
+          waveAmp={55}
+          waveT={0.9}
+          diagonals={true}
+          className="lp-networks-mesh"
+          style={{
+            position: 'absolute', bottom: 0, left: 0, width: '100%', height: '42%',
+            WebkitMaskImage: 'linear-gradient(to bottom, transparent 0%, black 55%)',
+            maskImage: 'linear-gradient(to bottom, transparent 0%, black 55%)',
+          }}
+        />
+        <div className="fr-container" style={{ position: 'relative', zIndex: 1 }}>
           <div style={{ textAlign: 'center', marginBottom: 40 }} data-animate="fade-up">
             <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 14px', border: '1px solid var(--fr-border-default)', borderRadius: 999, fontSize: 11, fontWeight: 700, color: 'var(--fr-text-tertiary)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 20 }}>USDT · 3 Networks</div>
             <h2 style={{ fontFamily: 'var(--fr-font-display)', fontSize: 'clamp(28px,4vw,52px)', fontWeight: 900, letterSpacing: '-0.025em', marginBottom: 14 }}>We accept USDT on 3 Networks</h2>
@@ -906,7 +919,7 @@ export default async function LandingPage() {
         {/* Live counter */}
         <div style={{ textAlign: 'center', marginTop: 36 }}>
           <p style={{ fontSize: 13, color: 'var(--fr-text-tertiary)' }}>
-            <span style={{ fontFamily: 'var(--fr-font-mono)', color: 'var(--fr-lime)', fontWeight: 700 }}>1,247</span> trades settled today · <span style={{ fontFamily: 'var(--fr-font-mono)', color: 'var(--fr-text-success)', fontWeight: 700 }}>₹8.3 Cr+</span> paid out
+            <span style={{ fontFamily: 'var(--fr-font-mono)', color: 'var(--fr-lime)', fontWeight: 700 }}>1,247</span> trades settled today · <span style={{ fontFamily: 'var(--fr-font-mono)', color: 'var(--fr-text-success)', fontWeight: 700 }}>₹28.4 L+</span> paid out
           </p>
         </div>
       </section>

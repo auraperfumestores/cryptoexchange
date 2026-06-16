@@ -1296,6 +1296,47 @@
 .sc-fade, .sc-dots { display: none; }
 /* mask on sc-wrap is desktop-safe — it only activates via mobile .sc-grid flex rules */
 
+/* ── Hero trust bar ── */
+.lp-hero-trust {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.lp-hero-trust__divider {
+  width: 1px; height: 28px;
+  background: var(--fr-border-subtle);
+  flex-shrink: 0;
+}
+
+/* ── Testimonial ticker: always-on infinite scroll (desktop + mobile) ── */
+.fr-testi-ticker {
+  display: block;
+  overflow: hidden;
+  position: relative;
+}
+.fr-testi-ticker::before,
+.fr-testi-ticker::after {
+  content: '';
+  position: absolute;
+  top: 0; bottom: 0;
+  width: 100px; z-index: 2; pointer-events: none;
+}
+.fr-testi-ticker::before { left: 0;  background: linear-gradient(to right, var(--fr-black), transparent); }
+.fr-testi-ticker::after  { right: 0; background: linear-gradient(to left,  var(--fr-black), transparent); }
+.fr-testi-ticker__track {
+  display: flex;
+  gap: 20px;
+  animation: fr-ticker-scroll 42s linear infinite;
+  width: max-content;
+  padding: 8px 0 20px;
+}
+.fr-testi-ticker__track > * {
+  flex: 0 0 340px;
+  width: 340px;
+}
+.fr-testi-ticker:hover .fr-testi-ticker__track { animation-play-state: paused; }
+
 @media (max-width: 768px) {
 
   /* ── Container ── */
@@ -1327,6 +1368,19 @@
   /* show exchange widget on mobile, full-width below hero copy */
   .lp-hero-exchange { display: block !important; border-radius: 16px !important; }
 
+  /* ── Hero trust bar: single row on mobile ── */
+  .lp-hero-trust {
+    display: flex !important;
+    align-items: center !important;
+    gap: 12px !important;
+    flex-wrap: nowrap !important;
+  }
+  .lp-hero-trust__divider {
+    width: 1px; height: 22px;
+    background: var(--fr-border-subtle);
+    flex-shrink: 0;
+  }
+
   /* ── Stats bar: 2 × 2 grid ── */
   .lp-stats-grid {
     grid-template-columns: repeat(2, 1fr) !important;
@@ -1341,6 +1395,13 @@
   .lp-how-section { padding-top: 56px !important; padding-bottom: 56px !important; }
   /* How-section mesh: hide (no useful visual on mobile) */
   .lp-how-mesh { display: none !important; }
+  /* Networks mesh: reshape for mobile — full width, shorter strip at bottom */
+  .lp-networks-mesh {
+    width: 100% !important;
+    height: 28% !important;
+    left: 0 !important;
+    bottom: 0 !important;
+  }
 
   /* Payout-section mesh: reposition to a full-width top strip instead of
      the desktop narrow-left column (which looks stretched on mobile).
@@ -1476,6 +1537,26 @@
   .sc-dot--on {
     width: 22px;
     background: #CCFF00;
+  }
+
+  /* ── Feature strip: 2× faster on mobile ── */
+  .fr-feature-strip__track { animation-duration: 10s !important; }
+
+  /* ── Testimonial ticker: mobile overrides ── */
+  .fr-testi-ticker {
+    margin: 0 -18px; /* bleed past fr-container padding */
+  }
+  .fr-testi-ticker::before,
+  .fr-testi-ticker::after { width: 40px; }
+  .fr-testi-ticker__track {
+    gap: 14px !important;
+    animation-duration: 36s !important;
+    padding: 6px 18px 14px !important;
+  }
+  .fr-testi-ticker__track > * {
+    flex: 0 0 72vw !important;
+    width: 72vw !important;
+    min-width: 0 !important;
   }
 }
 
