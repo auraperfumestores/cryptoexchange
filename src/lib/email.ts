@@ -70,8 +70,10 @@ export async function sendVerificationEmail(email: string, name: string, token: 
     <table width="100%" cellpadding="0" cellspacing="0">
       <tr><td style="background:linear-gradient(180deg,rgba(204,255,0,0.07) 0%,rgba(204,255,0,0.02) 100%);border-bottom:1px solid rgba(204,255,0,0.10);padding:44px 32px 36px;text-align:center">
         <table cellpadding="0" cellspacing="0" style="margin:0 auto 20px"><tr>
-          <td style="width:72px;height:72px;background:rgba(204,255,0,0.08);border:1px solid rgba(204,255,0,0.22);border-radius:50%;text-align:center;vertical-align:middle;line-height:72px">
-            <span style="font-size:30px;line-height:72px;display:inline-block">🔐</span>
+          <td style="width:72px;height:72px;background:rgba(204,255,0,0.08);border:1px solid rgba(204,255,0,0.22);border-radius:50%;text-align:center;vertical-align:middle">
+            <svg width="32" height="32" viewBox="0 0 256 256" fill="#CCFF00" style="display:inline-block;vertical-align:middle">
+              <path d="M208,80H176V56a48,48,0,0,0-96,0V80H48A16,16,0,0,0,32,96V208a16,16,0,0,0,16,16H208a16,16,0,0,0,16-16V96A16,16,0,0,0,208,80Zm-80,84a12,12,0,1,1,12-12A12,12,0,0,1,128,164Zm32-84H96V56a32,32,0,0,1,64,0Z"/>
+            </svg>
           </td>
         </tr></table>
         <h1 style="margin:0 0 10px;font-size:26px;font-weight:800;color:#ffffff;letter-spacing:-0.025em">Verify your email</h1>
@@ -105,7 +107,7 @@ export async function sendVerificationEmail(email: string, name: string, token: 
             <td width="33%" style="padding:0 6px 0 0;vertical-align:top">
               <table width="100%" cellpadding="0" cellspacing="0">
                 <tr><td style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.07);border-radius:10px;padding:14px 8px;text-align:center">
-                  <div style="font-size:20px;margin-bottom:8px">&#9889;</div>
+                  <svg width="22" height="22" viewBox="0 0 256 256" fill="#CCFF00" style="display:block;margin:0 auto 8px"><path d="M215.79,118.17a8,8,0,0,0-5-5.66L153.18,90.78,169.5,25.28a8,8,0,0,0-13.65-7.09l-112,120a8,8,0,0,0,5.63,13.47L96.89,149l-12.47,54.08a8,8,0,0,0,13.66,7.06l112-120A8,8,0,0,0,215.79,118.17Z"/></svg>
                   <div style="font-size:11px;font-weight:700;color:#CCFF00;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px">Instant</div>
                   <div style="font-size:11px;color:rgba(255,255,255,0.35)">Under 15 min</div>
                 </td></tr>
@@ -114,7 +116,7 @@ export async function sendVerificationEmail(email: string, name: string, token: 
             <td width="33%" style="padding:0 3px;vertical-align:top">
               <table width="100%" cellpadding="0" cellspacing="0">
                 <tr><td style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.07);border-radius:10px;padding:14px 8px;text-align:center">
-                  <div style="font-size:20px;margin-bottom:8px">&#128274;</div>
+                  <svg width="22" height="22" viewBox="0 0 256 256" fill="#CCFF00" style="display:block;margin:0 auto 8px"><path d="M208,40H48A16,16,0,0,0,32,56v58.77c0,89.61,75.82,119.34,91,124.39a15.53,15.53,0,0,0,10,0c15.2-5.05,91-34.78,91-124.39V56A16,16,0,0,0,208,40ZM173.66,106.34l-56,56a8,8,0,0,1-11.32,0l-24-24a8,8,0,0,1,11.32-11.32L112,145.37l50.34-50.35a8,8,0,0,1,11.32,11.32Z"/></svg>
                   <div style="font-size:11px;font-weight:700;color:#CCFF00;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px">Secure</div>
                   <div style="font-size:11px;color:rgba(255,255,255,0.35)">AES-256</div>
                 </td></tr>
@@ -123,7 +125,7 @@ export async function sendVerificationEmail(email: string, name: string, token: 
             <td width="33%" style="padding:0 0 0 6px;vertical-align:top">
               <table width="100%" cellpadding="0" cellspacing="0">
                 <tr><td style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.07);border-radius:10px;padding:14px 8px;text-align:center">
-                  <div style="font-size:20px;margin-bottom:8px">&#8377;</div>
+                  <svg width="22" height="22" viewBox="0 0 256 256" fill="#CCFF00" style="display:block;margin:0 auto 8px"><path d="M216,72a8,8,0,0,1-8,8H179.08A64.11,64.11,0,0,1,128,136H98.07l73,71.4a8,8,0,1,1-11.1,11.52l-88-86.11A8,8,0,0,1,77.43,120H128a48.07,48.07,0,0,0,47.35-40H48a8,8,0,0,1,0-16H175.35A48.08,48.08,0,0,0,128,24H48a8,8,0,0,1,0-16H208a8,8,0,0,1,0,16H173.19A64.21,64.21,0,0,1,208,64h0a8,8,0,0,1,8,8Z"/></svg>
                   <div style="font-size:11px;font-weight:700;color:#CCFF00;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px">Best Rate</div>
                   <div style="font-size:11px;color:rgba(255,255,255,0.35)">Zero hidden fees</div>
                 </td></tr>

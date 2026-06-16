@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import StaticMesh from '@/components/ui/static-mesh';
 import {
   User, Envelope, Lock, Eye, EyeSlash, ArrowRight,
   CheckCircle, Star, CurrencyInr, Lightning, ArrowsLeftRight,
@@ -158,6 +159,7 @@ export default function RegisterPage() {
 
       {/* ── Right Form Panel ── */}
       <div className="fr-auth-form-panel">
+        <StaticMesh cols={22} rows={14} opacity={0.25} lineColor="204,255,0" waveAmp={55} waveT={0.8} diagonals className="lp-auth-mesh" style={{ position: 'absolute', bottom: 0, left: 0, width: '100%', height: '38%', WebkitMaskImage: 'linear-gradient(to bottom, transparent 0%, black 60%)', maskImage: 'linear-gradient(to bottom, transparent 0%, black 60%)' }} />
         <div className="fr-auth-card">
           <div style={{ marginBottom: 32 }}>
             <h2 className="fr-auth-title">Create your account</h2>

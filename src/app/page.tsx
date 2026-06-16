@@ -195,7 +195,9 @@ export default async function LandingPage() {
           <button data-mobile-toggle style={{ background: 'none', border: '1px solid var(--fr-border-default)', borderRadius: 8, padding: 8, cursor: 'pointer', color: 'var(--fr-text-secondary)', display: 'flex' }}><IconX /></button>
         </div>
         {[['How it Works','#how'],['Features','#features'],['Networks','#networks'],['PRO','#pro'],['FAQ','#faq']].map(([l, h]) => (
-          <Link key={l} href={h} className="fr-mobile-menu__item">{l}</Link>
+          l === 'PRO'
+            ? <Link key={l} href={h} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '9px 18px', margin: '8px 0 18px', borderRadius: 999, background: 'linear-gradient(135deg,rgba(204,255,0,0.10) 0%,rgba(0,212,200,0.10) 100%)', border: '1px solid rgba(204,255,0,0.30)', fontSize: 16, fontWeight: 800, letterSpacing: '0.06em', color: 'var(--fr-lime)', textDecoration: 'none' }}><IconPro /> PRO</Link>
+            : <Link key={l} href={h} className="fr-mobile-menu__item">{l}</Link>
         ))}
         <div style={{ marginTop: 32, display: 'flex', flexDirection: 'column', gap: 12 }}>
           <Link href="/register" className="fr-btn fr-btn--primary fr-btn--lg fr-btn--full">Create Free Account <IconArrow /></Link>

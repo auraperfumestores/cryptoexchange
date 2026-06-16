@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { signIn } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import StaticMesh from '@/components/ui/static-mesh';
 
 function IconMail()  { return <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="2" y="4" width="12" height="9" rx="2" stroke="currentColor" strokeWidth="1.3"/><path d="M2 6L8 9.5L14 6" stroke="currentColor" strokeWidth="1.3"/></svg>; }
 function IconLock()  { return <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="3" y="7" width="10" height="7" rx="2" stroke="currentColor" strokeWidth="1.3"/><path d="M5 7V5C5 3.3 6.3 2 8 2C9.7 2 11 3.3 11 5V7" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>; }
@@ -115,6 +116,7 @@ export default function LoginPage() {
 
       {/* ── Right Form Panel ── */}
       <div className="fr-auth-form-panel">
+        <StaticMesh cols={22} rows={14} opacity={0.25} lineColor="204,255,0" waveAmp={55} waveT={1.1} diagonals className="lp-auth-mesh" style={{ position: 'absolute', bottom: 0, left: 0, width: '100%', height: '38%', WebkitMaskImage: 'linear-gradient(to bottom, transparent 0%, black 60%)', maskImage: 'linear-gradient(to bottom, transparent 0%, black 60%)' }} />
         <div className="fr-auth-card">
           <div style={{ marginBottom: 32 }}>
             <h2 className="fr-auth-title">Welcome back</h2>

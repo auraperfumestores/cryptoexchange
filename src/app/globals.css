@@ -1,6 +1,3 @@
-/* Google Fonts must be @import before any other rules */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Sora:wght@400;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -91,9 +88,9 @@
   --fr-radius-xl:   16px; --fr-radius-2xl: 20px; --fr-radius-pill: 999px;
 
   /* Fonts — Inter primary, Sora for display headings, JetBrains Mono for all numbers */
-  --fr-font-sans:    'Inter', system-ui, -apple-system, sans-serif;
-  --fr-font-display: 'Sora', 'Inter', system-ui, -apple-system, sans-serif;
-  --fr-font-mono:    'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
+  --fr-font-sans:    var(--font-inter), system-ui, -apple-system, sans-serif;
+  --fr-font-display: var(--font-sora), var(--font-inter), system-ui, -apple-system, sans-serif;
+  --fr-font-mono:    var(--font-mono), 'Fira Code', 'Courier New', monospace;
 
   /* Z-index */
   --fr-z-base: 1; --fr-z-card: 10; --fr-z-dropdown: 100;
@@ -143,7 +140,7 @@
   }
 
   h1,h2,h3,h4,h5,h6 {
-    font-family: 'Sora', 'Inter', system-ui, -apple-system, sans-serif;
+    font-family: var(--font-sora), var(--font-inter), system-ui, -apple-system, sans-serif;
     color: var(--fr-text-primary);
     font-weight: 700;
     line-height: 1.2;
@@ -738,10 +735,18 @@
   .fr-auth-form { display: flex; flex-direction: column; gap: var(--fr-sp-5); }
   .fr-auth-footer { margin-top: var(--fr-sp-6); text-align: center; font-size: 14px; color: var(--fr-text-tertiary); }
   .fr-auth-footer a { color: var(--fr-lime); font-weight: 500; }
+  /* Auth mesh: hidden on desktop */
+  .lp-auth-mesh { display: none; }
+
   @media (max-width: 768px) {
     .fr-auth-page { grid-template-columns: 1fr; }
     .fr-auth-visual { display: none; }
-    .fr-auth-form-panel { padding: var(--fr-sp-8) var(--fr-sp-5); }
+    .fr-auth-form-panel {
+      padding: var(--fr-sp-8) var(--fr-sp-5);
+      position: relative;
+      overflow: hidden;
+    }
+    .lp-auth-mesh { display: block !important; }
   }
 
   /* ── Dashboard / Panel ── */
