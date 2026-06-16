@@ -4,158 +4,188 @@ import { useEffect, useRef, useState } from 'react';
 
 const AUTO_MS = 4000;
 const GAP_PX  = 14;
+const OFFSET   = 1; // one clone of the LAST card is prepended before real cards
 
 /**
- * Mobile-only infinite-loop carousel (cards always flow left→right).
- * On mount it clones all .sc-grid children and appends them, so the
- * scroll container is: [A B C A' B' C'].  After advancing past the
- * last real card we silently jump back to position 0 (invisible because
- * A' and A look identical).  Desktop: the component is fully inert.
+ * Mobile-only infinite carousel — cards always advance in the same direction.
+ *
+ * DOM layout built on mount:  [C',  A,  B,  C,  A', B', C'']
+ *                               idx: 0   1   2   3   4   5   6
+ *
+ * We start at scrollLeft = OFFSET * slideWidth (showing A).
+ * C' peeks on the left; B peeks on the right.
+ *
+ * When auto-advance scrolls into A' (idx 4), a silent jump back to A (idx 1)
+ * is scheduled. Because A'=A and both neighbors are clones too, the jump is
+ * completely invisible.
+ *
+ * On desktop the component is fully inert.
  */
 export function SnapCarousel({
   children,
-  bg = 'var(--fr-black)',
+  bg = 'var(--fr-black)', // kept for API compat, no longer used internally
 }: {
   children: React.ReactNode;
   bg?: string;
 }) {
-  const outerRef  = useRef<HTMLDivElement>(null);
-  const idxRef    = useRef(0);          // current real index (0..n-1)
-  const nRef      = useRef(0);          // original slide count
-  const allRef    = useRef<HTMLElement[]>([]);
-  const timerRef  = useRef<ReturnType<typeof setInterval>>();
+  const outerRef   = useRef<HTMLDivElement>(null);
+  const timerRef   = useRef<ReturnType<typeof setInterval>>();
+  const jumpingRef = useRef(false); // true while a silent programmatic reset runs
   const [active, setActive] = useState(0);
   const [count,  setCount]  = useState(0);
 
   const getGrid = () =>
     outerRef.current?.querySelector<HTMLElement>('.sc-grid') ?? null;
 
-  /** Mark the active card (+ its clone) and dim everything else. */
-  const markActive = (realIdx: number) => {
-    const n = nRef.current;
-    allRef.current.forEach((s, i) =>
-      s.classList.toggle('sc-card--active', i % n === realIdx),
-    );
+  /* ── Dot click handler (needs count from state) ─────────────── */
+  const goTo = (realIdx: number) => {
+    const grid = getGrid();
+    if (!grid) return;
+    const first = grid.firstElementChild as HTMLElement | null;
+    const sw = (first?.offsetWidth ?? 0) + GAP_PX;
+    grid.scrollTo({ left: (OFFSET + realIdx) * sw, behavior: 'smooth' });
     setActive(realIdx);
-    idxRef.current = realIdx;
   };
 
-  /** Jump to real slide i with smooth scroll; restart timer. */
-  const goTo = (i: number, restart = true) => {
-    const grid = getGrid();
-    const slides = allRef.current;
-    if (!grid || !slides[i]) return;
-    const sw = slides[0].offsetWidth + GAP_PX;
-    grid.scrollTo({ left: i * sw, behavior: 'smooth' });
-    markActive(i);
-    if (restart) {
-      clearInterval(timerRef.current);
-      timerRef.current = setInterval(tick, AUTO_MS);
-    }
-  };
-
-  /** Advance one step; when leaving last real card, animate into the
-   *  clone then silently teleport back to position 0. */
-  const tick = () => {
-    const grid = getGrid();
-    const slides = allRef.current;
-    const n = nRef.current;
-    if (!grid || !slides.length || !n) return;
-
-    const sw = slides[0].offsetWidth + GAP_PX;
-    const rawIdx = Math.round(grid.scrollLeft / sw);
-    const nextRaw = rawIdx + 1;
-
-    if (nextRaw >= n) {
-      // Smooth-scroll into the clone of card 0 (looks like advancing)
-      grid.scrollTo({ left: nextRaw * sw, behavior: 'smooth' });
-      markActive(0);
-
-      // After the smooth scroll settles, silently reset to real card 0
-      const reset = () => { grid.scrollLeft = 0; };
-      if ('onscrollend' in grid) {
-        grid.addEventListener('scrollend', reset, { once: true });
-      } else {
-        setTimeout(reset, 350);
-      }
-    } else {
-      grid.scrollTo({ left: nextRaw * sw, behavior: 'smooth' });
-      markActive(nextRaw);
-    }
-  };
-
+  /* ── Main effect — mobile only ───────────────────────────────── */
   useEffect(() => {
     if (typeof window === 'undefined' || window.innerWidth > 768) return;
     const grid = getGrid();
     if (!grid) return;
 
-    // ── Build: [orig0..origN, clone0..cloneN] ─────────────────────
+    /* 1 ─ Collect originals before any mutation */
     const originals = Array.from(grid.children) as HTMLElement[];
     const n = originals.length;
-    nRef.current = n;
+    if (n === 0) return;
 
+    /* 2 ─ Build [C', A, B, C, A', B', C''] */
+    // Prepend clone of last card (C) as C'
+    const head = originals[n - 1].cloneNode(true) as HTMLElement;
+    head.setAttribute('aria-hidden', 'true');
+    grid.insertBefore(head, grid.firstChild);
+
+    // Append clones of all n originals (A', B', C'')
     originals.forEach(s => {
       const clone = s.cloneNode(true) as HTMLElement;
       clone.setAttribute('aria-hidden', 'true');
       grid.appendChild(clone);
     });
 
-    const allSlides = Array.from(grid.children) as HTMLElement[];
-    allRef.current  = allSlides;
-
     setCount(n);
-    markActive(0);  // first card starts active
 
-    timerRef.current = setInterval(tick, AUTO_MS);
+    /* 3 ─ Helpers */
+    const slideW = () => {
+      const first = grid.firstElementChild as HTMLElement | null;
+      return (first?.offsetWidth ?? 0) + GAP_PX;
+    };
 
-    // ── Touch: pause on drag, resume on release ───────────────────
-    const pause  = () => clearInterval(timerRef.current);
-    const resume = () => {
+    // Mark the active real card (and all its clones) with .sc-card--active
+    const markActive = (realIdx: number) => {
+      const kids = Array.from(grid.children) as HTMLElement[];
+      kids.forEach((s, i) => {
+        // Map DOM index → real index: ((i - OFFSET) mod n + n) mod n
+        const ri = ((i - OFFSET) % n + n) % n;
+        s.classList.toggle('sc-card--active', ri === realIdx);
+      });
+      setActive(realIdx);
+    };
+
+    // Silent instant jump (no animation, ignored by onScroll)
+    const jumpTo = (rawIdx: number) => {
+      jumpingRef.current = true;
+      grid.scrollLeft = rawIdx * slideW();
+      // Allow one rAF for the scroll to settle, then unlock
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => { jumpingRef.current = false; });
+      });
+    };
+
+    /* 4 ─ Initialise: show A centered (rawIdx = OFFSET = 1) */
+    requestAnimationFrame(() => {
+      jumpTo(OFFSET);
+      markActive(0);
+    });
+
+    /* 5 ─ Auto-advance tick */
+    const tick = () => {
+      const s  = slideW();
+      const rawIdx  = Math.round(grid.scrollLeft / s);
+      const nextRaw = rawIdx + 1;
+
+      // Smooth-scroll one step forward
+      grid.scrollTo({ left: nextRaw * s, behavior: 'smooth' });
+      markActive(((nextRaw - OFFSET) % n + n) % n);
+
+      // If we've scrolled into the after-clone zone, schedule invisible reset
+      if (nextRaw >= OFFSET + n) {
+        const targetRaw = nextRaw - n; // equivalent real position (e.g. 4→1)
+        const reset = () => jumpTo(targetRaw);
+        if ('onscrollend' in grid) {
+          grid.addEventListener('scrollend', reset, { once: true });
+        } else {
+          setTimeout(reset, 340);
+        }
+      }
+    };
+
+    const startTimer = () => {
       clearInterval(timerRef.current);
       timerRef.current = setInterval(tick, AUTO_MS);
     };
+    startTimer();
 
-    // ── Scroll: sync active dot when user swipes manually ─────────
+    /* 6 ─ Touch: pause while user drags, restart on release */
+    const pause  = () => clearInterval(timerRef.current);
+    const resume = () => startTimer();
+
+    /* 7 ─ Scroll: sync dots + handle manual boundary swipes */
     const onScroll = () => {
-      const sw = (allSlides[0]?.offsetWidth ?? 0) + GAP_PX;
-      const rawIdx  = Math.round(grid.scrollLeft / sw);
+      if (jumpingRef.current) return; // ignore programmatic resets
+      const s = slideW();
+      const rawIdx = Math.round(grid.scrollLeft / s);
 
-      // If swiped into clone territory, silently jump back
-      if (rawIdx >= n) {
-        grid.scrollLeft = (rawIdx % n) * sw;
-        markActive(rawIdx % n);
+      // User swiped back past C' (idx 0) — jump to real C
+      if (rawIdx < OFFSET) {
+        jumpTo(rawIdx + n);
+        markActive(((rawIdx + n - OFFSET) % n + n) % n);
+        return;
+      }
+      // User swiped forward past after-clones — jump back to real equivalent
+      if (rawIdx >= OFFSET + n) {
+        jumpTo(rawIdx - n);
+        markActive(((rawIdx - n - OFFSET) % n + n) % n);
         return;
       }
 
-      const realIdx = rawIdx % n;
-      if (realIdx !== idxRef.current) markActive(realIdx);
+      markActive(rawIdx - OFFSET);
     };
 
     grid.addEventListener('touchstart', pause,    { passive: true });
     grid.addEventListener('touchend',   resume,   { passive: true });
     grid.addEventListener('scroll',     onScroll, { passive: true });
 
+    /* 8 ─ Cleanup: restore original children */
     return () => {
       clearInterval(timerRef.current);
       grid.removeEventListener('touchstart', pause);
       grid.removeEventListener('touchend',   resume);
       grid.removeEventListener('scroll',     onScroll);
-      // Clean up clones so re-mount starts fresh
-      allSlides.slice(n).forEach(c => c.remove());
+      // Remove the prepended C' and all appended clones, leave A B C intact
+      const kids = Array.from(grid.children);
+      kids.forEach((c, i) => {
+        if (i < OFFSET || i >= OFFSET + n) c.remove();
+      });
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
-    /* sc-outer: full container including dots */
     <div ref={outerRef} className="sc-outer">
-
-      {/* sc-wrap: mask-image on this element creates the edge dissolve */}
+      {/* mask-image on sc-wrap dissolves peeking cards at both edges */}
       <div className="sc-wrap">
         {children}
       </div>
 
-      {/* Dot indicators — outside sc-wrap, not clipped */}
       {count > 1 && (
         <div className="sc-dots">
           {Array.from({ length: count }).map((_, i) => (
