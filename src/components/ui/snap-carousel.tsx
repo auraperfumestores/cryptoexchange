@@ -1,16 +1,16 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 const AUTO_MS = 4000;
 const GAP_PX  = 14;
 
 /**
- * Mobile-only scroll-snap carousel with 4-second auto-advance.
- * Wrap a div.sc-grid inside this component; CSS transforms it into
- * a snapping row on ≤768 px. On desktop this component is invisible/inert.
- *
- * bg = section background colour used for the edge fade gradient.
+ * Mobile-only infinite-loop carousel (cards always flow left→right).
+ * On mount it clones all .sc-grid children and appends them, so the
+ * scroll container is: [A B C A' B' C'].  After advancing past the
+ * last real card we silently jump back to position 0 (invisible because
+ * A' and A look identical).  Desktop: the component is fully inert.
  */
 export function SnapCarousel({
   children,
@@ -19,43 +19,69 @@ export function SnapCarousel({
   children: React.ReactNode;
   bg?: string;
 }) {
-  const wrapRef  = useRef<HTMLDivElement>(null);
-  const idxRef   = useRef(0);
-  const timerRef = useRef<ReturnType<typeof setInterval>>();
+  const outerRef  = useRef<HTMLDivElement>(null);
+  const idxRef    = useRef(0);          // current real index (0..n-1)
+  const nRef      = useRef(0);          // original slide count
+  const allRef    = useRef<HTMLElement[]>([]);
+  const timerRef  = useRef<ReturnType<typeof setInterval>>();
   const [active, setActive] = useState(0);
   const [count,  setCount]  = useState(0);
 
-  const getGrid   = () => wrapRef.current?.querySelector<HTMLElement>('.sc-grid') ?? null;
-  const getSlides = () => {
-    const g = getGrid();
-    return g ? (Array.from(g.children) as HTMLElement[]) : [];
+  const getGrid = () =>
+    outerRef.current?.querySelector<HTMLElement>('.sc-grid') ?? null;
+
+  /** Mark the active card (+ its clone) and dim everything else. */
+  const markActive = (realIdx: number) => {
+    const n = nRef.current;
+    allRef.current.forEach((s, i) =>
+      s.classList.toggle('sc-card--active', i % n === realIdx),
+    );
+    setActive(realIdx);
+    idxRef.current = realIdx;
   };
 
-  const scrollToIdx = useCallback((i: number) => {
-    const slides = getSlides();
-    const grid   = getGrid();
-    if (!slides[i] || !grid) return;
-    const slideW = slides[0].offsetWidth + GAP_PX;
-    grid.scrollTo({ left: i * slideW, behavior: 'smooth' });
-    idxRef.current = i;
-    setActive(i);
-    slides.forEach((s, j) => s.classList.toggle('sc-card--active', j === i));
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  /** Jump to real slide i with smooth scroll; restart timer. */
+  const goTo = (i: number, restart = true) => {
+    const grid = getGrid();
+    const slides = allRef.current;
+    if (!grid || !slides[i]) return;
+    const sw = slides[0].offsetWidth + GAP_PX;
+    grid.scrollTo({ left: i * sw, behavior: 'smooth' });
+    markActive(i);
+    if (restart) {
+      clearInterval(timerRef.current);
+      timerRef.current = setInterval(tick, AUTO_MS);
+    }
+  };
 
-  const startTimer = useCallback(() => {
-    if (typeof window === 'undefined' || window.innerWidth > 768) return;
-    clearInterval(timerRef.current);
-    timerRef.current = setInterval(() => {
-      const n = getSlides().length;
-      if (n === 0) return;
-      scrollToIdx((idxRef.current + 1) % n);
-    }, AUTO_MS);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [scrollToIdx]);
+  /** Advance one step; when leaving last real card, animate into the
+   *  clone then silently teleport back to position 0. */
+  const tick = () => {
+    const grid = getGrid();
+    const slides = allRef.current;
+    const n = nRef.current;
+    if (!grid || !slides.length || !n) return;
 
-  const setActiveCard = (slides: HTMLElement[], idx: number) => {
-    slides.forEach((s, i) => s.classList.toggle('sc-card--active', i === idx));
+    const sw = slides[0].offsetWidth + GAP_PX;
+    const rawIdx = Math.round(grid.scrollLeft / sw);
+    const nextRaw = rawIdx + 1;
+
+    if (nextRaw >= n) {
+      // Smooth-scroll into the clone of card 0 (looks like advancing)
+      grid.scrollTo({ left: nextRaw * sw, behavior: 'smooth' });
+      markActive(0);
+
+      // After the smooth scroll settles, silently reset to real card 0
+      const reset = () => { grid.scrollLeft = 0; };
+      if ('onscrollend' in grid) {
+        grid.addEventListener('scrollend', reset, { once: true });
+      } else {
+        setTimeout(reset, 350);
+      }
+    } else {
+      grid.scrollTo({ left: nextRaw * sw, behavior: 'smooth' });
+      markActive(nextRaw);
+    }
   };
 
   useEffect(() => {
@@ -63,22 +89,46 @@ export function SnapCarousel({
     const grid = getGrid();
     if (!grid) return;
 
-    const slides = Array.from(grid.children) as HTMLElement[];
-    setCount(slides.length);
-    setActiveCard(slides, 0);   // first card is active on mount
-    startTimer();
+    // ── Build: [orig0..origN, clone0..cloneN] ─────────────────────
+    const originals = Array.from(grid.children) as HTMLElement[];
+    const n = originals.length;
+    nRef.current = n;
 
+    originals.forEach(s => {
+      const clone = s.cloneNode(true) as HTMLElement;
+      clone.setAttribute('aria-hidden', 'true');
+      grid.appendChild(clone);
+    });
+
+    const allSlides = Array.from(grid.children) as HTMLElement[];
+    allRef.current  = allSlides;
+
+    setCount(n);
+    markActive(0);  // first card starts active
+
+    timerRef.current = setInterval(tick, AUTO_MS);
+
+    // ── Touch: pause on drag, resume on release ───────────────────
     const pause  = () => clearInterval(timerRef.current);
-    const resume = () => startTimer();
+    const resume = () => {
+      clearInterval(timerRef.current);
+      timerRef.current = setInterval(tick, AUTO_MS);
+    };
+
+    // ── Scroll: sync active dot when user swipes manually ─────────
     const onScroll = () => {
-      if (!slides[0]) return;
-      const slideW = slides[0].offsetWidth + GAP_PX;
-      const newIdx = Math.min(Math.round(grid.scrollLeft / slideW), slides.length - 1);
-      if (newIdx !== idxRef.current) {
-        idxRef.current = newIdx;
-        setActive(newIdx);
-        setActiveCard(slides, newIdx);
+      const sw = (allSlides[0]?.offsetWidth ?? 0) + GAP_PX;
+      const rawIdx  = Math.round(grid.scrollLeft / sw);
+
+      // If swiped into clone territory, silently jump back
+      if (rawIdx >= n) {
+        grid.scrollLeft = (rawIdx % n) * sw;
+        markActive(rawIdx % n);
+        return;
       }
+
+      const realIdx = rawIdx % n;
+      if (realIdx !== idxRef.current) markActive(realIdx);
     };
 
     grid.addEventListener('touchstart', pause,    { passive: true });
@@ -90,32 +140,41 @@ export function SnapCarousel({
       grid.removeEventListener('touchstart', pause);
       grid.removeEventListener('touchend',   resume);
       grid.removeEventListener('scroll',     onScroll);
+      // Clean up clones so re-mount starts fresh
+      allSlides.slice(n).forEach(c => c.remove());
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
-    <div ref={wrapRef} className="sc-wrap">
-      {children}
+    /* sc-outer: full container including dots */
+    <div ref={outerRef} className="sc-outer">
 
-      {/* Edge fade shadows — only visible on mobile via CSS */}
-      <div className="sc-fade sc-fade-l"
-        style={{ background: `linear-gradient(to right,${bg} 35%,transparent)` }}
-        aria-hidden="true"
-      />
-      <div className="sc-fade sc-fade-r"
-        style={{ background: `linear-gradient(to left,${bg} 35%,transparent)` }}
-        aria-hidden="true"
-      />
+      {/* sc-wrap: overflow:hidden so fades clip correctly */}
+      <div className="sc-wrap">
+        {children}
 
-      {/* Dot indicators — only visible on mobile via CSS */}
+        {/* Edge fades — clipped by sc-wrap overflow:hidden */}
+        <div
+          className="sc-fade sc-fade-l"
+          style={{ background: `linear-gradient(to right,${bg} 50%,transparent)` }}
+          aria-hidden="true"
+        />
+        <div
+          className="sc-fade sc-fade-r"
+          style={{ background: `linear-gradient(to left,${bg} 50%,transparent)` }}
+          aria-hidden="true"
+        />
+      </div>
+
+      {/* Dot indicators — outside sc-wrap, not clipped */}
       {count > 1 && (
         <div className="sc-dots">
           {Array.from({ length: count }).map((_, i) => (
             <button
               key={i}
               className={`sc-dot${i === active ? ' sc-dot--on' : ''}`}
-              onClick={() => { scrollToIdx(i); startTimer(); }}
+              onClick={() => goTo(i)}
               aria-label={`Go to slide ${i + 1}`}
             />
           ))}

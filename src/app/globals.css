@@ -1342,7 +1342,14 @@
   .lp-how-mesh { display: none !important; }
 
   /* ── Aurora step cards ── */
-  .fr-aurora-card { min-height: 360px !important; padding: 22px 18px !important; }
+  /* Fixed height so all 3 carousel cards are identical in size */
+  .fr-aurora-card {
+    height: 440px !important;
+    min-height: unset !important;
+    padding: 22px 18px !important;
+    overflow: hidden !important;
+    box-sizing: border-box !important;
+  }
   .fr-aurora-card__title { font-size: 18px !important; }
 
   /* ── Platform features: hide right mockup ── */
@@ -1377,8 +1384,15 @@
      SnapCarousel — activated on mobile
   ───────────────────────────────────────────────────────── */
 
+  /* sc-outer: full carousel wrapper including dots */
+  .sc-outer {
+    /* plain block container — no extra styles needed */
+  }
+
+  /* sc-wrap: clips the edge-fade overlays */
   .sc-wrap {
     position: relative;
+    overflow: hidden;
   }
 
   /* The grid becomes a horizontal scroll container */
@@ -1388,16 +1402,17 @@
     scroll-snap-type: x mandatory;
     -webkit-overflow-scrolling: touch;
     gap: 14px !important;
-    padding: 4px 28px 8px !important;
+    padding: 4px 20px 12px !important;
     scrollbar-width: none;
-    scroll-padding-inline: 28px;
+    scroll-padding-inline: 20px;
     /* override inline grid styles */
     grid-template-columns: unset !important;
-    align-items: start !important;
+    /* stretch makes all cards the same height as the tallest */
+    align-items: stretch !important;
   }
   .sc-grid::-webkit-scrollbar { display: none; }
 
-  /* Each card takes 72 % of viewport — ~14 % of next card peeks on each side */
+  /* Each card: 72 vw wide so ~14 vw of adjacent card peeks */
   .sc-grid > * {
     flex: 0 0 72vw !important;
     width: 72vw !important;
@@ -1406,36 +1421,36 @@
     scroll-snap-align: center;
     box-sizing: border-box;
     /* dim non-active cards */
-    opacity: 0.45;
+    opacity: 0.42;
     filter: blur(0.8px);
     transition: opacity 0.3s ease, filter 0.3s ease;
   }
-  /* JS adds this class to the centred card */
+  /* JS adds this to the centred (active) card */
   .sc-card--active {
     opacity: 1 !important;
     filter: none !important;
   }
 
-  /* Edge fade overlays — wide enough to fully obscure peeking cards */
+  /* Edge fade overlays — inside sc-wrap so they're clipped correctly */
   .sc-fade {
     display: block !important;
     position: absolute;
     top: 0;
-    bottom: 42px;   /* leave room for dots */
-    width: 72px;
+    bottom: 0;          /* full height of sc-wrap; dots are outside */
+    width: 88px;
     pointer-events: none;
     z-index: 3;
   }
   .sc-fade-l { left: 0; }
   .sc-fade-r { right: 0; }
 
-  /* Dot indicators */
+  /* Dot indicators — outside sc-wrap so not clipped */
   .sc-dots {
     display: flex !important;
     justify-content: center;
     align-items: center;
     gap: 6px;
-    padding-top: 14px;
+    margin-top: 14px;
     padding-bottom: 4px;
   }
   .sc-dot {
