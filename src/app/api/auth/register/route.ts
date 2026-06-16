@@ -15,7 +15,7 @@ export async function POST(req: Request) {
         { status: 400 },
       );
     }
-    const { name, email, password } = parsed.data;
+    const { name, email, password, phone } = parsed.data;
 
     await connectToDatabase();
 
@@ -31,6 +31,7 @@ export async function POST(req: Request) {
       name,
       email,
       password,
+      phone,
       role: 'client',
       emailVerified: false,
       emailVerifyToken: verifyToken,

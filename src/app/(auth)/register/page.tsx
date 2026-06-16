@@ -5,7 +5,7 @@ import Link from 'next/link';
 import {
   User, Envelope, Lock, Eye, EyeSlash, ArrowRight,
   CheckCircle, Star, CurrencyInr, Lightning, ArrowsLeftRight,
-  Clock, Shield,
+  Clock, Shield, Phone,
 } from '@phosphor-icons/react';
 
 const FEATURES = [
@@ -25,6 +25,7 @@ const REVIEWERS = [
 export default function RegisterPage() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [showPass, setShowPass] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -34,14 +35,15 @@ export default function RegisterPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError('');
-    if (!name || !email || !password) { setError('Please fill in all fields.'); return; }
+    if (!name || !email || !phone || !password) { setError('Please fill in all fields.'); return; }
+    if (!/^[6-9]\d{9}$/.test(phone)) { setError('Enter a valid 10-digit Indian mobile number.'); return; }
     if (password.length < 8) { setError('Password must be at least 8 characters.'); return; }
     setLoading(true);
     try {
       const res = await fetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email, password }),
+        body: JSON.stringify({ name, email, phone, password }),
       });
       const data = await res.json();
       if (!res.ok) { setError(data.error ?? 'Registration failed. Please try again.'); return; }
@@ -178,6 +180,27 @@ export default function RegisterPage() {
               <div style={{ position: 'relative' }}>
                 <span style={{ position: 'absolute', left: 13, top: '50%', transform: 'translateY(-50%)', color: 'var(--fr-text-tertiary)', pointerEvents: 'none' }}><Envelope size={16} /></span>
                 <input type="email" className="fr-field__input" style={{ paddingLeft: 42 }} placeholder="you@example.com" value={email} onChange={e => setEmail(e.target.value)} autoComplete="email" required />
+              </div>
+            </div>
+
+            <div className="fr-field">
+              <label className="fr-field__label">Phone number</label>
+              <div style={{ position: 'relative', display: 'flex' }}>
+                <span style={{ display: 'flex', alignItems: 'center', paddingLeft: 13, paddingRight: 10, background: 'rgba(255,255,255,0.04)', border: '1px solid var(--fr-border-default)', borderRight: 'none', borderRadius: 'var(--fr-radius-md) 0 0 var(--fr-radius-md)', color: 'var(--fr-text-tertiary)', fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap', gap: 6 }}>
+                  <Phone size={15} />+91
+                </span>
+                <input
+                  type="tel"
+                  className="fr-field__input"
+                  style={{ borderRadius: '0 var(--fr-radius-md) var(--fr-radius-md) 0', flex: 1 }}
+                  placeholder="98765 43210"
+                  value={phone}
+                  onChange={e => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                  autoComplete="tel"
+                  inputMode="numeric"
+                  maxLength={10}
+                  required
+                />
               </div>
             </div>
 

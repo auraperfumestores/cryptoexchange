@@ -7,6 +7,10 @@ export const registerSchema = z.object({
     .string()
     .min(8, 'Password must be at least 8 characters')
     .max(120, 'Password is too long'),
+  phone: z
+    .string()
+    .trim()
+    .regex(/^[6-9]\d{9}$/, 'Enter a valid 10-digit Indian mobile number'),
 });
 
 export const loginSchema = z.object({

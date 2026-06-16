@@ -390,7 +390,12 @@
     -webkit-user-select: none; user-select: none;
   }
   .fr-btn:active { transform: scale(0.97); }
-  .fr-btn:disabled { opacity: 0.45; pointer-events: none; }
+  .fr-btn:disabled { opacity: 0.7; pointer-events: none; }
+  /* Spinner inside a lime primary button needs dark colours to contrast */
+  .fr-btn--primary .spinner {
+    border-color: rgba(0,0,0,0.2);
+    border-top-color: #000;
+  }
   .fr-btn--sm  { height: 34px; padding: 0 var(--fr-sp-4);  font-size: 13px; border-radius: var(--fr-radius-md); }
   .fr-btn--md  { height: 42px; padding: 0 var(--fr-sp-5);  font-size: 14px; border-radius: var(--fr-radius-md); }
   .fr-btn--lg  { height: 50px; padding: 0 var(--fr-sp-6);  font-size: 15px; border-radius: var(--fr-radius-lg); }
