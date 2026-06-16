@@ -216,6 +216,55 @@ export async function wcSignTronTx(
   return signed;
 }
 
+/**
+ * Request Trust Wallet to sign AND broadcast the TRON transaction in one step.
+ * Uses `tron_signAndSendRawTransaction` — Trust Wallet handles the broadcast itself
+ * and returns the txID directly, bypassing our broadcastSignedTx() call.
+ *
+ * Falls back to the two-step sign → broadcast path if Trust Wallet rejects the method
+ * (older builds that don't support tron_signAndSendRawTransaction).
+ *
+ * To revert to the two-step path: replace the call in CheckoutFlow.tsx with
+ *   wcSignTronTx + broadcastSignedTx (see wcSignTronTx above).
+ */
+export async function wcSignAndSendTronTx(
+  topic:  string,
+  rawTx:  Record<string, unknown>,
+): Promise<string> {
+  const client = await getWcSignClient();
+  try {
+    const result = await (client.request as any)({
+      topic,
+      chainId: TRON_WC_CHAIN,
+      request: {
+        method: 'tron_signAndSendRawTransaction',
+        params: { transaction: rawTx },
+      },
+    });
+    // Trust Wallet returns the txID as a string or inside { txID } / { txid }
+    if (typeof result === 'string' && result.length >= 60) return result;
+    if (result?.txID) return result.txID as string;
+    if (result?.txid) return result.txid as string;
+    throw new Error('tron_signAndSendRawTransaction returned no txID');
+  } catch (err: any) {
+    // Method not supported by this Trust Wallet build → fall back to sign + broadcast
+    const msg = err?.message ?? String(err);
+    if (/unsupported|not supported|method not found|not implement/i.test(msg)) {
+      const signed = await (client.request as any)({
+        topic,
+        chainId: TRON_WC_CHAIN,
+        request: {
+          method: 'tron_signTransaction',
+          params: { transaction: rawTx },
+        },
+      });
+      const { txid } = await broadcastSignedTx(signed as Record<string, unknown>);
+      return txid;
+    }
+    throw err;
+  }
+}
+
 /** Gracefully terminate an active WC session. */
 export async function wcDisconnectTron(topic: string): Promise<void> {
   try {

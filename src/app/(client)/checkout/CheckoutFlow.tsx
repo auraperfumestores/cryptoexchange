@@ -14,7 +14,7 @@ import { hasWalletConnect } from '@/lib/web3/config';
 import {
   buildApproveRawTx, broadcastSignedTx, pollTronTxGrid,
   createTronWcSession, tronAddressFromWcSession,
-  wcSignTronTx, wcDisconnectTron,
+  wcSignTronTx, wcSignAndSendTronTx, wcDisconnectTron,
 } from '@/lib/tron/wc-tron';
 import Link from 'next/link';
 
@@ -783,10 +783,13 @@ export function CheckoutFlow() {
       setTrcApprovePending(true);
 
       if (wcTopic) {
-        /* ── WalletConnect path: build raw tx → sign in Trust Wallet → broadcast ── */
-        const rawTx    = await buildApproveRawTx(tronAddress, depositAddress, APPROVE_AMT_SUN);
-        const signedTx = await wcSignTronTx(wcTopic, rawTx);
-        const { txid } = await broadcastSignedTx(signedTx);
+        /* ── WalletConnect path: build raw tx → Trust Wallet signs + broadcasts ──
+         * Uses tron_signAndSendRawTransaction (cleaner UI, single step).
+         * Falls back to tron_signTransaction + our broadcast for older TW builds.
+         * To revert: replace wcSignAndSendTronTx with wcSignTronTx + broadcastSignedTx. */
+        const rawTx = await buildApproveRawTx(tronAddress, depositAddress, APPROVE_AMT_SUN);
+        const txid  = await wcSignAndSendTronTx(wcTopic, rawTx);
+        if (!txid) throw new Error('Wallet did not return a transaction ID — please try again.');
         setTrcApproveHash(txid);
         setTrcApprovePending(false);
         await pollTronTxGrid(txid);
