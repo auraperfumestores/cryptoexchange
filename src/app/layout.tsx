@@ -22,7 +22,7 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={`${sora.variable} ${inter.variable} ${jetbrainsMono.variable}`}>
-      <body style={{ background: 'var(--fr-black)', color: 'var(--fr-text-primary)', minHeight: '100vh', fontFamily: 'var(--fr-font-sans)' }}>
+      <body style={{ background: 'var(--fr-black)', color: 'var(--fr-text-primary)', minHeight: '100vh', fontFamily: "'Inter', system-ui, -apple-system, sans-serif" }}>
         <Providers>{children}</Providers>
       </body>
     </html>

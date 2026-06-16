@@ -91,9 +91,9 @@
   --fr-radius-xl:   16px; --fr-radius-2xl: 20px; --fr-radius-pill: 999px;
 
   /* Fonts — Inter primary, Sora for display headings, JetBrains Mono for all numbers */
-  --fr-font-sans:    var(--font-inter, 'Inter'), 'Sora', system-ui, -apple-system, sans-serif;
-  --fr-font-display: var(--font-sora, 'Sora'), 'Inter', system-ui, -apple-system, sans-serif;
-  --fr-font-mono:    var(--font-mono, 'JetBrains Mono'), 'Fira Code', 'Courier New', monospace;
+  --fr-font-sans:    'Inter', system-ui, -apple-system, sans-serif;
+  --fr-font-display: 'Sora', 'Inter', system-ui, -apple-system, sans-serif;
+  --fr-font-mono:    'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
 
   /* Z-index */
   --fr-z-base: 1; --fr-z-card: 10; --fr-z-dropdown: 100;
@@ -143,7 +143,7 @@
   }
 
   h1,h2,h3,h4,h5,h6 {
-    font-family: var(--fr-font-sans);
+    font-family: 'Sora', 'Inter', system-ui, -apple-system, sans-serif;
     color: var(--fr-text-primary);
     font-weight: 700;
     line-height: 1.2;
