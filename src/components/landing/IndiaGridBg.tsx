@@ -42,7 +42,7 @@ function lerpColor(
 function flagColor(colFraction: number): [number,number,number] {
   if (colFraction < 0.33) return lerpColor(SAFFRON, WHITE,  colFraction / 0.33);
   if (colFraction < 0.66) return lerpColor(WHITE,   GREEN,  (colFraction - 0.33) / 0.33);
-  return GREEN;
+  return [...GREEN] as [number, number, number];
 }
 
 function waveHeight(col: number, row: number, t: number): number {
