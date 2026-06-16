@@ -565,6 +565,7 @@ export default async function LandingPage() {
           waveAmp={80}
           waveT={2.1}
           diagonals={true}
+          className="lp-payout-mesh"
           style={{
             position: 'absolute', top: 0, left: 0, bottom: 0, width: '34%', height: '100%',
             WebkitMaskImage: 'linear-gradient(to left, transparent 0%, black 50%)',

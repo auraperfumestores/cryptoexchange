@@ -1339,8 +1339,8 @@
 
   /* ── How it works section ── */
   .lp-how-section { padding-top: 56px !important; padding-bottom: 56px !important; }
-  /* hide mesh background — looks stretched on narrow screens */
-  .lp-how-mesh { display: none !important; }
+  /* hide section meshes — narrow width + full height = stretched on mobile */
+  .lp-how-mesh, .lp-payout-mesh { display: none !important; }
 
   /* ── Aurora step cards ── */
   /* Fixed height so all 3 carousel cards are identical in size */
