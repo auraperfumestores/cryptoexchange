@@ -9,19 +9,19 @@ export default function LandingScripts() {
   useNavbarScroll();
 
   useEffect(() => {
-    const btn = document.querySelector('[data-mobile-toggle]') as HTMLButtonElement | null;
-    const menu = document.querySelector('[data-mobile-menu]') as HTMLElement | null;
-    if (!btn || !menu) return;
+    const btns = document.querySelectorAll<HTMLButtonElement>('[data-mobile-toggle]');
+    const menu = document.querySelector<HTMLElement>('[data-mobile-menu]');
+    if (!btns.length || !menu) return;
 
     const toggle = () => menu.classList.toggle('is-open');
     const closeOnLink = (e: Event) => {
       if ((e.target as HTMLElement).closest('a')) menu.classList.remove('is-open');
     };
 
-    btn.addEventListener('click', toggle);
+    btns.forEach(b => b.addEventListener('click', toggle));
     menu.addEventListener('click', closeOnLink);
     return () => {
-      btn.removeEventListener('click', toggle);
+      btns.forEach(b => b.removeEventListener('click', toggle));
       menu.removeEventListener('click', closeOnLink);
     };
   }, []);

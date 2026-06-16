@@ -11,6 +11,7 @@ interface Props {
   waveT?: number;
   diagonals?: boolean;
   style?: React.CSSProperties;
+  className?: string;
 }
 
 export default function StaticMesh({
@@ -22,6 +23,7 @@ export default function StaticMesh({
   waveT = 1.4,
   diagonals = true,
   style,
+  className,
 }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -142,6 +144,7 @@ export default function StaticMesh({
     <canvas
       ref={canvasRef}
       aria-hidden="true"
+      className={className}
       style={{ display: 'block', pointerEvents: 'none', opacity, ...style }}
     />
   );

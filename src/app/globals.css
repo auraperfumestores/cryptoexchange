@@ -1120,7 +1120,7 @@
 
   /* ── Mobile Nav ── */
   .fr-mobile-menu {
-    display: none;
+    display: flex;
     position: fixed;
     inset: 0;
     z-index: calc(var(--fr-z-sticky) + 10);
@@ -1130,8 +1130,18 @@
     flex-direction: column;
     padding: 24px;
     overflow-y: auto;
+    /* slide-in animation */
+    transform: translateX(-100%);
+    visibility: hidden;
+    transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1),
+                visibility 0s linear 0.28s;
   }
-  .fr-mobile-menu.is-open { display: flex; }
+  .fr-mobile-menu.is-open {
+    transform: translateX(0);
+    visibility: visible;
+    transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1),
+                visibility 0s linear 0s;
+  }
   .fr-mobile-menu__item {
     display: flex; align-items: center;
     padding: 14px 0;
@@ -1275,6 +1285,170 @@
 @media (max-width: 768px) {
   .user-dash-grid { grid-template-columns: 1fr !important; }
   .fr-settings-section__body { padding: var(--fr-sp-4); }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   MOBILE LANDING PAGE — comprehensive overrides (≤ 768 px)
+   Desktop layout is completely unaffected.
+═══════════════════════════════════════════════════════════════ */
+
+/* ── SnapCarousel: desktop state (hidden) ─────────────────── */
+.sc-fade, .sc-dots { display: none; }
+
+@media (max-width: 768px) {
+
+  /* ── Container ── */
+  .fr-container { padding-left: 18px !important; padding-right: 18px !important; }
+
+  /* ── Global section vertical padding ── */
+  section { padding-top: 56px !important; padding-bottom: 56px !important; }
+
+  /* ── Ticker ── */
+  .fr-ticker-strip { height: 38px; }
+  .fr-ticker-item  { font-size: 11px; padding: 0 12px; letter-spacing: 0.04em; }
+
+  /* ── Nav ── */
+  .fr-nav__inner  { padding: 0 16px !important; height: 54px !important; }
+  .fr-nav__logo-name { font-size: 17px !important; }
+  .fr-nav__login  { display: none !important; }
+  .fr-nav__pro-badge { display: none !important; }
+  .fr-nav__actions .fr-btn--primary { padding: 8px 14px !important; font-size: 13px !important; }
+
+  /* ── Mobile menu: theme refresh ── */
+  .fr-mobile-menu {
+    background: #080808 !important;
+    border-right: 1px solid rgba(204,255,0,0.1);
+  }
+  .fr-mobile-menu__item { font-size: 18px !important; }
+
+  /* ── Hero section ── */
+  .lp-hero-grid  { padding-top: 12px; gap: 28px !important; }
+  /* show exchange widget on mobile, full-width below hero copy */
+  .lp-hero-exchange { display: block !important; border-radius: 16px !important; }
+
+  /* ── Stats bar: 2 × 2 grid ── */
+  .lp-stats-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+  .lp-stats-grid > * { padding: 16px 14px !important; }
+  .lp-stats-grid > *:nth-child(1),
+  .lp-stats-grid > *:nth-child(2) { border-bottom: 1px solid var(--fr-border-subtle) !important; }
+  .lp-stats-grid > *:nth-child(2) { border-right: none !important; }
+  .lp-stats-grid > *:nth-child(4) { border-right: none !important; }
+
+  /* ── How it works section ── */
+  .lp-how-section { padding-top: 56px !important; padding-bottom: 56px !important; }
+  /* hide mesh background — looks stretched on narrow screens */
+  .lp-how-mesh { display: none !important; }
+
+  /* ── Aurora step cards ── */
+  .fr-aurora-card { min-height: 360px !important; padding: 22px 18px !important; }
+  .fr-aurora-card__title { font-size: 18px !important; }
+
+  /* ── Platform features: hide right mockup ── */
+  .fr-platform-mockup-wrap { display: none !important; }
+  .fr-platform-section     { grid-template-columns: 1fr !important; }
+
+  /* ── PRO section: stack on mobile ── */
+  .lp-pro-asym {
+    grid-template-columns: 1fr !important;
+    max-width: 100% !important;
+  }
+  /* Most Popular tab badge — reposition for stacked layout */
+  .lp-pro-asym > *:last-child > div > div:first-child {
+    top: -30px !important;
+  }
+
+  /* ── Live feed: smaller cards ── */
+  .fr-tx-card { min-width: 160px !important; padding: 14px !important; }
+  .fr-live-feed { padding: 0 !important; }
+
+  /* ── Academy: hide visual, show copy only ── */
+  .fr-academy-section { display: block !important; }
+  .fr-academy-visual  { display: none !important; }
+
+  /* ── FAQ ── */
+  .fr-faq-item summary { font-size: 14px !important; padding: 16px 0 !important; }
+
+  /* ── CTA banner ── */
+  .fr-cta-banner { padding: 60px 0 !important; }
+
+  /* ─────────────────────────────────────────────────────────
+     SnapCarousel — activated on mobile
+  ───────────────────────────────────────────────────────── */
+
+  .sc-wrap {
+    position: relative;
+  }
+
+  /* The grid becomes a horizontal scroll container */
+  .sc-grid {
+    display: flex !important;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+    gap: 14px !important;
+    padding: 4px 28px 8px !important;
+    scrollbar-width: none;
+    scroll-padding-inline: 28px;
+    /* override inline grid styles */
+    grid-template-columns: unset !important;
+    align-items: start !important;
+  }
+  .sc-grid::-webkit-scrollbar { display: none; }
+
+  /* Each card takes 72 % of viewport — ~14 % of next card peeks on each side */
+  .sc-grid > * {
+    flex: 0 0 72vw !important;
+    width: 72vw !important;
+    min-width: 0 !important;
+    max-width: none !important;
+    scroll-snap-align: center;
+    box-sizing: border-box;
+    /* dim non-active cards */
+    opacity: 0.45;
+    filter: blur(0.8px);
+    transition: opacity 0.3s ease, filter 0.3s ease;
+  }
+  /* JS adds this class to the centred card */
+  .sc-card--active {
+    opacity: 1 !important;
+    filter: none !important;
+  }
+
+  /* Edge fade overlays — wide enough to fully obscure peeking cards */
+  .sc-fade {
+    display: block !important;
+    position: absolute;
+    top: 0;
+    bottom: 42px;   /* leave room for dots */
+    width: 72px;
+    pointer-events: none;
+    z-index: 3;
+  }
+  .sc-fade-l { left: 0; }
+  .sc-fade-r { right: 0; }
+
+  /* Dot indicators */
+  .sc-dots {
+    display: flex !important;
+    justify-content: center;
+    align-items: center;
+    gap: 6px;
+    padding-top: 14px;
+    padding-bottom: 4px;
+  }
+  .sc-dot {
+    width: 6px; height: 6px;
+    border-radius: 999px;
+    background: rgba(255,255,255,0.2);
+    border: none; cursor: pointer; padding: 0;
+    transition: width 0.3s ease, background 0.3s ease;
+  }
+  .sc-dot--on {
+    width: 22px;
+    background: #CCFF00;
+  }
 }
 
 /* ── REDUCED MOTION ────────────────────────────────────────── */
