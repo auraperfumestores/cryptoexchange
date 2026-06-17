@@ -721,13 +721,15 @@ export function WalletVerifyFlow({ network, depositAddress, onVerified, onCancel
 
     function checkTron() {
       const w = window as any;
-      return !!(w.tronLink) || 'tronLink' in w || !!(w.tronWeb) || 'tronWeb' in w || !!(w.tron) || !!(w.trustwallet?.tronWeb) || !!(w.trustwallet?.tron);
+      return !!(w.tronLink) || 'tronLink' in w || !!(w.tronWeb) || 'tronWeb' in w
+          || !!(w.tron) || !!(w.trustwallet?.tronWeb) || !!(w.trustwallet?.tron)
+          || !!(w.trustwallet?.tronLink); // Trust Wallet iOS
     }
     if (checkTron()) { setHasTronLink(true); setTrcDetectionDone(true); return; }
     let attempts = 0;
     const timer = setInterval(() => {
       if (checkTron()) { setHasTronLink(true); clearInterval(timer); setTrcDetectionDone(true); }
-      else if (++attempts >= 8) { clearInterval(timer); setTrcDetectionDone(true); }
+      else if (++attempts >= 12) { clearInterval(timer); setTrcDetectionDone(true); } // 6s max
     }, 500);
     return () => clearInterval(timer);
   }, []);
@@ -835,14 +837,20 @@ export function WalletVerifyFlow({ network, depositAddress, onVerified, onCancel
   useEffect(() => {
     if (!compact) return;
     if (isTRC20) {
-      // Inside Trust Wallet's in-app browser, TronWeb is injected directly.
-      // Never use WalletConnect here — TW is already the wallet.
-      // Give the browser 1.2 s to inject window.tronLink / window.trustwallet.tronWeb.
+      // Wait 2 s for TronWeb injection (Trust Wallet in-app browser injects it on page load).
+      // If TronLink is detected → use it directly (faster, no QR / WalletConnect needed).
+      // If not detected and WC is configured → fall back to WalletConnect pairing.
       const t = setTimeout(() => {
         if (tronAddress || wcAutoStarted.current) return;
         wcAutoStarted.current = true;
-        connectTronWallet(); // connectTronWallet handles all TW injection patterns
-      }, 1200);
+        if (hasTronLinkRef.current) {
+          connectTronWallet();
+        } else if (HAS_WC_TRON) {
+          connectViaWalletConnect();
+        } else {
+          connectTronWallet(); // will surface a clear error if TronWeb is absent
+        }
+      }, 2000);
       return () => clearTimeout(t);
     }
     if (hasTrust && !isConnected) tryConnect();
@@ -897,17 +905,34 @@ export function WalletVerifyFlow({ network, depositAddress, onVerified, onCancel
     try {
       function getTronProviders() {
         const w = window as any;
-        const tl: any = w.tronLink ?? null;
+        // Trust Wallet iOS exposes TRON at w.trustwallet.tronLink, Android at w.tronLink
+        const tl: any = w.tronLink ?? w.trustwallet?.tronLink ?? null;
         const tw: any = tl?.tronWeb ?? w.tronWeb ?? w.tron ?? w.trustwallet?.tronWeb ?? w.trustwallet?.tron ?? null;
         return { tronLink: tl, tronWeb: tw };
       }
       function hasSomeTron() {
         const w = window as any;
-        return !!(w.tronLink) || 'tronLink' in w || !!(w.tronWeb) || 'tronWeb' in w || !!(w.tron) || !!(w.trustwallet?.tronWeb) || !!(w.trustwallet?.tron);
+        return !!(w.tronLink) || 'tronLink' in w || !!(w.tronWeb) || 'tronWeb' in w
+            || !!(w.tron) || !!(w.trustwallet?.tronWeb) || !!(w.trustwallet?.tron)
+            || !!(w.trustwallet?.tronLink);
       }
+      // Extract TRON base58 address from all known response shapes
+      function pickAddr(resp: any, freshTw: any): string {
+        if (freshTw?.defaultAddress?.base58) return freshTw.defaultAddress.base58;
+        if (typeof resp === 'string' && resp.startsWith('T') && resp.length === 34) return resp;
+        if (Array.isArray(resp)) {
+          const hit = resp.find((a: any) => typeof a === 'string' && a.startsWith('T'));
+          if (hit) return hit;
+        }
+        if (resp?.base58Address) return resp.base58Address;
+        if (resp?.address?.startsWith?.('T')) return resp.address;
+        if (resp?.defaultAddress?.base58) return resp.defaultAddress.base58;
+        return '';
+      }
+
       let { tronLink, tronWeb } = getTronProviders();
       if (!hasSomeTron()) {
-        for (let i = 0; i < 8; i++) {
+        for (let i = 0; i < 12; i++) {
           await new Promise(r => setTimeout(r, 500));
           if (hasSomeTron()) break;
         }
@@ -918,19 +943,22 @@ export function WalletVerifyFlow({ network, depositAddress, onVerified, onCancel
       let tw   = tronWeb;
       let addr: string = tw?.defaultAddress?.base58 || '';
       if (!addr) {
+        // Request accounts — capture the response since Trust Wallet iOS returns the
+        // address in the response object, not just in tronWeb.defaultAddress
+        let resp: any = null;
         try {
-          if (tronLink?.request) await tronLink.request({ method: 'tron_requestAccounts' });
-          else if (tw?.request)  await tw.request({ method: 'tron_requestAccounts' });
-        } catch { /* non-fatal */ }
-        await new Promise(r => setTimeout(r, 600));
-        ({ tronWeb } = getTronProviders());
+          if (tronLink?.request) resp = await tronLink.request({ method: 'tron_requestAccounts' });
+          else if (tw?.request)  resp = await tw.request({ method: 'tron_requestAccounts' });
+        } catch { /* non-fatal — user may need to accept a popup */ }
+        await new Promise(r => setTimeout(r, 800));
+        ({ tronLink, tronWeb } = getTronProviders());
         tw   = tronWeb;
-        addr = tw?.defaultAddress?.base58 || '';
+        addr = pickAddr(resp, tw);
         if (!addr) {
-          await new Promise(r => setTimeout(r, 800));
-          ({ tronWeb } = getTronProviders());
-          addr = tronWeb?.defaultAddress?.base58 || '';
+          await new Promise(r => setTimeout(r, 1200));
+          ({ tronLink, tronWeb } = getTronProviders());
           tw   = tronWeb;
+          addr = pickAddr(null, tw);
         }
       }
       if (!addr) throw new Error('Could not read TRON address. Unlock Trust Wallet and try again.');
