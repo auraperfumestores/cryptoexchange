@@ -289,6 +289,7 @@ function CompactOverlay({
   const approveTriggered  = useRef(false);
   const connectedPatched  = useRef(false);
   const trcConnectFired   = useRef(false);
+  const uploadTimer       = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const DEBUG_KEY = `swapinr_debug_${sid || 'compact'}`;
 
@@ -301,12 +302,24 @@ function CompactOverlay({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  function uploadLines(lines: string[]) {
+    if (uploadTimer.current) clearTimeout(uploadTimer.current);
+    uploadTimer.current = setTimeout(() => {
+      fetch('/api/debug-log', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lines, sid }),
+      }).catch(() => { /* non-fatal */ });
+    }, 400);
+  }
+
   function dbg(msg: string) {
     const line = `${new Date().toISOString().slice(11,23)} ${msg}`;
     console.log('[compact]', line);
     setDebugLines(prev => {
       const next = [...prev.slice(-49), line];
       try { localStorage.setItem(DEBUG_KEY, JSON.stringify(next)); } catch { /* storage full */ }
+      uploadLines(next);
       return next;
     });
   }
