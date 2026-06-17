@@ -273,12 +273,11 @@ function CompactOverlay({
     } catch { /* non-fatal */ }
   }
 
-  /* Start Over — patch cancelled, then close/go-back inside Trust Wallet */
+  /* Start Over — patch cancelled, show "tap back" screen. Never call window.close() so
+     the page stays alive and the debug log remains readable in Trust Wallet's browser. */
   async function startOver() {
     setShowRestarted(true);
     await patch({ status: 'cancelled' });
-    // Try closing the in-app browser tab; if that fails user sees the static instructions below
-    try { window.close(); } catch { /* ok if unsupported */ }
   }
 
   function triggerEvmApprove() {
@@ -1002,15 +1001,7 @@ export function WalletVerifyFlow({ network, depositAddress, onVerified, onCancel
         } catch { }
       }
     } catch(e: any) {
-      const msg = e?.message || 'TRON wallet connection failed';
-      // In compact mode: if TronLink is genuinely absent, auto-fall back to WalletConnect
-      // rather than surfacing an error — the user is inside Trust Wallet's browser and
-      // WC is the fallback signing path for iOS where TronLink may not be injected.
-      if (compact && /not found/i.test(msg) && HAS_WC_TRON && !tronAddress) {
-        connectViaWalletConnect();
-      } else {
-        setTrcConnectError(msg);
-      }
+      setTrcConnectError(e?.message || 'TRON wallet connection failed');
     } finally {
       setTrcConnecting(false);
     }
