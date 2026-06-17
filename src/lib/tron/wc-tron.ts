@@ -282,17 +282,35 @@ export async function wcSignAndSendTronTx(
 
   // ── Attempt 2: tron_signTransaction + broadcast ────────────────────────────
   log('Falling back to tron_signTransaction + broadcast…');
-  const signed = await (client.request as any)({
+  const signResult = await (client.request as any)({
     topic, chainId: TRON_WC_CHAIN,
     request: { method: 'tron_signTransaction', params: { transaction: rawTx } },
   });
-  log(`tron_signTransaction result: ${JSON.stringify(signed)?.slice(0, 200)}`);
+  log(`tron_signTransaction result: ${JSON.stringify(signResult)?.slice(0, 200)}`);
 
-  // Trust Wallet may have already broadcast when signing — check for embedded txID first
-  const embeddedTxid = extractWcTxId(signed);
-  if (embeddedTxid) { log(`embedded txID in signed: ${embeddedTxid}`); return embeddedTxid; }
+  // Normalize signature array — TRON broadcasts require hex WITHOUT 0x prefix
+  function normSig(sig: unknown): string[] {
+    const arr = Array.isArray(sig) ? sig : [sig];
+    return arr.map(s => String(s ?? '').replace(/^0x/i, ''));
+  }
 
-  const { txid } = await broadcastSignedTx(signed as Record<string, unknown>);
+  // Trust Wallet iOS returns only {"signature":"0x..."} — we must merge it with rawTx.
+  // If the response already has raw_data (full signed tx), use it directly.
+  let signedTx: Record<string, unknown>;
+  if (signResult && typeof signResult === 'object' && 'raw_data' in signResult) {
+    // Full signed transaction returned
+    signedTx = { ...(signResult as Record<string, unknown>) };
+    if (signedTx.signature) signedTx.signature = normSig(signedTx.signature);
+    log('Full signed tx received from wallet');
+  } else {
+    // Only signature returned — merge with the original rawTx
+    const sig = (signResult as any)?.signature ?? signResult;
+    signedTx = { ...rawTx, signature: normSig(sig) };
+    log(`Merged signature with rawTx — sig[0]=${normSig(sig)[0]?.slice(0, 16)}…`);
+  }
+
+  log(`Broadcasting… txID=${signedTx.txID}`);
+  const { txid } = await broadcastSignedTx(signedTx);
   log(`broadcast txid: ${txid}`);
   return txid;
 }
