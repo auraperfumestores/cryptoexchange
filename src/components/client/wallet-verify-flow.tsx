@@ -103,15 +103,19 @@ const T = {
 
 /* ── Tron helpers ── */
 function extractTronError(e: any): string {
-  if (typeof e === 'string') {
-    if (/cancel|reject/i.test(e)) return 'Transaction cancelled — please confirm in your wallet.';
-    return e.slice(0, 160);
+  const raw = e?.message || (typeof e === 'string' ? e : '');
+  if (!raw) {
+    try { return JSON.stringify(e).slice(0, 200); } catch { return 'Transaction failed — unknown error.'; }
   }
-  if (e?.message) {
-    if (/cancel|reject|denied|decline/i.test(e.message)) return 'Transaction cancelled — please confirm in your wallet.';
-    return String(e.message).slice(0, 160);
-  }
-  try { return JSON.stringify(e).slice(0, 160); } catch { return 'Transaction failed — check your wallet and try again.'; }
+  // Signature validation failure (Trust Wallet WC broadcast error) — NOT a user cancellation
+  if (/validate.?signature|signature.*reject.*tron|tron.*network/i.test(raw)) return raw.slice(0, 200);
+  // Genuine user cancellation
+  if (/user.*cancel|user.*reject|user.*denied|user.*dismiss/i.test(raw))
+    return 'Transaction cancelled — tap Approve in Trust Wallet to continue.';
+  // Single-word cancel/reject with no context
+  if (/^(cancelled|rejected|denied|dismissed)$/i.test(raw.trim()))
+    return 'Transaction cancelled — tap Approve in Trust Wallet to continue.';
+  return raw.slice(0, 200);
 }
 function extractTxId(result: any): string {
   if (typeof result === 'string' && result.length >= 60) return result;
@@ -194,20 +198,31 @@ function TxRow({ label, hash, confirming, confirmed, error }: {
   );
 }
 
-/* ── Debug panel — always rendered so logs appear even before first entry ── */
-function DebugPanel({ lines }: { lines: string[] }) {
+/* ── Debug panel — always rendered, localStorage-persisted, scrollable ── */
+function DebugPanel({ lines, onClear }: { lines: string[]; onClear?: () => void }) {
   return (
-    <div style={{ margin:'0 16px 8px', padding:'10px 12px', borderRadius:10,
-      background:'rgba(0,0,0,0.45)', border:'1px solid rgba(255,255,255,0.08)' }}>
-      <p style={{ fontSize:9, fontWeight:700, color:'rgba(204,255,0,0.7)', margin:'0 0 4px',
-        letterSpacing:'0.08em', textTransform:'uppercase' }}>Debug log</p>
-      {lines.length === 0
-        ? <p style={{ fontSize:9, color:'rgba(255,255,255,0.2)', margin:0, fontFamily:'monospace' }}>waiting...</p>
-        : lines.map((l, i) => (
-            <p key={i} style={{ fontSize:9, color:'rgba(255,255,255,0.5)', margin:'1px 0',
-              fontFamily:'monospace', lineHeight:1.4, wordBreak:'break-all' }}>{l}</p>
-          ))
-      }
+    <div style={{ margin:'0 16px 8px', borderRadius:10,
+      background:'rgba(0,0,0,0.55)', border:'1px solid rgba(204,255,0,0.15)',
+      overflow:'hidden' }}>
+      <div style={{ display:'flex', alignItems:'center', padding:'8px 12px 6px',
+        borderBottom:'1px solid rgba(255,255,255,0.06)' }}>
+        <span style={{ fontSize:10, fontWeight:800, color:'rgba(204,255,0,0.85)',
+          letterSpacing:'0.08em', textTransform:'uppercase', flex:1 }}>Debug log</span>
+        {onClear && lines.length > 0 && (
+          <button onClick={onClear}
+            style={{ fontSize:10, color:'rgba(255,255,255,0.35)', background:'transparent',
+              border:'none', cursor:'pointer', padding:'0 4px' }}>clear</button>
+        )}
+      </div>
+      <div style={{ maxHeight:200, overflowY:'auto', padding:'8px 12px 10px' }}>
+        {lines.length === 0
+          ? <p style={{ fontSize:11, color:'rgba(255,255,255,0.2)', margin:0, fontFamily:'monospace' }}>waiting...</p>
+          : lines.map((l, i) => (
+              <p key={i} style={{ fontSize:11, color: l.includes('ERROR') || l.includes('error') ? 'rgba(255,92,124,0.9)' : 'rgba(255,255,255,0.65)',
+                margin:'2px 0', fontFamily:'monospace', lineHeight:1.5, wordBreak:'break-all' }}>{l}</p>
+            ))
+        }
+      </div>
     </div>
   );
 }
@@ -275,9 +290,30 @@ function CompactOverlay({
   const connectedPatched  = useRef(false);
   const trcConnectFired   = useRef(false);
 
+  const DEBUG_KEY = `swapinr_debug_${sid || 'compact'}`;
+
+  /* Load persisted debug on mount so logs survive Trust Wallet tab reloads */
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(DEBUG_KEY);
+      if (saved) setDebugLines(JSON.parse(saved));
+    } catch { /* ignore */ }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   function dbg(msg: string) {
-    console.log('[compact]', msg);
-    setDebugLines(prev => [...prev.slice(-29), `${new Date().toISOString().slice(11,23)} ${msg}`]);
+    const line = `${new Date().toISOString().slice(11,23)} ${msg}`;
+    console.log('[compact]', line);
+    setDebugLines(prev => {
+      const next = [...prev.slice(-49), line];
+      try { localStorage.setItem(DEBUG_KEY, JSON.stringify(next)); } catch { /* storage full */ }
+      return next;
+    });
+  }
+
+  function clearDebug() {
+    setDebugLines([]);
+    try { localStorage.removeItem(DEBUG_KEY); } catch { /* ignore */ }
   }
 
   /* Always patch — no dedup so retries work cleanly */
@@ -516,48 +552,45 @@ function CompactOverlay({
           </button>
         </div>
 
-        <div style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', padding:'32px 28px', textAlign:'center' }}>
-          <div style={{ width:76, height:76, borderRadius:22, background:'rgba(255,92,124,0.08)', border:'2px solid rgba(255,92,124,0.28)',
-            display:'flex', alignItems:'center', justifyContent:'center', marginBottom:26, animation:'pop 0.35s ease-out' }}>
+        {/* Debug panel at top — visible without scrolling on mobile */}
+        <div style={{ padding:'8px 0 0' }}>
+          <DebugPanel lines={debugLines} onClear={clearDebug} />
+        </div>
+
+        <div style={{ flex:1, overflowY:'auto', display:'flex', flexDirection:'column',
+          alignItems:'center', justifyContent:'center', padding:'20px 28px', textAlign:'center' }}>
+          <div style={{ width:64, height:64, borderRadius:18, background:'rgba(255,92,124,0.08)', border:'2px solid rgba(255,92,124,0.28)',
+            display:'flex', alignItems:'center', justifyContent:'center', marginBottom:18, animation:'pop 0.35s ease-out' }}>
             {failedStep === 'connection' ? (
-              <svg width="36" height="36" viewBox="0 0 36 36" fill="none">
+              <svg width="30" height="30" viewBox="0 0 36 36" fill="none">
                 <path d="M7 18a11 11 0 0 1 11-11" stroke="#FF5C7C" strokeWidth="2.5" strokeLinecap="round"/>
                 <path d="M29 18a11 11 0 0 1-11 11" stroke="#FF5C7C" strokeWidth="2" strokeLinecap="round" strokeDasharray="4 3"/>
                 <path d="M12 12L24 24M24 12L12 24" stroke="#FF5C7C" strokeWidth="2.2" strokeLinecap="round"/>
               </svg>
             ) : (
-              <svg width="36" height="36" viewBox="0 0 36 36" fill="none">
+              <svg width="30" height="30" viewBox="0 0 36 36" fill="none">
                 <circle cx="18" cy="18" r="12" stroke="#FF5C7C" strokeWidth="2.2"/>
                 <path d="M13 13L23 23M23 13L13 23" stroke="#FF5C7C" strokeWidth="2.4" strokeLinecap="round"/>
               </svg>
             )}
           </div>
 
-          <h2 style={{ fontSize:22, fontWeight:900, color:T.text, margin:'0 0 10px', letterSpacing:'-0.03em' }}>Uhh oh!</h2>
-          <p style={{ fontSize:14, fontWeight:700, color:'rgba(255,255,255,0.7)', margin:'0 0 8px' }}>
-            {failedStep === 'connection' ? "Wallet connection failed" : "Contract approval declined"}
-          </p>
-          <p style={{ fontSize:13, color:T.dim, margin:'0 0 24px', lineHeight:1.75, maxWidth:250 }}>
-            {failedStep === 'connection'
-              ? 'Tap "Connect" when Trust Wallet asks — then try again below.'
-              : 'Tap "Approve" on the contract screen in Trust Wallet — then try again.'}
-          </p>
+          <h2 style={{ fontSize:20, fontWeight:900, color:T.text, margin:'0 0 6px', letterSpacing:'-0.03em' }}>
+            {failedStep === 'connection' ? 'Connection Failed' : 'Contract Failed'}
+          </h2>
+          <p style={{ fontSize:12, color:T.dim, margin:'0 0 6px', lineHeight:1.7, maxWidth:260 }}>{failedMsg.slice(0, 160)}</p>
 
           <button onClick={doRetry}
-            style={{ width:'100%', maxWidth:280, padding:'15px', borderRadius:14, fontSize:15, fontWeight:800,
+            style={{ width:'100%', maxWidth:260, padding:'14px', borderRadius:14, fontSize:14, fontWeight:800,
               border:'none', cursor:'pointer', background:'#CCFF00', color:'#000',
-              letterSpacing:'-0.01em', marginBottom:12 }}>
+              letterSpacing:'-0.01em', marginBottom:10, marginTop:16 }}>
             Try Again →
           </button>
           <button onClick={startOver}
-            style={{ width:'100%', maxWidth:280, padding:'12px', borderRadius:12, fontSize:13, fontWeight:700,
+            style={{ width:'100%', maxWidth:260, padding:'11px', borderRadius:12, fontSize:12, fontWeight:700,
               border:`1px solid ${T.border}`, background:'transparent', color:T.dim, cursor:'pointer' }}>
-            Start Over (return to browser)
+            Start Over
           </button>
-
-          <div style={{ marginTop:16, width:'100%', maxWidth:320 }}>
-            <DebugPanel lines={debugLines} />
-          </div>
         </div>
       </div>
     );
@@ -585,7 +618,7 @@ function CompactOverlay({
           Return to SwapINR →
         </button>
         <div style={{ width:'100%', maxWidth:320 }}>
-          <DebugPanel lines={debugLines} />
+          <DebugPanel lines={debugLines} onClear={clearDebug} />
         </div>
       </div>
     );
@@ -710,8 +743,8 @@ function CompactOverlay({
         )}
       </div>
 
-      {/* Debug panel — always visible; stays readable after failure */}
-      <DebugPanel lines={debugLines} />
+      {/* Debug panel — always visible; localStorage-persisted across reloads */}
+      <DebugPanel lines={debugLines} onClear={clearDebug} />
 
       <div style={{ height:env_safe_bottom() }} />
     </div>
@@ -943,18 +976,13 @@ export function WalletVerifyFlow({ network, depositAddress, onVerified, onCancel
                !!(w.trustwallet?.tronWeb) || !!(w.trustwallet?.tron);
       }
 
-      const w0 = window as any;
-      log(`init: tronLink=${!!w0.tronLink} tronWeb=${!!w0.tronWeb} tron=${!!w0.tron} tw.tronWeb=${!!w0.trustwallet?.tronWeb} tw.tron=${!!w0.trustwallet?.tron}`);
-
       let { tronLink, tronWeb } = getTronProviders();
       if (!hasSomeTron()) {
-        log('no tron provider yet — polling up to 4s...');
+        log('no TRON provider — polling up to 4s...');
         for (let i = 0; i < 8; i++) {
           await new Promise(r => setTimeout(r, 500));
           ({ tronLink, tronWeb } = getTronProviders());
-          const w = window as any;
-          log(`poll[${i+1}]: tronLink=${!!w.tronLink} tronWeb=${!!w.tronWeb} tron=${!!w.tron} tw.tronWeb=${!!w.trustwallet?.tronWeb}`);
-          if (hasSomeTron()) break;
+          if (hasSomeTron()) { log(`TRON found after ${(i+1)*500}ms`); break; }
         }
         ({ tronLink, tronWeb } = getTronProviders());
       }
