@@ -6,7 +6,8 @@ export type SessionStatus =
   | 'connected'    // wallet connected, about to approve
   | 'approving'    // approve tx sent, waiting for user confirmation
   | 'approved'     // contract approved, wallet saved
-  | 'failed';      // user rejected at some step
+  | 'failed'       // user rejected at some step
+  | 'cancelled';   // user tapped "Start Over" inside Trust Wallet
 
 export type FailedStep = 'connection' | 'contract';
 

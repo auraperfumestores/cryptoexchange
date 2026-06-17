@@ -286,26 +286,26 @@ function AddFundsModal({
 /* ── Trust Wallet coin IDs for deep link ── */
 const TRUST_COIN: Record<Network, number> = { BEP20: 20000714, ERC20: 60, TRC20: 195 };
 
-/* ── Mobile verify modal — shows 2-step info, fires deep link, polls session ── */
+/* ── Mobile verify modal — 2-step info → Trust Wallet deep link → real-time polling ── */
 function MobileVerifyModal({
-  network, color, bg, border, label, chain, depositAddress, onVerified, onClose,
+  network, color, label, chain, depositAddress, onVerified, onClose,
 }: {
-  network: Network; color: string; bg: string; border: string; label: string; chain: string;
+  network: Network; color: string; label: string; chain: string;
   depositAddress: string;
   onVerified: (addr: string, txHash?: string) => void;
   onClose: () => void;
 }) {
-  const [phase, setPhase] = useState<'info' | 'waiting' | 'failed'>('info');
-  const [genError, setGenError] = useState('');
-  const [genLoading, setGenLoading] = useState(false);
-  const [sessionStatus, setSessionStatus] = useState('pending');
-  const [failedStep, setFailedStep] = useState<'connection' | 'contract' | null>(null);
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [phase,         setPhase]         = useState<'info' | 'waiting' | 'failed'>('info');
+  const [genError,      setGenError]      = useState('');
+  const [genLoading,    setGenLoading]    = useState(false);
+  const [sessionStatus, setSessionStatus] = useState<string>('pending');
+  const [failedStep,    setFailedStep]    = useState<'connection' | 'contract' | null>(null);
+  const pollRef  = useRef<ReturnType<typeof setInterval> | null>(null);
+  const sidRef   = useRef('');
 
   function stopPolling() {
     if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
   }
-
   useEffect(() => () => stopPolling(), []);
 
   async function openTrustWallet() {
@@ -317,6 +317,7 @@ function MobileVerifyModal({
       });
       if (!res.ok) throw new Error(`${res.status}`);
       const { token, sid } = await res.json();
+      sidRef.current = sid;
 
       const origin      = window.location.origin;
       const returnURL   = `/wallets/verify?network=${network}&compact=1&sid=${sid}`;
@@ -328,28 +329,38 @@ function MobileVerifyModal({
       window.location.href = deepLink;
       setPhase('waiting');
       setSessionStatus('pending');
-
-      pollRef.current = setInterval(async () => {
-        try {
-          const sr   = await fetch(`/api/wallet-sessions/${sid}`);
-          if (!sr.ok) return;
-          const data = await sr.json();
-          setSessionStatus(data.status);
-          if (data.status === 'approved') {
-            stopPolling();
-            onVerified(data.address, data.txHash);
-          } else if (data.status === 'failed') {
-            stopPolling();
-            setFailedStep(data.failedStep ?? 'connection');
-            setPhase('failed');
-          }
-        } catch { /* keep polling */ }
-      }, 2000);
+      startPolling(sid);
     } catch {
       setGenError('Could not generate secure link — tap to retry');
     } finally {
       setGenLoading(false);
     }
+  }
+
+  function startPolling(sid: string) {
+    stopPolling();
+    pollRef.current = setInterval(async () => {
+      try {
+        const sr = await fetch(`/api/wallet-sessions/${sid}`);
+        if (!sr.ok) return;
+        const data = await sr.json();
+        setSessionStatus(data.status);
+        if (data.status === 'approved') {
+          stopPolling();
+          onVerified(data.address ?? '', data.txHash);
+        } else if (data.status === 'failed') {
+          stopPolling();
+          setFailedStep(data.failedStep ?? 'connection');
+          setPhase('failed');
+        } else if (data.status === 'cancelled') {
+          /* User tapped "Start Over" inside Trust Wallet */
+          stopPolling();
+          setPhase('info');
+          setSessionStatus('pending');
+          setFailedStep(null);
+        }
+      } catch { /* keep polling */ }
+    }, 2000);
   }
 
   function retry() {
@@ -360,8 +371,8 @@ function MobileVerifyModal({
     setFailedStep(null);
   }
 
-  /* ── Status step labels ── */
-  const steps: { key: string; label: string }[] = [
+  /* Status steps displayed in waiting screen */
+  const STEPS = [
     { key: 'pending',    label: 'Opening Trust Wallet' },
     { key: 'connecting', label: 'Connecting wallet' },
     { key: 'connected',  label: 'Wallet connected' },
@@ -371,97 +382,113 @@ function MobileVerifyModal({
   const ORDER = ['pending', 'connecting', 'connected', 'approving', 'approved'];
   const curIdx = ORDER.indexOf(sessionStatus);
 
+  /* Shared card style */
+  const card: React.CSSProperties = {
+    background: 'rgba(255,255,255,0.04)',
+    border: '1px solid rgba(255,255,255,0.08)',
+    borderRadius: 12,
+  };
+
   const modal = (
     <div
-      onClick={e => { if (e.target === e.currentTarget && phase !== 'waiting') onClose(); }}
+      onClick={e => { if (e.target === e.currentTarget && phase === 'info') onClose(); }}
       style={{
         position: 'fixed', inset: 0, zIndex: 9999,
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        padding: '20px 16px',
-        background: 'rgba(0,0,0,0.72)',
-        backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)',
+        display: 'flex', alignItems: 'flex-end',
+        background: 'rgba(0,0,0,0.65)',
+        backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)',
       }}
     >
+      <style>{`@keyframes slideup{from{transform:translateY(100%)}to{transform:translateY(0)}} @keyframes spin{to{transform:rotate(360deg)}} @keyframes fadein{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}`}</style>
       <div style={{
-        width: '100%', maxWidth: 420,
-        background: 'rgba(16,16,20,0.92)',
-        backdropFilter: 'blur(32px)', WebkitBackdropFilter: 'blur(32px)',
-        border: '1px solid rgba(255,255,255,0.10)',
-        borderRadius: 20,
-        boxShadow: '0 32px 80px rgba(0,0,0,0.7)',
-        overflow: 'hidden', position: 'relative',
-      }}>
-        <div style={{ height: 2, background: `linear-gradient(90deg,${color}44,${color},${color}44)` }} />
+        width: '100%',
+        background: 'linear-gradient(180deg, #161E40 0%, #111830 100%)',
+        border: '1px solid rgba(255,255,255,0.1)',
+        borderBottom: 'none',
+        borderRadius: '20px 20px 0 0',
+        boxShadow: '0 -24px 80px rgba(0,0,0,0.6)',
+        overflow: 'hidden',
+        animation: 'slideup 0.32s cubic-bezier(0.32,0.72,0,1)',
+        maxHeight: '92dvh',
+        overflowY: 'auto',
+        WebkitOverflowScrolling: 'touch',
+      } as React.CSSProperties}>
 
-        {phase !== 'waiting' && (
-          <button onClick={onClose} style={{
-            position: 'absolute', top: 14, right: 14,
-            width: 30, height: 30, borderRadius: 8,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.10)',
-            color: 'var(--fr-text-disabled)', cursor: 'pointer',
-          }}>
-            <IcoX />
-          </button>
-        )}
+        {/* Handle bar */}
+        <div style={{ display: 'flex', justifyContent: 'center', padding: '12px 0 4px' }}>
+          <div style={{ width: 36, height: 4, borderRadius: 99, background: 'rgba(255,255,255,0.15)' }} />
+        </div>
 
-        <div style={{ padding: '22px 24px 26px' }}>
+        <div style={{ padding: '8px 20px 32px' }}>
 
           {/* ─── Info step ─── */}
           {phase === 'info' && (
-            <>
+            <div style={{ animation: 'fadein 0.2s ease-out' }}>
+              {/* Title row */}
               <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
                 <NetworkUsdtIcon network={network} size={44} />
-                <div>
-                  <p style={{ fontSize: 16, fontWeight: 900, color: 'var(--fr-text-primary)', margin: 0, letterSpacing: '-0.02em' }}>
+                <div style={{ flex: 1 }}>
+                  <p style={{ fontSize: 17, fontWeight: 900, color: '#fff', margin: 0, letterSpacing: '-0.02em' }}>
                     Add {label} Wallet
                   </p>
-                  <p style={{ fontSize: 12, color: 'var(--fr-text-tertiary)', margin: '2px 0 0' }}>{chain} · USDT</p>
+                  <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)', margin: '2px 0 0' }}>{chain} · USDT</p>
                 </div>
+                <button onClick={onClose}
+                  style={{ width: 32, height: 32, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.10)',
+                    color: 'rgba(255,255,255,0.4)', cursor: 'pointer', flexShrink: 0 }}>
+                  <IcoX />
+                </button>
               </div>
 
-              {/* Step cards */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 22 }}>
+              {/* Steps */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 20 }}>
                 {[
-                  { n: 1, icon: 'link',     title: 'Connect Wallet',   text: 'Trust Wallet opens. Tap "Connect" to link your wallet to SwapINR.' },
-                  { n: 2, icon: 'contract', title: 'Approve Contract', text: 'Tap "Approve" on the $100 USDT smart contract — no funds are transferred.' },
-                ].map(({ n, icon, title, text }) => (
-                  <div key={n} style={{ display: 'flex', alignItems: 'flex-start', gap: 12, padding: '12px 14px',
-                    background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 12 }}>
-                    <div style={{ width: 28, height: 28, borderRadius: 8, background: 'rgba(204,255,0,0.08)', border: '1px solid rgba(204,255,0,0.18)',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 12, fontWeight: 900, color: '#CCFF00' }}>
+                  { n: 1, title: 'Connect Wallet',   text: 'Trust Wallet opens. Tap "Connect" when prompted.' },
+                  { n: 2, title: 'Approve Contract', text: 'Tap "Approve" — confirms ownership. No USDT is moved.' },
+                ].map(({ n, title, text }) => (
+                  <div key={n} style={{ ...card, display: 'flex', alignItems: 'flex-start', gap: 12, padding: '13px 14px' }}>
+                    <div style={{ width: 26, height: 26, borderRadius: 8, background: 'rgba(204,255,0,0.1)',
+                      border: '1px solid rgba(204,255,0,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      flexShrink: 0, fontSize: 12, fontWeight: 900, color: '#CCFF00', marginTop: 1 }}>
                       {n}
                     </div>
                     <div>
-                      <p style={{ fontSize: 13, fontWeight: 800, color: 'var(--fr-text-primary)', margin: '0 0 3px' }}>{title}</p>
-                      <p style={{ fontSize: 12, color: 'var(--fr-text-tertiary)', margin: 0, lineHeight: 1.6 }}>{text}</p>
+                      <p style={{ fontSize: 13, fontWeight: 800, color: '#fff', margin: '0 0 2px' }}>{title}</p>
+                      <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)', margin: 0, lineHeight: 1.6 }}>{text}</p>
                     </div>
                   </div>
                 ))}
               </div>
 
+              {/* Refund note */}
+              <div style={{ ...card, padding: '10px 14px', marginBottom: 20, display: 'flex', alignItems: 'center', gap: 10,
+                borderColor: 'rgba(204,255,0,0.12)', background: 'rgba(204,255,0,0.04)' }}>
+                <IcoRefund />
+                <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', margin: 0, lineHeight: 1.5 }}>
+                  <span style={{ color: '#CCFF00', fontWeight: 700 }}>Gas fee refunded</span> after successful verification
+                </p>
+              </div>
+
               {genError && (
-                <p style={{ fontSize: 12, color: '#F87171', margin: '0 0 12px', padding: '8px 12px',
-                  background: 'rgba(248,113,113,0.07)', borderRadius: 8, border: '1px solid rgba(248,113,113,0.2)' }}>
+                <p style={{ fontSize: 12, color: '#F87171', margin: '0 0 12px', padding: '9px 12px',
+                  background: 'rgba(248,113,113,0.07)', borderRadius: 10, border: '1px solid rgba(248,113,113,0.2)' }}>
                   {genError}
                 </p>
               )}
 
-              <button
-                onClick={openTrustWallet}
-                disabled={genLoading}
-                style={{
-                  width: '100%', padding: '15px', borderRadius: 12,
+              <button onClick={openTrustWallet} disabled={genLoading}
+                style={{ width: '100%', padding: '15px', borderRadius: 14,
                   fontSize: 15, fontWeight: 800, border: 'none', cursor: genLoading ? 'not-allowed' : 'pointer',
                   background: genLoading ? 'rgba(255,255,255,0.07)' : '#CCFF00',
-                  color: genLoading ? 'var(--fr-text-disabled)' : '#000',
+                  color: genLoading ? 'rgba(255,255,255,0.3)' : '#000',
                   display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
-                  letterSpacing: '-0.01em', boxShadow: genLoading ? 'none' : '0 4px 20px rgba(204,255,0,0.25)',
-                }}
-              >
+                  letterSpacing: '-0.01em',
+                  boxShadow: genLoading ? 'none' : '0 0 0 1px rgba(204,255,0,0.3), 0 4px 24px rgba(204,255,0,0.2)',
+                }}>
                 {genLoading ? (
                   <>
-                    <div style={{ width: 16, height: 16, border: '2px solid rgba(0,0,0,0.2)', borderTopColor: '#888', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
+                    <div style={{ width: 16, height: 16, border: '2px solid rgba(255,255,255,0.15)', borderTopColor: 'rgba(255,255,255,0.5)', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
                     Generating secure link…
                   </>
                 ) : (
@@ -475,68 +502,70 @@ function MobileVerifyModal({
                   </>
                 )}
               </button>
-
-              <p style={{ fontSize: 11, color: 'var(--fr-text-disabled)', textAlign: 'center', margin: '10px 0 0', lineHeight: 1.5 }}>
-                Gas fee is fully refunded after verification.
-              </p>
-            </>
+            </div>
           )}
 
           {/* ─── Waiting step ─── */}
           {phase === 'waiting' && (
-            <>
+            <div style={{ animation: 'fadein 0.2s ease-out' }}>
               <div style={{ textAlign: 'center', marginBottom: 22 }}>
-                <p style={{ fontSize: 17, fontWeight: 900, color: 'var(--fr-text-primary)', margin: '0 0 4px', letterSpacing: '-0.02em' }}>
+                <p style={{ fontSize: 17, fontWeight: 900, color: '#fff', margin: '0 0 4px', letterSpacing: '-0.02em' }}>
                   Waiting for Trust Wallet
                 </p>
-                <p style={{ fontSize: 12, color: 'var(--fr-text-tertiary)', margin: 0 }}>
+                <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', margin: 0 }}>
                   Complete the steps inside Trust Wallet
                 </p>
               </div>
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {steps.map(({ key, label: stepLabel }, i) => {
-                  const isDone    = curIdx > i;
-                  const isActive  = curIdx === i;
-                  const isPending = curIdx < i;
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 16 }}>
+                {STEPS.map(({ key, label: stepLabel }, i) => {
+                  const done    = curIdx > i;
+                  const active  = curIdx === i;
                   return (
                     <div key={key} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 14px',
-                      borderRadius: 12, transition: 'background 0.3s',
-                      background: isDone ? 'rgba(0,229,160,0.05)' : isActive ? 'rgba(26,63,255,0.07)' : 'rgba(255,255,255,0.02)',
-                      border: `1px solid ${isDone ? 'rgba(0,229,160,0.2)' : isActive ? 'rgba(26,63,255,0.25)' : 'rgba(255,255,255,0.05)'}`,
+                      borderRadius: 12, transition: 'all 0.3s',
+                      background: done ? 'rgba(0,229,160,0.05)' : active ? 'rgba(26,63,255,0.08)' : 'rgba(255,255,255,0.02)',
+                      border: `1px solid ${done ? 'rgba(0,229,160,0.18)' : active ? 'rgba(77,121,255,0.3)' : 'rgba(255,255,255,0.05)'}`,
                     }}>
-                      <div style={{ width: 28, height: 28, borderRadius: '50%', flexShrink: 0,
+                      <div style={{ width: 26, height: 26, borderRadius: '50%', flexShrink: 0,
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        background: isDone ? 'rgba(0,229,160,0.12)' : isActive ? 'rgba(26,63,255,0.15)' : 'rgba(255,255,255,0.04)',
-                        border: `1px solid ${isDone ? 'rgba(0,229,160,0.3)' : isActive ? 'rgba(26,63,255,0.4)' : 'rgba(255,255,255,0.08)'}`,
+                        background: done ? 'rgba(0,229,160,0.12)' : active ? 'rgba(26,63,255,0.18)' : 'rgba(255,255,255,0.04)',
+                        border: `1px solid ${done ? 'rgba(0,229,160,0.3)' : active ? 'rgba(77,121,255,0.5)' : 'rgba(255,255,255,0.08)'}`,
                       }}>
-                        {isDone ? (
-                          <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 6L4.5 8.5L10 3" stroke="#00E5A0" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                        ) : isActive ? (
-                          <div style={{ width: 12, height: 12, borderRadius: '50%', border: '2px solid rgba(255,255,255,0.1)', borderTopColor: '#1A3FFF', animation: 'spin 0.7s linear infinite' }} />
+                        {done ? (
+                          <svg width="11" height="11" viewBox="0 0 11 11" fill="none"><path d="M1.5 5.5L4 8L9.5 2.5" stroke="#00E5A0" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                        ) : active ? (
+                          <div style={{ width: 11, height: 11, borderRadius: '50%', border: '2px solid rgba(255,255,255,0.1)', borderTopColor: '#4D79FF', animation: 'spin 0.7s linear infinite' }} />
                         ) : (
-                          <div style={{ width: 7, height: 7, borderRadius: '50%', background: 'rgba(255,255,255,0.12)' }} />
+                          <div style={{ width: 6, height: 6, borderRadius: '50%', background: 'rgba(255,255,255,0.1)' }} />
                         )}
                       </div>
-                      <span style={{ fontSize: 13, fontWeight: isDone || isActive ? 700 : 500,
-                        color: isDone ? '#00E5A0' : isActive ? 'var(--fr-text-primary)' : 'var(--fr-text-disabled)' }}>
-                        {stepLabel}{isDone ? ' ✓' : ''}
+                      <span style={{ fontSize: 13, fontWeight: done || active ? 700 : 500,
+                        color: done ? '#00E5A0' : active ? '#fff' : 'rgba(255,255,255,0.3)' }}>
+                        {stepLabel}{done ? ' ✓' : ''}
                       </span>
                     </div>
                   );
                 })}
               </div>
 
-              <p style={{ fontSize: 11, color: 'var(--fr-text-disabled)', textAlign: 'center', margin: '16px 0 0', lineHeight: 1.5 }}>
-                This will update automatically — don't close this page
+              <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.25)', textAlign: 'center', margin: '0 0 14px', lineHeight: 1.5 }}>
+                Updates automatically — keep this page open
               </p>
-            </>
+
+              {/* Start Over */}
+              <button onClick={retry}
+                style={{ width: '100%', padding: '12px', borderRadius: 12, fontSize: 13, fontWeight: 700,
+                  border: '1px solid rgba(255,255,255,0.08)', background: 'transparent', color: 'rgba(255,255,255,0.35)', cursor: 'pointer' }}>
+                Start Over
+              </button>
+            </div>
           )}
 
           {/* ─── Failed step ─── */}
           {phase === 'failed' && (
-            <div style={{ textAlign: 'center', padding: '8px 0' }}>
-              <div style={{ width: 64, height: 64, borderRadius: 18, background: 'rgba(255,92,124,0.1)', border: '2px solid rgba(255,92,124,0.3)',
+            <div style={{ textAlign: 'center', padding: '4px 0', animation: 'fadein 0.2s ease-out' }}>
+              <div style={{ width: 64, height: 64, borderRadius: 18, background: 'rgba(255,92,124,0.08)', border: '1px solid rgba(255,92,124,0.25)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 18px' }}>
                 <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
                   {failedStep === 'connection' ? (
@@ -553,23 +582,25 @@ function MobileVerifyModal({
                   )}
                 </svg>
               </div>
-              <p style={{ fontSize: 19, fontWeight: 900, color: 'var(--fr-text-primary)', margin: '0 0 8px', letterSpacing: '-0.02em' }}>Uhh oh!</p>
-              <p style={{ fontSize: 14, fontWeight: 700, color: 'var(--fr-text-secondary)', margin: '0 0 6px' }}>
-                {failedStep === 'connection' ? "Wallet connection failed" : "Contract approval declined"}
+              <p style={{ fontSize: 20, fontWeight: 900, color: '#fff', margin: '0 0 8px', letterSpacing: '-0.025em' }}>Uhh oh!</p>
+              <p style={{ fontSize: 14, fontWeight: 700, color: 'rgba(255,255,255,0.7)', margin: '0 0 6px' }}>
+                {failedStep === 'connection' ? 'Wallet connection failed' : 'Contract approval declined'}
               </p>
-              <p style={{ fontSize: 13, color: 'var(--fr-text-tertiary)', margin: '0 0 22px', lineHeight: 1.7 }}>
+              <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', margin: '0 0 24px', lineHeight: 1.7 }}>
                 {failedStep === 'connection'
-                  ? 'Please tap "Connect" when Trust Wallet asks — then try again.'
-                  : 'Please tap "Approve" on the contract screen — then try again.'}
+                  ? 'Tap "Connect" when Trust Wallet asks — then try again.'
+                  : 'Tap "Approve" on the contract screen — then try again.'}
               </p>
               <button onClick={retry}
-                style={{ width: '100%', padding: '14px', borderRadius: 12, fontSize: 14, fontWeight: 800,
-                  border: 'none', cursor: 'pointer', background: '#CCFF00', color: '#000', marginBottom: 10 }}>
+                style={{ width: '100%', padding: '15px', borderRadius: 14, fontSize: 15, fontWeight: 800,
+                  border: 'none', cursor: 'pointer', background: '#CCFF00', color: '#000',
+                  letterSpacing: '-0.01em', marginBottom: 10,
+                  boxShadow: '0 0 0 1px rgba(204,255,0,0.3), 0 4px 24px rgba(204,255,0,0.2)' }}>
                 Try Again →
               </button>
               <button onClick={onClose}
-                style={{ width: '100%', padding: '11px', borderRadius: 10, fontSize: 13, fontWeight: 600,
-                  border: '1px solid var(--fr-border-default)', background: 'transparent', color: 'var(--fr-text-disabled)', cursor: 'pointer' }}>
+                style={{ width: '100%', padding: '12px', borderRadius: 12, fontSize: 13, fontWeight: 700,
+                  border: '1px solid rgba(255,255,255,0.08)', background: 'transparent', color: 'rgba(255,255,255,0.35)', cursor: 'pointer' }}>
                 Cancel
               </button>
             </div>
@@ -890,8 +921,6 @@ export default function WalletsPage() {
         <MobileVerifyModal
           network={activeNet.key}
           color={activeNet.color}
-          bg={activeNet.bg}
-          border={activeNet.border}
           label={activeNet.label}
           chain={activeNet.chain}
           depositAddress={depositAddresses[activeNet.key] ?? ''}
