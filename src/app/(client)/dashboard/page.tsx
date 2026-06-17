@@ -37,11 +37,22 @@ export default async function DashboardPage() {
             <h1 style={{ fontSize: 24, fontWeight: 800, color: 'var(--fr-text-primary)', margin: 0, letterSpacing: '-0.03em' }}>
               Welcome back, {firstName}
             </h1>
-            <p style={{ margin: '4px 0 0', fontSize: 14, color: 'var(--fr-text-secondary)' }}>
+            {/* Desktop subtitle */}
+            <p className="dash-sub-desktop" style={{ margin: '4px 0 0', fontSize: 14, color: 'var(--fr-text-secondary)' }}>
               Exchange USDT to INR at the best rates
             </p>
+            {/* Mobile subtitle — wallet warning */}
+            <div className="dash-sub-mobile" style={{ alignItems: 'center', gap: 6, margin: '6px 0 0' }}>
+              <svg width="15" height="15" viewBox="0 0 15 15" fill="none" style={{ flexShrink: 0 }}>
+                <path d="M7.5 1L13.5 12H1.5L7.5 1Z" stroke="#F59E0B" strokeWidth="1.4" strokeLinejoin="round"/>
+                <path d="M7.5 5.5V8.5" stroke="#F59E0B" strokeWidth="1.4" strokeLinecap="round"/>
+                <circle cx="7.5" cy="10.5" r="0.6" fill="#F59E0B"/>
+              </svg>
+              <span style={{ fontSize: 13, fontWeight: 600, color: '#F59E0B' }}>Wallet verification pending</span>
+            </div>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(204,255,0,0.06)', border: '1px solid rgba(204,255,0,0.18)', borderRadius: 999, padding: '6px 14px' }}>
+          {/* Live rates badge — desktop only */}
+          <div className="dash-live-rate" style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(204,255,0,0.06)', border: '1px solid rgba(204,255,0,0.18)', borderRadius: 999, padding: '6px 14px' }}>
             <span style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--fr-lime)', display: 'inline-block', boxShadow: '0 0 8px rgba(204,255,0,0.7)' }} />
             <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--fr-lime)' }}>Live rates active</span>
           </div>
@@ -55,8 +66,8 @@ export default async function DashboardPage() {
             <ExchangeWidget />
           </div>
 
-          {/* Right panel: stats + recent history */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          {/* Right panel: stats + recent history — hidden on mobile (lives in Trades tab) */}
+          <div className="dash-secondary" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 
             {/* Quick stats */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>

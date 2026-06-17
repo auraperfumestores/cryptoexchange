@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { signOut } from 'next-auth/react';
-import { useState, useRef, useEffect } from 'react';
+import { useState } from 'react';
 import type { SessionUser } from '@/types';
 
 interface UserShellProps {
@@ -11,36 +11,35 @@ interface UserShellProps {
   children: React.ReactNode;
 }
 
-/* SVG icons — slightly larger (20px) for bottom nav comfort */
-function IcoExchange() {
+function IcoExchange({ size = 20 }: { size?: number }) {
   return (
-    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-      <path d="M4 13L2 11L4 9" stroke="currentColor" strokeWidth="1.65" strokeLinecap="round" strokeLinejoin="round"/>
-      <path d="M16 7L18 9L16 11" stroke="currentColor" strokeWidth="1.65" strokeLinecap="round" strokeLinejoin="round"/>
-      <path d="M2 11H14M6 9H18" stroke="currentColor" strokeWidth="1.65" strokeLinecap="round"/>
+    <svg width={size} height={size} viewBox="0 0 20 20" fill="none">
+      <path d="M3 13L1 11L3 9" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"/>
+      <path d="M17 7L19 9L17 11" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"/>
+      <path d="M1 11H13M7 9H19" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"/>
     </svg>
   );
 }
-function IcoTrades() {
+function IcoTrades({ size = 20 }: { size?: number }) {
   return (
-    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+    <svg width={size} height={size} viewBox="0 0 20 20" fill="none">
       <rect x="3" y="3" width="14" height="14" rx="2.5" stroke="currentColor" strokeWidth="1.6"/>
       <path d="M7 7.5H13M7 10H13M7 12.5H10.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
     </svg>
   );
 }
-function IcoWallet() {
+function IcoWallet({ size = 20 }: { size?: number }) {
   return (
-    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+    <svg width={size} height={size} viewBox="0 0 20 20" fill="none">
       <path d="M3 6C3 4.9 3.9 4 5 4H15C16.1 4 17 4.9 17 6V14C17 15.1 16.1 16 15 16H5C3.9 16 3 15.1 3 14V6Z" stroke="currentColor" strokeWidth="1.6"/>
       <path d="M13.5 10C13.5 10.83 14.17 11.5 15 11.5H17V8.5H15C14.17 8.5 13.5 9.17 13.5 10Z" stroke="currentColor" strokeWidth="1.4"/>
-      <circle cx="15" cy="10" r="0.75" fill="currentColor"/>
+      <circle cx="15" cy="10" r="0.8" fill="currentColor"/>
     </svg>
   );
 }
-function IcoProfile() {
+function IcoProfile({ size = 20 }: { size?: number }) {
   return (
-    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+    <svg width={size} height={size} viewBox="0 0 20 20" fill="none">
       <circle cx="10" cy="7" r="3" stroke="currentColor" strokeWidth="1.6"/>
       <path d="M3 17C3 13.7 6.1 11 10 11C13.9 11 17 13.7 17 17" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
     </svg>
@@ -54,42 +53,20 @@ const NAV = [
   { href: '/settings',     label: 'Profile',  Icon: IcoProfile  },
 ];
 
-/* Small versions for the desktop top tab bar */
-function SmIcon({ Icon }: { Icon: () => JSX.Element }) {
-  return (
-    <span style={{ display: 'flex', width: 15, height: 15, transform: 'scale(0.75)', transformOrigin: 'center' }}>
-      <Icon />
-    </span>
-  );
-}
-
 export function UserShell({ user, children }: UserShellProps) {
-  const pathname = usePathname();
+  const pathname  = usePathname();
   const [dropOpen, setDropOpen] = useState(false);
 
   function isActive(href: string) {
     return href === '/dashboard' ? pathname === href : pathname.startsWith(href);
   }
 
-  const activeIdx = NAV.findIndex(n => isActive(n.href));
-  const safeIdx   = activeIdx === -1 ? 0 : activeIdx;
-
-  /* Variable-speed sliding indicator */
-  const prevIdxRef  = useRef(safeIdx);
-  const [slideDur, setSlideDur] = useState(0); // 0 → no transition on first paint
-
-  useEffect(() => {
-    const dist = Math.abs(safeIdx - prevIdxRef.current);
-    setSlideDur(dist === 0 ? 0 : 200 + dist * 80); // 280ms / 360ms / 440ms
-    prevIdxRef.current = safeIdx;
-  }, [safeIdx]);
-
   const initial = user.name.charAt(0).toUpperCase();
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--fr-black)', position: 'relative' }}>
 
-      {/* Ambient bg glow */}
+      {/* Ambient glow */}
       <div aria-hidden style={{ position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 0, overflow: 'hidden' }}>
         <div style={{ position: 'absolute', top: '-15%', left: '20%', width: 600, height: 600, borderRadius: '50%', background: 'radial-gradient(circle, rgba(204,255,0,0.03) 0%, transparent 70%)' }} />
       </div>
@@ -113,7 +90,7 @@ export function UserShell({ user, children }: UserShellProps) {
             </span>
           </Link>
 
-          {/* Desktop centre nav tabs */}
+          {/* Desktop centre nav — hidden on mobile */}
           <nav className="user-nav-tabs" style={{ alignItems: 'center', gap: 2, background: 'var(--fr-dark-3)', borderRadius: 'var(--fr-radius-lg)', padding: 4, border: '1px solid var(--fr-border-default)' }}>
             {NAV.map(({ href, label, Icon }) => {
               const active = isActive(href);
@@ -128,7 +105,7 @@ export function UserShell({ user, children }: UserShellProps) {
                   border: active ? '1px solid rgba(204,255,0,0.2)' : '1px solid transparent',
                 }}>
                   <span style={{ color: active ? 'var(--fr-lime)' : 'var(--fr-text-disabled)', display: 'flex' }}>
-                    <SmIcon Icon={Icon} />
+                    <Icon size={14} />
                   </span>
                   {label}
                 </Link>
@@ -140,12 +117,7 @@ export function UserShell({ user, children }: UserShellProps) {
           <div className="user-header-avatar-btn" style={{ position: 'relative', flexShrink: 0 }}>
             <button
               onClick={() => setDropOpen(!dropOpen)}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 9,
-                background: 'var(--fr-dark-3)', border: '1px solid var(--fr-border-default)',
-                borderRadius: 'var(--fr-radius-md)', padding: '7px 14px 7px 7px',
-                cursor: 'pointer',
-              }}
+              style={{ display: 'flex', alignItems: 'center', gap: 9, background: 'var(--fr-dark-3)', border: '1px solid var(--fr-border-default)', borderRadius: 'var(--fr-radius-md)', padding: '7px 14px 7px 7px', cursor: 'pointer' }}
             >
               <div style={{ width: 30, height: 30, borderRadius: '50%', background: 'rgba(204,255,0,0.12)', border: '1.5px solid rgba(204,255,0,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 900, color: 'var(--fr-lime)', flexShrink: 0 }}>
                 {initial}
@@ -172,7 +144,7 @@ export function UserShell({ user, children }: UserShellProps) {
                   </div>
                   {NAV.map(({ href, label, Icon }) => (
                     <Link key={href} href={href} onClick={() => setDropOpen(false)} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '11px 16px', fontSize: 13, color: 'var(--fr-text-secondary)', textDecoration: 'none', borderBottom: '1px solid var(--fr-border-subtle)' }}>
-                      <span style={{ color: 'var(--fr-text-tertiary)', display: 'flex' }}><SmIcon Icon={Icon} /></span>
+                      <span style={{ color: 'var(--fr-text-tertiary)', display: 'flex' }}><Icon size={15} /></span>
                       {label}
                     </Link>
                   ))}
@@ -192,35 +164,23 @@ export function UserShell({ user, children }: UserShellProps) {
         {children}
       </main>
 
-      {/* ── Mobile bottom tab bar ── */}
-      <nav className="user-bottom-nav" aria-label="Main navigation">
-        {/* Sliding lime indicator — translateX(idx * 100%) because width = 25% */}
-        <div
-          className="user-bottom-nav__indicator"
-          style={{
-            transform: `translateX(${safeIdx * 100}%)`,
-            transition: slideDur > 0
-              ? `transform ${slideDur}ms cubic-bezier(0.65, 0, 0.35, 1)`
-              : 'none',
-          }}
-        />
-
-        {NAV.map(({ href, label, Icon }, i) => {
-          const active = i === safeIdx;
+      {/* ── Mobile floating pill nav ── */}
+      <nav className="ubn" aria-label="Main navigation">
+        {NAV.map(({ href, label, Icon }) => {
+          const active = isActive(href);
           return (
             <Link
               key={href}
               href={href}
-              className={`user-bottom-nav__tab${active ? ' is-active' : ''}`}
+              className={`ubn__tab${active ? ' is-active' : ''}`}
             >
-              <span className="user-bottom-nav__tab-icon">
-                <Icon />
-              </span>
-              <span className="user-bottom-nav__tab-label">{label}</span>
+              <span className="ubn__icon"><Icon size={20} /></span>
+              <span className="ubn__label">{label}</span>
             </Link>
           );
         })}
       </nav>
+
     </div>
   );
 }

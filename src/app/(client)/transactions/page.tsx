@@ -17,16 +17,14 @@ export default async function TransactionsPage() {
   return (
     <ClientShell user={session.user as any} rates={[]}>
       <div style={{ maxWidth: 900, margin: '0 auto' }}>
-        {/* Page header */}
         <div style={{ marginBottom: 28 }}>
-          <h1 style={{ fontSize: 26, fontWeight: 900, color: '#fff', margin: 0, letterSpacing: '-0.03em' }}>
-            Trade History
+          <h1 style={{ fontSize: 26, fontWeight: 900, color: 'var(--fr-text-primary)', margin: 0, letterSpacing: '-0.03em' }}>
+            Trades
           </h1>
-          <p style={{ margin: '5px 0 0', fontSize: 14, color: 'rgba(255,255,255,0.4)' }}>
-            All your USDT ↔ INR exchange orders
+          <p style={{ margin: '5px 0 0', fontSize: 14, color: 'var(--fr-text-tertiary)' }}>
+            Your complete USDT ↔ INR order history
           </p>
         </div>
-
         <UserHistory transactions={transactions} />
       </div>
     </ClientShell>

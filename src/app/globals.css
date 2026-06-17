@@ -1212,119 +1212,156 @@
     .lp-hero-exchange { display: none; }
     .lp-pro-grid { grid-template-columns: 1fr !important; }
     .lp-pro-col { display: none; }
+    /* Dashboard: hide stats + trades on mobile — shown in Trades tab */
+    .dash-secondary      { display: none !important; }
+    .dash-live-rate      { display: none !important; }
+    .dash-sub-desktop    { display: none !important; }
+    .dash-sub-mobile     { display: flex !important; }
   }
+  /* dash toggle defaults (desktop) */
+  .dash-sub-mobile { display: none; }
+  .dash-sub-desktop { display: block; }
+
   @media (max-width: 768px) {
     .fr-platform-section { grid-template-columns: 1fr !important; }
     .fr-academy-section { grid-template-columns: 1fr !important; }
   }
 
-  /* ── User shell: mobile bottom nav ── */
-  .user-nav-tabs   { display: flex; }
-  .user-header-uname { display: flex; }
-  .user-bottom-nav { display: none; }
+  /* ── User shell: mobile floating pill nav ── */
+  .user-nav-tabs      { display: flex; }
+  .user-header-uname  { display: flex; }
+  .ubn                { display: none; }
 
   @media (max-width: 768px) {
-    .user-nav-tabs         { display: none !important; }
-    .user-header-uname     { display: none !important; }
+    .user-nav-tabs          { display: none !important; }
+    .user-header-uname      { display: none !important; }
     .user-header-avatar-btn { display: none !important; }
-    .user-main-content     { padding-bottom: calc(76px + env(safe-area-inset-bottom, 0px)) !important; }
-    .user-bottom-nav       { display: flex !important; }
+    .user-main-content      { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)) !important; }
+    .ubn                    { display: flex !important; }
   }
 
-  /* Bar shell */
-  .user-bottom-nav {
+  /* ── Floating pill container ── */
+  .ubn {
     position: fixed;
-    bottom: 0; left: 0; right: 0;
+    bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+    left: 50%;
+    transform: translateX(-50%);
     z-index: 200;
-    background: rgba(5,5,5,0.96);
-    backdrop-filter: blur(28px) saturate(160%);
-    -webkit-backdrop-filter: blur(28px) saturate(160%);
-    border-top: 1px solid rgba(255,255,255,0.07);
+    align-items: center;
+    gap: 4px;
+    padding: 6px;
+    background: rgba(14,14,14,0.96);
+    border: 1px solid rgba(255,255,255,0.10);
+    border-radius: 16px;
     box-shadow:
-      0 -1px 0 rgba(255,255,255,0.04),
-      0 -8px 32px rgba(0,0,0,0.55),
-      0 -24px 60px rgba(0,0,0,0.25);
-    padding-bottom: env(safe-area-inset-bottom, 0px);
-    align-items: stretch;
-    overflow: hidden; /* clips the indicator */
+      0 0 0 1px rgba(255,255,255,0.04) inset,
+      0 8px 24px rgba(0,0,0,0.55),
+      0 24px 64px rgba(0,0,0,0.40),
+      0 2px 8px  rgba(0,0,0,0.60);
+    backdrop-filter: blur(32px) saturate(180%);
+    -webkit-backdrop-filter: blur(32px) saturate(180%);
+    white-space: nowrap;
   }
 
-  /* Sliding lime indicator — top of bar */
-  .user-bottom-nav__indicator {
-    position: absolute;
-    top: 0; left: 0;
-    width: 25%; /* 1/4 of 4 tabs */
-    height: 2px;
-    background: linear-gradient(90deg,
-      transparent 0%, rgba(204,255,0,0.3) 15%,
-      #CCFF00 40%, #CCFF00 60%,
-      rgba(204,255,0,0.3) 85%, transparent 100%
-    );
-    box-shadow:
-      0 0 8px 1px rgba(204,255,0,0.9),
-      0 0 20px 2px rgba(204,255,0,0.4);
-    border-radius: 0 0 3px 3px;
-    /* transition is set via inline style for variable-speed effect */
-  }
-
-  /* Tab item */
-  .user-bottom-nav__tab {
+  /* ── Each tab ── */
+  .ubn__tab {
     display: flex;
-    flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 4px;
-    flex: 1;
-    padding: 10px 2px 12px;
+    gap: 0px;
+    padding: 11px 15px;
+    border-radius: 10px;
     text-decoration: none;
     border: none;
-    background: none;
     cursor: pointer;
+    background: transparent;
     -webkit-tap-highlight-color: transparent;
     font-family: var(--fr-font-sans);
-    position: relative;
-  }
-
-  /* Icon wrapper */
-  .user-bottom-nav__tab-icon {
-    width: 36px; height: 36px;
-    display: flex; align-items: center; justify-content: center;
-    border-radius: 10px;
-    color: rgba(255,255,255,0.28);
-    /* spring bounce on icon */
+    /* pill expand + color */
     transition:
-      color       180ms ease-out,
-      background  220ms ease-out,
-      transform   420ms cubic-bezier(0.34, 1.56, 0.64, 1),
-      box-shadow  280ms ease-out,
-      filter      280ms ease-out;
+      background     300ms cubic-bezier(0.34, 1.10, 0.64, 1),
+      gap            300ms cubic-bezier(0.34, 1.10, 0.64, 1),
+      padding        300ms cubic-bezier(0.34, 1.10, 0.64, 1),
+      box-shadow     300ms ease;
   }
 
-  /* Label */
-  .user-bottom-nav__tab-label {
-    font-size: 9.5px;
-    font-weight: 500;
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
-    color: rgba(255,255,255,0.28);
+  /* Active pill — solid lime, black content */
+  .ubn__tab.is-active {
+    background: #CCFF00;
+    gap: 8px;
+    padding: 11px 20px;
+    box-shadow:
+      0 0 20px rgba(204,255,0,0.35),
+      0 0 6px  rgba(204,255,0,0.20);
+  }
+
+  /* ── Icon ── */
+  .ubn__icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    color: rgba(255,255,255,0.38);
     transition:
-      color       180ms ease-out,
-      font-weight 180ms ease-out;
-    font-variant-numeric: tabular-nums;
+      color     200ms ease-out,
+      transform 380ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  .ubn__tab.is-active .ubn__icon {
+    color: #000;
+    transform: scale(1.05);
   }
 
-  /* Active state */
-  .user-bottom-nav__tab.is-active .user-bottom-nav__tab-icon {
-    color: #CCFF00;
-    background: rgba(204,255,0,0.09);
-    box-shadow: 0 0 0 1px rgba(204,255,0,0.18) inset;
-    transform: translateY(-3px) scale(1.08);
-    filter: drop-shadow(0 0 8px rgba(204,255,0,0.55));
-  }
-  .user-bottom-nav__tab.is-active .user-bottom-nav__tab-label {
-    color: #CCFF00;
+  /* ── Label — slides in via max-width ── */
+  .ubn__label {
+    font-size: 14px;
     font-weight: 700;
+    letter-spacing: -0.02em;
+    color: transparent;
+    max-width: 0;
+    overflow: hidden;
+    transition:
+      max-width 300ms cubic-bezier(0.34, 1.10, 0.64, 1),
+      color     160ms ease-out 80ms;
   }
+  .ubn__tab.is-active .ubn__label {
+    color: #000;
+    max-width: 90px;
+  }
+
+  /* ── Trades page ── */
+  .trades-stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+  }
+  .trades-th   { display: grid; grid-template-columns: 1fr 120px 130px 150px 80px; padding: 10px 20px; border-bottom: 1px solid var(--fr-border-subtle); }
+  .trades-row-d { display: grid; grid-template-columns: 1fr 120px 130px 150px 80px; padding: 14px 20px; text-decoration: none; align-items: center; transition: background 0.12s; border-bottom: 1px solid var(--fr-border-subtle); }
+  .trades-row-d:last-child { border-bottom: none; }
+  .trades-row-d:hover { background: rgba(255,255,255,0.025); }
+  .trades-row-m { display: none; }
+
+  @media (max-width: 900px) {
+    .trades-stats { grid-template-columns: repeat(2, 1fr) !important; }
+    .trades-th    { display: none !important; }
+    .trades-row-d { display: none !important; }
+    .trades-row-m { display: flex !important; flex-direction: row; align-items: center; gap: 12px; padding: 14px 16px; text-decoration: none; border-bottom: 1px solid var(--fr-border-subtle); transition: background 0.12s; }
+    .trades-row-m:last-child { border-bottom: none; }
+    .trades-row-m:hover { background: rgba(255,255,255,0.025); }
+  }
+
+  /* ── Wallet page ── */
+  .wallets-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    align-items: start;
+  }
+  @media (max-width: 720px) {
+    .wallets-grid { grid-template-columns: 1fr; }
+  }
+
+  /* spin keyframe for loading spinner */
+  @keyframes spin { to { transform: rotate(360deg); } }
 
   /* ── Stars (reviews) ── */
   .fr-stars { display: flex; gap: 2px; color: #F59E0B; font-size: 14px; margin-bottom: 10px; }
