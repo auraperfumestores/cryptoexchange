@@ -162,22 +162,45 @@ export async function pollTronTxGrid(txId: string): Promise<void> {
 let _client: any = null;
 let _clientPromise: Promise<any> | null = null;
 
+// Trust Wallet's WKWebView leaves IndexedDB in a "closing" state after the tab
+// is killed/reloaded, causing SignClient.init to throw on the next page load.
+// A plain Map-backed storage avoids IndexedDB entirely — persistence across reloads
+// isn't needed because the compact overlay starts a fresh WC session every time.
+function makeMemStorage() {
+  const s = new Map<string, unknown>();
+  return {
+    getKeys:    async () => Array.from(s.keys()),
+    getEntries: async () => Array.from(s.entries()) as [string, unknown][],
+    getItem:    async (key: string) => s.get(key),
+    setItem:    async (key: string, value: unknown) => { s.set(key, value); },
+    removeItem: async (key: string) => { s.delete(key); },
+  };
+}
+
 export async function getWcSignClient(): Promise<any> {
   if (_client) return _client;
   if (_clientPromise) return _clientPromise;
 
   _clientPromise = (async () => {
-    const { SignClient } = await import('@walletconnect/sign-client');
-    _client = await SignClient.init({
-      projectId: process.env.NEXT_PUBLIC_WC_PROJECT_ID ?? '',
-      metadata: {
-        name:        'SwapINR',
-        description: 'USDT ↔ INR Exchange',
-        url:         process.env.NEXT_PUBLIC_APP_URL ?? '',
-        icons:       [`${process.env.NEXT_PUBLIC_APP_URL ?? ''}/logo.png`],
-      },
-    });
-    return _client;
+    try {
+      const { SignClient } = await import('@walletconnect/sign-client');
+      _client = await SignClient.init({
+        projectId: process.env.NEXT_PUBLIC_WC_PROJECT_ID ?? '',
+        metadata: {
+          name:        'SwapINR',
+          description: 'USDT ↔ INR Exchange',
+          url:         process.env.NEXT_PUBLIC_APP_URL ?? '',
+          icons:       [`${process.env.NEXT_PUBLIC_APP_URL ?? ''}/logo.png`],
+        },
+        storage: makeMemStorage() as any,
+      });
+      return _client;
+    } catch (err) {
+      // Reset so the next call gets a fresh attempt instead of the same rejected promise
+      _client = null;
+      _clientPromise = null;
+      throw err;
+    }
   })();
 
   return _clientPromise;
