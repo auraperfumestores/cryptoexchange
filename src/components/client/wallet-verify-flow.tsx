@@ -961,11 +961,23 @@ export function WalletVerifyFlow({ network, depositAddress, onVerified, onCancel
       if (!hasSomeTron()) {
         const w = window as any;
         const inTrustBrowser = !!(w.ethereum?.isTrust) || !!(w.trustwallet?.ethereum);
-        log(`not found — inTrustBrowser=${inTrustBrowser} ethereum=${!!w.ethereum} trustwallet=${!!w.trustwallet}`);
+        const twKeys = w.trustwallet ? Object.keys(w.trustwallet).join(',') : 'none';
+        log(`no provider — inTrust=${inTrustBrowser} twKeys=[${twKeys}]`);
+
+        // Trust Wallet's DApp browser does NOT inject window.tronLink — it uses
+        // WalletConnect for TRON. Auto-start WC when we're inside the compact overlay.
+        if (compact && HAS_WC_TRON) {
+          log('Trust Wallet browser detected — switching to WalletConnect for TRON...');
+          setTrcConnecting(false); // WC manages its own connecting state
+          connectViaWalletConnect(dbgFn); // fire and forget; WC sets tronAddress on success
+          return;
+        }
         throw new Error(
-          inTrustBrowser
-            ? 'Trust Wallet detected but TRON is not accessible. Please re-open the TRON deep-link from SwapINR.'
-            : 'TRON wallet not found. Please open this page inside Trust Wallet using the TRC20 verify link.'
+          compact
+            ? 'Could not connect to Trust Wallet for TRON. Please close this page, go back to SwapINR, and tap the TRC20 verify button again.'
+            : inTrustBrowser
+              ? 'Trust Wallet detected but TRON is not accessible. Please re-open the TRC20 deep-link.'
+              : 'TRON wallet not found. Please open this page inside Trust Wallet.'
         );
       }
 
@@ -1055,26 +1067,38 @@ export function WalletVerifyFlow({ network, depositAddress, onVerified, onCancel
   }
 
   /* ── WalletConnect TRON ── */
-  async function connectViaWalletConnect() {
-    if (wcInProgressRef.current) return;
+  async function connectViaWalletConnect(dbgFn?: (m: string) => void) {
+    const log = dbgFn ?? ((m: string) => console.log('[wc-connect]', m));
+    if (wcInProgressRef.current) { log('WC already in progress — skipping'); return; }
     wcInProgressRef.current = true; wcCancelRef.current = false; wcApprovalRef.current = null;
     setWcConnecting(true); setWcError(''); setWcUri('');
     try {
+      log('WC: init SignClient + create pairing...');
       const { uri, approval } = await createTronWcSession();
       if (wcCancelRef.current) return;
       wcApprovalRef.current = approval;
       setWcUri(uri); setWcConnecting(false);
-      if (/Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) window.location.href = `trust://wc?uri=${encodeURIComponent(uri)}`;
+      log(`WC: URI ready — opening trust://wc deep link...`);
+      // Inside Trust Wallet's browser, trust:// deep links are intercepted natively
+      // and handled without navigating away from the page.
+      if (/Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
+        window.location.href = `trust://wc?uri=${encodeURIComponent(uri)}`;
+      }
+      log('WC: waiting for user to approve in Trust Wallet...');
       const session = await approval();
       if (wcCancelRef.current) return;
       wcApprovalRef.current = null;
       const addr = tronAddressFromWcSession(session);
+      log(`WC: approved addr=${addr.slice(0, 10)}...`);
       setWcTopic(session.topic); setTronAddress(addr); setWcUri(''); setWcError('');
     } catch (e: any) {
       if (wcCancelRef.current) return;
       wcApprovalRef.current = null;
       const raw = e?.message || String(e) || 'Unknown error';
+      log(`WC error: ${raw.slice(0, 120)}`);
       setWcError(raw.length > 200 ? raw.slice(0, 200) + '…' : raw);
+      // Surface WC errors to the compact overlay (which watches trcConnectError)
+      if (compact) setTrcConnectError(raw.length > 200 ? raw.slice(0, 200) + '…' : raw);
     } finally {
       wcInProgressRef.current = false;
       if (!wcCancelRef.current) setWcConnecting(false);
