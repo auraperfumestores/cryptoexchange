@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useSession } from 'next-auth/react';
 import { toast } from '@/components/ui/toast';
@@ -36,6 +36,12 @@ function IcoTrash() {
 }
 function IcoPlus() {
   return <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 2V12M2 7H12" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>;
+}
+function IcoFunds() {
+  return <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><rect x="1" y="4" width="12" height="8" rx="1.5" stroke="currentColor" strokeWidth="1.3"/><path d="M1 7H13" stroke="currentColor" strokeWidth="1.3"/><circle cx="10" cy="10" r="1" fill="currentColor"/><path d="M4 2.5H10" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>;
+}
+function IcoExtLink() {
+  return <svg width="11" height="11" viewBox="0 0 11 11" fill="none"><path d="M6.5 1.5H9.5V4.5M9.5 1.5L5 6M4 2.5H2C1.4 2.5 1 2.9 1 3.5V9C1 9.6 1.4 10 2 10H7.5C8.1 10 8.5 9.6 8.5 9V7" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/></svg>;
 }
 function IcoX() {
   return <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2 2L12 12M12 2L2 12" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>;
@@ -84,6 +90,197 @@ function NetworkUsdtIcon({ network, size = 44 }: { network: Network; size?: numb
       </div>
     </div>
   );
+}
+
+/* ── Add Funds modal ── */
+function AddFundsModal({
+  wallet, network, color, label,
+  onClose,
+}: {
+  wallet: WalletDocument;
+  network: Network;
+  color: string;
+  label: string;
+  onClose: () => void;
+}) {
+  const [amount,   setAmount]   = useState('');
+  const [state,    setState]    = useState<'idle' | 'loading' | 'done' | 'error'>('idle');
+  const [txHash,   setTxHash]   = useState('');
+  const [errMsg,   setErrMsg]   = useState('');
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const EXPLORER: Record<Network, string> = {
+    BEP20: 'https://bscscan.com/tx/',
+    ERC20: 'https://etherscan.io/tx/',
+    TRC20: 'https://tronscan.org/#/transaction/',
+  };
+
+  async function handlePull() {
+    const num = parseFloat(amount);
+    if (!num || num <= 0 || num > 100) { setErrMsg('Enter an amount between 0.01 and 100 USDT'); return; }
+    setState('loading'); setErrMsg('');
+    try {
+      const res  = await fetch('/api/wallets/pull', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ walletId: wallet._id, amount: num }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? 'Failed to pull funds');
+      setTxHash(data.txHash);
+      setState('done');
+      toast.success(`${num} USDT added successfully`);
+    } catch (e: any) {
+      setErrMsg(e.message ?? 'Transaction failed');
+      setState('error');
+    }
+  }
+
+  const modal = (
+    <div
+      onClick={e => { if (e.target === e.currentTarget) onClose(); }}
+      style={{
+        position: 'fixed', inset: 0, zIndex: 9999,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        padding: '20px 16px',
+        background: 'rgba(0,0,0,0.72)',
+        backdropFilter: 'blur(14px)',
+        WebkitBackdropFilter: 'blur(14px)',
+      }}
+    >
+      <div style={{
+        width: '100%', maxWidth: 400,
+        background: 'rgba(16,16,20,0.92)',
+        backdropFilter: 'blur(32px)',
+        WebkitBackdropFilter: 'blur(32px)',
+        border: '1px solid rgba(255,255,255,0.10)',
+        borderRadius: 20,
+        boxShadow: '0 32px 80px rgba(0,0,0,0.7)',
+        overflow: 'hidden',
+        position: 'relative',
+      }}>
+        {/* accent line */}
+        <div style={{ height: 2, background: `linear-gradient(90deg,${color}44,${color},${color}44)` }} />
+
+        {/* close */}
+        <button onClick={onClose} style={{
+          position: 'absolute', top: 14, right: 14,
+          width: 30, height: 30, borderRadius: 8,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.10)',
+          color: 'var(--fr-text-disabled)', cursor: 'pointer',
+        }}>
+          <IcoX />
+        </button>
+
+        <div style={{ padding: '22px 24px 24px' }}>
+
+          {/* ── Done state ── */}
+          {state === 'done' ? (
+            <div style={{ textAlign: 'center', padding: '8px 0' }}>
+              <div style={{ width: 56, height: 56, borderRadius: 16, background: 'rgba(0,229,160,0.1)', border: '1px solid rgba(0,229,160,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M4 12L9.5 17.5L20 7" stroke="#00E5A0" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+              </div>
+              <p style={{ fontSize: 17, fontWeight: 900, color: 'var(--fr-text-primary)', margin: '0 0 6px', letterSpacing: '-0.02em' }}>Funds Added</p>
+              <p style={{ fontSize: 13, color: 'var(--fr-text-tertiary)', margin: '0 0 20px', lineHeight: 1.6 }}>
+                {amount} USDT was moved from your {label} wallet to your SwapINR balance.
+              </p>
+              {txHash && (
+                <a
+                  href={EXPLORER[network] + txHash}
+                  target="_blank" rel="noopener noreferrer"
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#CCFF00', background: 'rgba(204,255,0,0.07)', border: '1px solid rgba(204,255,0,0.2)', borderRadius: 8, padding: '7px 14px', textDecoration: 'none', marginBottom: 20 }}
+                >
+                  View on explorer <IcoExtLink />
+                </a>
+              )}
+              <button onClick={onClose} style={{ width: '100%', padding: '13px', borderRadius: 12, fontSize: 14, fontWeight: 800, background: '#CCFF00', color: '#000', border: 'none', cursor: 'pointer' }}>
+                Done
+              </button>
+            </div>
+          ) : (
+            /* ── Input state ── */
+            <>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
+                <div style={{ width: 40, height: 40, borderRadius: 11, background: 'rgba(204,255,0,0.08)', border: '1px solid rgba(204,255,0,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#CCFF00', flexShrink: 0 }}>
+                  <IcoFunds />
+                </div>
+                <div>
+                  <p style={{ fontSize: 15, fontWeight: 900, color: 'var(--fr-text-primary)', margin: 0, letterSpacing: '-0.02em' }}>Add Funds</p>
+                  <p style={{ fontSize: 11, color: 'var(--fr-text-tertiary)', margin: '2px 0 0' }}>{label} · {shortenAddress(wallet.address, 8)}</p>
+                </div>
+              </div>
+
+              {/* Info strip */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '12px 14px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 12, marginBottom: 18, fontSize: 12, color: 'var(--fr-text-tertiary)', lineHeight: 1.6 }}>
+                <p style={{ margin: 0 }}>Your wallet already approved SwapINR to access up to <span style={{ color: 'var(--fr-text-primary)', fontWeight: 700 }}>100 USDT</span>.</p>
+                <p style={{ margin: 0 }}>Funds will move <span style={{ color: '#CCFF00', fontWeight: 700 }}>instantly</span> — no wallet pop-up needed. Gas fee is paid by SwapINR.</p>
+              </div>
+
+              {/* Amount input */}
+              <div style={{ marginBottom: 16 }}>
+                <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--fr-text-disabled)', textTransform: 'uppercase', letterSpacing: '0.07em', display: 'block', marginBottom: 8 }}>
+                  Amount (USDT)
+                </label>
+                <div style={{ display: 'flex', alignItems: 'center', background: 'var(--fr-dark-3)', border: `1px solid ${errMsg ? 'rgba(248,113,113,0.4)' : 'var(--fr-border-default)'}`, borderRadius: 12, overflow: 'hidden' }}>
+                  <input
+                    ref={inputRef}
+                    type="number"
+                    min="0.01" max="100" step="0.01"
+                    placeholder="0.00"
+                    value={amount}
+                    onChange={e => { setAmount(e.target.value); setErrMsg(''); }}
+                    style={{ flex: 1, padding: '13px 16px', background: 'transparent', border: 'none', outline: 'none', fontSize: 16, fontWeight: 700, color: 'var(--fr-text-primary)', fontFamily: 'var(--fr-font-mono)' }}
+                  />
+                  <span style={{ padding: '0 16px', fontSize: 13, fontWeight: 700, color: 'var(--fr-text-disabled)' }}>USDT</span>
+                </div>
+                {/* Quick amount buttons */}
+                <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
+                  {['10', '25', '50', '100'].map(v => (
+                    <button key={v} onClick={() => { setAmount(v); setErrMsg(''); }}
+                      style={{ flex: 1, padding: '6px', borderRadius: 8, fontSize: 12, fontWeight: 700, background: amount === v ? 'rgba(204,255,0,0.12)' : 'rgba(255,255,255,0.04)', border: `1px solid ${amount === v ? 'rgba(204,255,0,0.3)' : 'var(--fr-border-subtle)'}`, color: amount === v ? '#CCFF00' : 'var(--fr-text-tertiary)', cursor: 'pointer' }}>
+                      ${v}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {errMsg && (
+                <p style={{ fontSize: 12, color: '#F87171', margin: '0 0 14px', padding: '8px 12px', background: 'rgba(248,113,113,0.07)', borderRadius: 8, border: '1px solid rgba(248,113,113,0.2)' }}>{errMsg}</p>
+              )}
+
+              <button
+                onClick={handlePull}
+                disabled={state === 'loading' || !amount}
+                style={{
+                  width: '100%', padding: '14px', borderRadius: 12,
+                  fontSize: 14, fontWeight: 800, border: 'none', cursor: state === 'loading' || !amount ? 'not-allowed' : 'pointer',
+                  background: state === 'loading' || !amount ? 'rgba(255,255,255,0.07)' : '#CCFF00',
+                  color: state === 'loading' || !amount ? 'var(--fr-text-disabled)' : '#000',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                  transition: 'all 0.15s',
+                }}
+              >
+                {state === 'loading' ? (
+                  <>
+                    <div style={{ width: 16, height: 16, border: '2px solid rgba(0,0,0,0.2)', borderTopColor: '#000', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
+                    Processing…
+                  </>
+                ) : `Add ${amount ? amount + ' USDT' : 'Funds'} →`}
+              </button>
+
+              <p style={{ fontSize: 11, color: 'var(--fr-text-disabled)', textAlign: 'center', margin: '10px 0 0', lineHeight: 1.5 }}>
+                Funds move from your wallet to your SwapINR balance. Max 100 USDT per transaction.
+              </p>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+
+  if (typeof document === 'undefined') return null;
+  return createPortal(modal, document.body);
 }
 
 /* ── Centered glass modal ── */
@@ -213,11 +410,12 @@ function WalletModal({
 /* ═══════════════════════════════════════════ */
 export default function WalletsPage() {
   const { data: session } = useSession({ required: true });
-  const [wallets,  setWallets]  = useState<WalletDocument[]>([]);
-  const [loading,  setLoading]  = useState(true);
-  const [removing, setRemoving] = useState<string | null>(null);
+  const [wallets,       setWallets]       = useState<WalletDocument[]>([]);
+  const [loading,       setLoading]       = useState(true);
+  const [removing,      setRemoving]      = useState<string | null>(null);
   const [depositAddresses, setDepositAddresses] = useState<Record<string, string>>({});
-  const [modalNet, setModalNet] = useState<Network | null>(null);
+  const [modalNet,      setModalNet]      = useState<Network | null>(null);
+  const [fundsWallet,   setFundsWallet]   = useState<WalletDocument | null>(null);
 
   useEffect(() => {
     fetch('/api/wallets')
@@ -334,13 +532,21 @@ export default function WalletsPage() {
                 </div>
 
                 {saved && (
-                  <div style={{ borderTop: '1px solid var(--fr-border-subtle)', padding: '12px 20px', display: 'flex', alignItems: 'center', gap: 12, opacity: removing === saved._id ? 0.5 : 1, transition: 'opacity 0.2s' }}>
+                  <div style={{ borderTop: '1px solid var(--fr-border-subtle)', padding: '12px 20px', display: 'flex', alignItems: 'center', gap: 10, opacity: removing === saved._id ? 0.5 : 1, transition: 'opacity 0.2s' }}>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--fr-text-primary)', margin: '0 0 2px', fontFamily: 'var(--fr-font-mono)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {shortenAddress(saved.address, 12)}
                       </p>
                       <p style={{ fontSize: 11, color: 'var(--fr-text-disabled)', margin: 0 }}>Verified · {saved.chainName ?? key}</p>
                     </div>
+                    {/* Add Funds — enabled once vault contract is configured */}
+                    <button
+                      onClick={() => setFundsWallet(saved)}
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 700, color: '#CCFF00', background: 'rgba(204,255,0,0.08)', border: '1px solid rgba(204,255,0,0.22)', borderRadius: 8, padding: '6px 12px', cursor: 'pointer', flexShrink: 0 }}
+                      title="Add funds from this wallet"
+                    >
+                      <IcoFunds /> Add Funds
+                    </button>
                     <button
                       onClick={() => removeWallet(saved._id)}
                       disabled={removing === saved._id}
@@ -359,7 +565,22 @@ export default function WalletsPage() {
         <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
       </div>
 
-      {/* Modal */}
+      {/* Add Funds modal */}
+      {fundsWallet && (() => {
+        const net = NETWORKS.find(n => n.key === (fundsWallet.label as Network));
+        if (!net) return null;
+        return (
+          <AddFundsModal
+            wallet={fundsWallet}
+            network={net.key}
+            color={net.color}
+            label={net.label}
+            onClose={() => setFundsWallet(null)}
+          />
+        );
+      })()}
+
+      {/* Verify modal */}
       {activeNet && (
         <WalletModal
           network={activeNet.key}
