@@ -918,85 +918,120 @@ export function WalletVerifyFlow({ network, depositAddress, onVerified, onCancel
   }
 
   /* ── TRC20 connect ──────────────────────────────────────────────────────────
-   * Mirrors EVM's tryConnect() / eth_requestAccounts pattern exactly:
-   *   1. Find the injected TronLink provider (Trust Wallet injects window.tronLink
-   *      the same way it injects window.ethereum for EVM DApps)
-   *   2. Call tron_requestAccounts  → Trust Wallet shows native "Connect" dialog
-   *   3. Read defaultAddress.base58 → same as reading account[0] after eth_requestAccounts
-   *   4. Fetch balances in the background (non-blocking)
-   * No WalletConnect is used here; WC is desktop-only (non-compact UI).
+   * Tries all known injection paths across Trust Wallet versions and TronLink:
+   *   window.tronLink          — TronLink desktop + Trust Wallet DApp browser
+   *   window.tronLink.tronWeb  — populated by Trust Wallet AFTER tron_requestAccounts
+   *   window.tronWeb           — TronLink desktop; older Trust Wallet builds
+   *   window.trustwallet.tronWeb / .tron — newer Trust Wallet iOS/Android builds
+   *
+   * Key insight: in Trust Wallet DApp browser, window.tronWeb.defaultAddress may already
+   * be set without needing requestAccounts (auto-injected). We try that first.
    * ─────────────────────────────────────────────────────────────────────────── */
   async function connectTronWallet() {
     setTrcConnecting(true); setTrcConnectError('');
     try {
-      const w = window as any;
-
-      // Locate the TronLink provider — Trust Wallet exposes it at window.tronLink
-      // (Android) or window.trustwallet.tronLink (some iOS builds).
-      // Poll for up to 5 s in case injection is slightly delayed after page load.
-      let tl: any = null;
-      for (let attempt = 0; attempt < 10; attempt++) {
-        tl = w.tronLink ?? w.trustwallet?.tronLink ?? null;
-        if (tl) break;
-        await new Promise(r => setTimeout(r, 500));
+      /* Step 1 — resolve available providers, polling up to 4 s for async injection */
+      function getTronProviders() {
+        const w = window as any;
+        const tl: any = w.tronLink ?? null;
+        const tw: any = tl?.tronWeb
+                     ?? w.tronWeb
+                     ?? w.tron
+                     ?? w.trustwallet?.tronWeb
+                     ?? w.trustwallet?.tron
+                     ?? null;
+        return { tronLink: tl, tronWeb: tw };
       }
-      if (!tl) throw new Error(
-        'TronLink not found. Make sure you opened this page from Trust Wallet ' +
-        '(tap the TRON deep-link button in your browser).'
-      );
-
-      // Wait for TronLink to finish its own async setup (same as wagmi waiting for
-      // window.ethereum to emit 'connect' before calling eth_requestAccounts).
-      if (tl.ready && typeof tl.ready.then === 'function') {
-        try { await tl.ready; } catch {}
+      function hasSomeTron() {
+        const w = window as any;
+        return !!(w.tronLink) || 'tronLink' in w ||
+               !!(w.tronWeb)  || 'tronWeb' in w  ||
+               !!(w.tron)     ||
+               !!(w.trustwallet?.tronWeb) || !!(w.trustwallet?.tron);
+      }
+      let { tronLink, tronWeb } = getTronProviders();
+      if (!hasSomeTron()) {
+        for (let i = 0; i < 8; i++) {
+          await new Promise(r => setTimeout(r, 500));
+          if (hasSomeTron()) break;
+          ({ tronLink, tronWeb } = getTronProviders());
+        }
+        ({ tronLink, tronWeb } = getTronProviders());
+      }
+      if (!hasSomeTron()) {
+        const inTrustBrowser = !!(window as any).ethereum?.isTrust ||
+                               !!(window as any).trustwallet?.ethereum;
+        throw new Error(
+          inTrustBrowser
+            ? 'Trust Wallet detected but TRON is not accessible here. Please open this link from Trust Wallet using the TRON deep-link button.'
+            : 'TRON wallet not found. Please open this page inside Trust Wallet on your phone.'
+        );
       }
 
-      // If already connected (e.g. page reload with active session) skip the dialog.
-      let addr: string = tl.tronWeb?.defaultAddress?.base58 ?? '';
+      /* Step 2 — try reading address directly (no user prompt needed in some TW builds) */
+      let tw   = tronWeb;
+      let addr: string = tw?.defaultAddress?.base58 || '';
 
+      /* Step 3 — if no direct address, request accounts */
       if (!addr) {
-        // Show Trust Wallet's native "Connect" dialog — exactly like eth_requestAccounts.
-        // The Promise resolves after the user approves; reject = user dismissed.
+        let requestResult: any = null;
         try {
-          const resp = await (tl.request
-            ? tl.request({ method: 'tron_requestAccounts' })
-            : tl.tronWeb?.request?.({ method: 'tron_requestAccounts' }));
-          // Some TW builds return the address directly in the response object
-          if (typeof resp === 'string' && resp.startsWith('T') && resp.length === 34) addr = resp;
-          else if (resp?.base58Address) addr = resp.base58Address;
-          else if (resp?.address?.startsWith?.('T'))                                  addr = resp.address;
-        } catch (e: any) {
-          const msg = e?.message ?? String(e ?? '');
-          if (/cancel|reject|denied|dismiss/i.test(msg))
+          if (tronLink?.request) {
+            requestResult = await tronLink.request({ method: 'tron_requestAccounts' });
+          } else if (tw?.request) {
+            requestResult = await tw.request({ method: 'tron_requestAccounts' });
+          }
+        } catch (reqErr: any) {
+          if (/cancel|reject|denied/i.test(reqErr?.message || '')) {
             throw new Error('Connection cancelled — tap Connect when Trust Wallet asks.');
-          // Non-fatal: may succeed via defaultAddress below
+          }
+          // Non-fatal — some builds throw but still grant access
         }
 
-        // Allow TronLink a moment to propagate defaultAddress after approval
+        // Wait for Trust Wallet to populate tronLink.tronWeb after user approval
         await new Promise(r => setTimeout(r, 600));
-        if (!addr) addr = tl.tronWeb?.defaultAddress?.base58 ?? '';
+        ({ tronLink, tronWeb } = getTronProviders());
+        tw = tronWeb;
+
+        addr =
+          tw?.defaultAddress?.base58
+          || requestResult?.base58
+          || requestResult?.address
+          || (Array.isArray(requestResult) ? requestResult[0] : '')
+          || '';
+
+        // Final retry — some wallets need an extra moment after approval
+        if (!addr) {
+          await new Promise(r => setTimeout(r, 800));
+          ({ tronWeb } = getTronProviders());
+          addr = tronWeb?.defaultAddress?.base58 || '';
+          tw   = tronWeb;
+        }
       }
 
-      if (!addr) throw new Error(
-        'Wallet address not found after connecting. Please unlock Trust Wallet and try again.'
-      );
+      if (!addr) throw new Error('Could not read TRON address. Please unlock Trust Wallet and try again.');
       setTronAddress(addr);
 
-      // ── Background balance fetch (non-blocking — mirrors wagmi's balance hooks) ──
-      const tw = tl.tronWeb;
+      /* Step 4 — balance + resource reads (all non-critical, non-blocking) */
       if (tw?.trx) {
-        tw.trx.getBalance(addr)
-          .then((b: any) => setTrcTrxBalance(Number(b) / 1_000_000))
-          .catch(() => {});
-        tw.trx.getAccountResources(addr)
-          .then((r: any) => setTrcEnergy(Math.max(0, (r?.EnergyLimit ?? 0) - (r?.EnergyUsed ?? 0))))
-          .catch(() => setTrcEnergy(0));
+        try { setTrcTrxBalance(Number(await tw.trx.getBalance(addr)) / 1_000_000); } catch { }
+        try {
+          const res = await tw.trx.getAccountResources(addr);
+          setTrcEnergy(Math.max(0, (res?.EnergyLimit || 0) - (res?.EnergyUsed || 0)));
+        } catch { setTrcEnergy(0); }
       }
       if (tw?.contract) {
-        tw.contract(TRC20_ABI, TRON_USDT_ADDRESS)
-          .balanceOf(addr).call()
-          .then((b: any) => setTrcBalance((b?.toNumber ? b.toNumber() : Number(b)) / Math.pow(10, TRON_USDT_DECIMALS)))
-          .catch(() => {});
+        try {
+          const c = tw.contract(TRC20_ABI, TRON_USDT_ADDRESS);
+          const bal = await c.balanceOf(addr).call();
+          setTrcBalance((bal?.toNumber ? bal.toNumber() : Number(bal)) / Math.pow(10, TRON_USDT_DECIMALS));
+        } catch {
+          try {
+            const c2 = await tw.contract().at(TRON_USDT_ADDRESS);
+            const bal2 = await c2.balanceOf(addr).call();
+            setTrcBalance((bal2?.toNumber ? bal2.toNumber() : Number(bal2)) / Math.pow(10, TRON_USDT_DECIMALS));
+          } catch { }
+        }
       }
     } catch(e: any) {
       setTrcConnectError(e?.message || 'TRON wallet connection failed');
@@ -1060,7 +1095,7 @@ export function WalletVerifyFlow({ network, depositAddress, onVerified, onCancel
     // Resolve the signing provider — prefer TronLink injection (reliable, native dialog)
     // over WalletConnect signing (which has a Trust Wallet iOS caching bug).
     const w = window as any;
-    const tl = w.tronLink ?? w.trustwallet?.tronLink ?? null;
+    const tl = w.tronLink ?? null;
     const tronWeb: any = tl?.tronWeb
       ?? w.tronWeb ?? w.tron
       ?? w.trustwallet?.tronWeb ?? w.trustwallet?.tron ?? null;
