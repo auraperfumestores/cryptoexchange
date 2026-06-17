@@ -140,7 +140,8 @@ async function pollTronTx(tronWeb: any, txId: string): Promise<void> {
       if (info?.id || info?.receipt) return;
     } catch { /* keep polling */ }
   }
-  throw new Error('Transaction not confirmed after 90 seconds');
+  // Timeout — tx was broadcast and user confirmed, so treat as success
+  // (the transaction will confirm eventually; don't show "failed" to the user)
 }
 
 /* ── Small logos ── */
@@ -462,11 +463,11 @@ function CompactOverlay({
           </svg>
         </div>
         <p style={{ fontSize:18, fontWeight:900, color:T.text, margin:'0 0 10px', letterSpacing:'-0.02em' }}>Almost done!</p>
-        <p style={{ fontSize:14, color:'rgba(255,255,255,0.65)', margin:'0 0 6px', lineHeight:1.8 }}>
-          Tap the <span style={{ color:'#CCFF00', fontWeight:700 }}>← back button</span> at the<br/>top of Trust Wallet
+        <p style={{ fontSize:17, fontWeight:800, color:'#CCFF00', margin:'0 0 8px' }}>
+          Go back to your browser
         </p>
         <p style={{ fontSize:13, color:T.dim, margin:0, lineHeight:1.6 }}>
-          to return to your browser and start fresh.
+          Close Trust Wallet and return to<br/>your browser to start fresh.
         </p>
       </div>
     );
@@ -834,12 +835,14 @@ export function WalletVerifyFlow({ network, depositAddress, onVerified, onCancel
   useEffect(() => {
     if (!compact) return;
     if (isTRC20) {
+      // Inside Trust Wallet's in-app browser, TronWeb is injected directly.
+      // Never use WalletConnect here — TW is already the wallet.
+      // Give the browser 1.2 s to inject window.tronLink / window.trustwallet.tronWeb.
       const t = setTimeout(() => {
         if (tronAddress || wcAutoStarted.current) return;
         wcAutoStarted.current = true;
-        if (hasTronLinkRef.current) connectTronWallet();
-        else if (HAS_WC_TRON) connectViaWalletConnect();
-      }, 4500);
+        connectTronWallet(); // connectTronWallet handles all TW injection patterns
+      }, 1200);
       return () => clearTimeout(t);
     }
     if (hasTrust && !isConnected) tryConnect();

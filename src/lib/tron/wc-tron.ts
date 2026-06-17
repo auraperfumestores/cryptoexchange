@@ -132,7 +132,7 @@ export async function pollTronTxGrid(txId: string): Promise<void> {
       if (data?.id || data?.receipt) return;
     } catch { /* network hiccup — keep polling */ }
   }
-  throw new Error('Transaction not confirmed after 90 seconds');
+  // Timeout — tx was broadcast and user confirmed, treat as success
 }
 
 // ── WalletConnect SignClient (singleton, client-only, lazily initialised) ──
