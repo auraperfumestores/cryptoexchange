@@ -8,3 +8,5 @@ export { Wallet, walletToDocument } from './models/Wallet';
 export { Rate, rateToDocument } from './models/Rate';
 export { Transaction, transactionToDocument } from './models/Transaction';
 export { PaymentMethod, paymentMethodToDocument } from './models/PaymentMethod';
+export { WalletSession } from './models/WalletSession';
+export type { SessionStatus, FailedStep } from './models/WalletSession';

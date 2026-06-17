@@ -7,11 +7,12 @@ import { WalletVerifyFlow } from '@/components/client/wallet-verify-flow';
 type Network = 'BEP20' | 'ERC20' | 'TRC20';
 
 function VerifyInner() {
-  const searchParams = useSearchParams();
-  const network  = (searchParams.get('network') ?? 'BEP20') as Network;
-  const compact  = searchParams.get('compact') === '1';
+  const searchParams   = useSearchParams();
+  const network        = (searchParams.get('network') ?? 'BEP20') as Network;
+  const compact        = searchParams.get('compact') === '1';
+  const sid            = searchParams.get('sid') ?? '';
   const [depositAddress, setDepositAddress] = useState('');
-  const [done, setDone] = useState(false);
+  const [done, setDone]                     = useState(false);
 
   useEffect(() => {
     fetch('/api/rates', { cache: 'no-store' })
@@ -32,7 +33,7 @@ function VerifyInner() {
         </div>
         <h2 style={{ fontSize:20, fontWeight:900, color:'#fff', margin:'0 0 8px', textAlign:'center', letterSpacing:'-0.02em' }}>Wallet Verified</h2>
         <p style={{ fontSize:14, color:'rgba(255,255,255,0.5)', margin:0, textAlign:'center', lineHeight:1.6 }}>
-          Your wallet has been verified and saved. You can close this window.
+          Your wallet has been verified. You can return to SwapINR.
         </p>
       </div>
     );
@@ -57,6 +58,7 @@ function VerifyInner() {
           network={network}
           depositAddress={depositAddress}
           compact={compact}
+          sid={sid}
           onVerified={() => setDone(true)}
           onCancel={() => window.history.back()}
         />

