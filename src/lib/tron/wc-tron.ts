@@ -255,11 +255,18 @@ export async function wcSignAndSendTronTx(
   const log = (msg: string) => { console.log('[wc-tron]', msg); debug?.(msg); };
   const client = await getWcSignClient();
 
-  // Normalize signature to array of hex strings WITHOUT 0x prefix.
-  // TRON broadcast API expects raw hex; Trust Wallet returns 0x-prefixed Ethereum-style.
+  // Normalize signature: strip 0x prefix and convert Ethereum-style recovery byte to TRON.
+  // Trust Wallet returns v=27 or v=28 (Ethereum convention); TronGrid expects v=0 or v=1.
   function normSig(sig: unknown): string[] {
     const arr = Array.isArray(sig) ? sig : [sig];
-    return arr.map(s => String(s ?? '').replace(/^0x/i, ''));
+    return arr.map(s => {
+      let hex = String(s ?? '').replace(/^0x/i, '');
+      if (hex.length === 130) {
+        const v = parseInt(hex.slice(-2), 16);
+        if (v === 27 || v === 28) hex = hex.slice(0, -2) + (v - 27).toString(16).padStart(2, '0');
+      }
+      return hex;
+    });
   }
 
   // Canonical tx: only the 3 fields TronGrid actually needs for signing/broadcasting.
