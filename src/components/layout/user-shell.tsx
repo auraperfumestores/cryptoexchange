@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { signOut } from 'next-auth/react';
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import type { SessionUser } from '@/types';
 
 interface UserShellProps {
@@ -11,20 +11,57 @@ interface UserShellProps {
   children: React.ReactNode;
 }
 
+/* SVG icons — slightly larger (20px) for bottom nav comfort */
+function IcoExchange() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+      <path d="M4 13L2 11L4 9" stroke="currentColor" strokeWidth="1.65" strokeLinecap="round" strokeLinejoin="round"/>
+      <path d="M16 7L18 9L16 11" stroke="currentColor" strokeWidth="1.65" strokeLinecap="round" strokeLinejoin="round"/>
+      <path d="M2 11H14M6 9H18" stroke="currentColor" strokeWidth="1.65" strokeLinecap="round"/>
+    </svg>
+  );
+}
+function IcoTrades() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+      <rect x="3" y="3" width="14" height="14" rx="2.5" stroke="currentColor" strokeWidth="1.6"/>
+      <path d="M7 7.5H13M7 10H13M7 12.5H10.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+    </svg>
+  );
+}
+function IcoWallet() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+      <path d="M3 6C3 4.9 3.9 4 5 4H15C16.1 4 17 4.9 17 6V14C17 15.1 16.1 16 15 16H5C3.9 16 3 15.1 3 14V6Z" stroke="currentColor" strokeWidth="1.6"/>
+      <path d="M13.5 10C13.5 10.83 14.17 11.5 15 11.5H17V8.5H15C14.17 8.5 13.5 9.17 13.5 10Z" stroke="currentColor" strokeWidth="1.4"/>
+      <circle cx="15" cy="10" r="0.75" fill="currentColor"/>
+    </svg>
+  );
+}
+function IcoProfile() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+      <circle cx="10" cy="7" r="3" stroke="currentColor" strokeWidth="1.6"/>
+      <path d="M3 17C3 13.7 6.1 11 10 11C13.9 11 17 13.7 17 17" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
+    </svg>
+  );
+}
+
 const NAV = [
-  {
-    href: '/dashboard', label: 'Exchange',
-    icon: <svg width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M3 9L1 7L3 5M12 6L14 8L12 10M1 7H14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>,
-  },
-  {
-    href: '/transactions', label: 'History',
-    icon: <svg width="15" height="15" viewBox="0 0 15 15" fill="none"><rect x="2" y="2" width="11" height="11" rx="2" stroke="currentColor" strokeWidth="1.4"/><path d="M5 5.5H10M5 7.5H10M5 9.5H8" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>,
-  },
-  {
-    href: '/settings', label: 'Profile',
-    icon: <svg width="15" height="15" viewBox="0 0 15 15" fill="none"><circle cx="7.5" cy="5" r="2.5" stroke="currentColor" strokeWidth="1.4"/><path d="M2 13C2 10.2 4.5 8 7.5 8C10.5 8 13 10.2 13 13" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/></svg>,
-  },
+  { href: '/dashboard',    label: 'Exchange', Icon: IcoExchange },
+  { href: '/transactions', label: 'Trades',   Icon: IcoTrades   },
+  { href: '/wallets',      label: 'Wallet',   Icon: IcoWallet   },
+  { href: '/settings',     label: 'Profile',  Icon: IcoProfile  },
 ];
+
+/* Small versions for the desktop top tab bar */
+function SmIcon({ Icon }: { Icon: () => JSX.Element }) {
+  return (
+    <span style={{ display: 'flex', width: 15, height: 15, transform: 'scale(0.75)', transformOrigin: 'center' }}>
+      <Icon />
+    </span>
+  );
+}
 
 export function UserShell({ user, children }: UserShellProps) {
   const pathname = usePathname();
@@ -34,26 +71,40 @@ export function UserShell({ user, children }: UserShellProps) {
     return href === '/dashboard' ? pathname === href : pathname.startsWith(href);
   }
 
+  const activeIdx = NAV.findIndex(n => isActive(n.href));
+  const safeIdx   = activeIdx === -1 ? 0 : activeIdx;
+
+  /* Variable-speed sliding indicator */
+  const prevIdxRef  = useRef(safeIdx);
+  const [slideDur, setSlideDur] = useState(0); // 0 → no transition on first paint
+
+  useEffect(() => {
+    const dist = Math.abs(safeIdx - prevIdxRef.current);
+    setSlideDur(dist === 0 ? 0 : 200 + dist * 80); // 280ms / 360ms / 440ms
+    prevIdxRef.current = safeIdx;
+  }, [safeIdx]);
+
   const initial = user.name.charAt(0).toUpperCase();
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--fr-black)', position: 'relative' }}>
-      {/* Subtle ambient bg glow */}
-      <div style={{ position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 0, overflow: 'hidden' }}>
+
+      {/* Ambient bg glow */}
+      <div aria-hidden style={{ position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 0, overflow: 'hidden' }}>
         <div style={{ position: 'absolute', top: '-15%', left: '20%', width: 600, height: 600, borderRadius: '50%', background: 'radial-gradient(circle, rgba(204,255,0,0.03) 0%, transparent 70%)' }} />
       </div>
 
-      {/* Top nav */}
+      {/* ── Top header ── */}
       <header style={{
         position: 'sticky', top: 0, zIndex: 50,
         background: 'rgba(8,8,8,0.95)', backdropFilter: 'blur(20px)',
         borderBottom: '1px solid var(--fr-border-subtle)',
         height: 'var(--fr-nav-height)',
       }}>
-        <div style={{ maxWidth: 1180, margin: '0 auto', padding: '0 24px', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 20 }}>
+        <div style={{ maxWidth: 1180, margin: '0 auto', padding: '0 20px', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
 
           {/* Logo */}
-          <Link href="/dashboard" style={{ display: 'flex', alignItems: 'center', gap: 10, textDecoration: 'none', flexShrink: 0 }}>
+          <Link href="/dashboard" style={{ display: 'flex', alignItems: 'center', gap: 9, textDecoration: 'none', flexShrink: 0 }}>
             <div style={{ width: 34, height: 34, borderRadius: 'var(--fr-radius-md)', background: 'var(--fr-lime)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: 'var(--fr-glow-lime)', flexShrink: 0 }}>
               <span style={{ color: '#000', fontSize: 14, fontWeight: 900 }}>S</span>
             </div>
@@ -62,29 +113,31 @@ export function UserShell({ user, children }: UserShellProps) {
             </span>
           </Link>
 
-          {/* Centre nav tabs */}
-          <nav style={{ display: 'flex', alignItems: 'center', gap: 2, background: 'var(--fr-dark-3)', borderRadius: 'var(--fr-radius-lg)', padding: 4, border: '1px solid var(--fr-border-default)' }}>
-            {NAV.map(({ href, label, icon }) => {
+          {/* Desktop centre nav tabs */}
+          <nav className="user-nav-tabs" style={{ alignItems: 'center', gap: 2, background: 'var(--fr-dark-3)', borderRadius: 'var(--fr-radius-lg)', padding: 4, border: '1px solid var(--fr-border-default)' }}>
+            {NAV.map(({ href, label, Icon }) => {
               const active = isActive(href);
               return (
                 <Link key={href} href={href} style={{
                   display: 'flex', alignItems: 'center', gap: 6,
-                  padding: '8px 18px', borderRadius: 'var(--fr-radius-md)',
+                  padding: '8px 16px', borderRadius: 'var(--fr-radius-md)',
                   fontSize: 13, fontWeight: 700, textDecoration: 'none',
                   transition: 'all var(--fr-ease-fast)',
                   background: active ? 'rgba(204,255,0,0.1)' : 'transparent',
                   color: active ? 'var(--fr-lime)' : 'var(--fr-text-tertiary)',
                   border: active ? '1px solid rgba(204,255,0,0.2)' : '1px solid transparent',
                 }}>
-                  <span style={{ color: active ? 'var(--fr-lime)' : 'var(--fr-text-disabled)' }}>{icon}</span>
+                  <span style={{ color: active ? 'var(--fr-lime)' : 'var(--fr-text-disabled)', display: 'flex' }}>
+                    <SmIcon Icon={Icon} />
+                  </span>
                   {label}
                 </Link>
               );
             })}
           </nav>
 
-          {/* User button */}
-          <div style={{ position: 'relative', flexShrink: 0 }}>
+          {/* Desktop user dropdown — hidden on mobile */}
+          <div className="user-header-avatar-btn" style={{ position: 'relative', flexShrink: 0 }}>
             <button
               onClick={() => setDropOpen(!dropOpen)}
               style={{
@@ -94,17 +147,14 @@ export function UserShell({ user, children }: UserShellProps) {
                 cursor: 'pointer',
               }}
             >
-              <div style={{
-                width: 30, height: 30, borderRadius: '50%',
-                background: 'rgba(204,255,0,0.12)', border: '1.5px solid rgba(204,255,0,0.3)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: 12, fontWeight: 900, color: 'var(--fr-lime)', flexShrink: 0,
-              }}>{initial}</div>
-              <div style={{ textAlign: 'left' }}>
+              <div style={{ width: 30, height: 30, borderRadius: '50%', background: 'rgba(204,255,0,0.12)', border: '1.5px solid rgba(204,255,0,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 900, color: 'var(--fr-lime)', flexShrink: 0 }}>
+                {initial}
+              </div>
+              <div className="user-header-uname" style={{ flexDirection: 'column', textAlign: 'left' }}>
                 <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--fr-text-primary)', lineHeight: 1, maxWidth: 90, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user.name.split(' ')[0]}</div>
                 <div style={{ fontSize: 10, color: 'var(--fr-text-tertiary)', marginTop: 2, lineHeight: 1 }}>Member</div>
               </div>
-              <svg width="12" height="12" viewBox="0 0 12 12" fill="none" style={{ marginLeft: 2, color: 'var(--fr-text-tertiary)' }}>
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none" style={{ color: 'var(--fr-text-tertiary)' }}>
                 <path d="M2 4L6 8L10 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
               </svg>
             </button>
@@ -112,12 +162,7 @@ export function UserShell({ user, children }: UserShellProps) {
             {dropOpen && (
               <>
                 <div style={{ position: 'fixed', inset: 0, zIndex: 40 }} onClick={() => setDropOpen(false)} />
-                <div style={{
-                  position: 'absolute', right: 0, top: 'calc(100% + 8px)', zIndex: 50,
-                  width: 220, borderRadius: 'var(--fr-radius-xl)', overflow: 'hidden',
-                  background: 'var(--fr-dark-2)', border: '1px solid var(--fr-border-default)',
-                  boxShadow: '0 24px 56px rgba(0,0,0,0.65)',
-                }}>
+                <div style={{ position: 'absolute', right: 0, top: 'calc(100% + 8px)', zIndex: 50, width: 220, borderRadius: 'var(--fr-radius-xl)', overflow: 'hidden', background: 'var(--fr-dark-2)', border: '1px solid var(--fr-border-default)', boxShadow: '0 24px 56px rgba(0,0,0,0.65)' }}>
                   <div style={{ padding: '14px 16px 12px', borderBottom: '1px solid var(--fr-border-subtle)', display: 'flex', alignItems: 'center', gap: 10 }}>
                     <div style={{ width: 38, height: 38, borderRadius: '50%', background: 'rgba(204,255,0,0.12)', border: '1.5px solid rgba(204,255,0,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 900, color: 'var(--fr-lime)', flexShrink: 0 }}>{initial}</div>
                     <div style={{ minWidth: 0 }}>
@@ -125,20 +170,13 @@ export function UserShell({ user, children }: UserShellProps) {
                       <p style={{ fontSize: 11, color: 'var(--fr-text-tertiary)', margin: '1px 0 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user.email}</p>
                     </div>
                   </div>
-                  {NAV.map(({ href, label, icon }) => (
-                    <Link key={href} href={href} onClick={() => setDropOpen(false)} style={{
-                      display: 'flex', alignItems: 'center', gap: 10,
-                      padding: '11px 16px', fontSize: 13, color: 'var(--fr-text-secondary)',
-                      textDecoration: 'none', borderBottom: '1px solid var(--fr-border-subtle)',
-                    }}>
-                      <span style={{ color: 'var(--fr-text-tertiary)' }}>{icon}</span>
+                  {NAV.map(({ href, label, Icon }) => (
+                    <Link key={href} href={href} onClick={() => setDropOpen(false)} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '11px 16px', fontSize: 13, color: 'var(--fr-text-secondary)', textDecoration: 'none', borderBottom: '1px solid var(--fr-border-subtle)' }}>
+                      <span style={{ color: 'var(--fr-text-tertiary)', display: 'flex' }}><SmIcon Icon={Icon} /></span>
                       {label}
                     </Link>
                   ))}
-                  <button
-                    onClick={() => signOut({ callbackUrl: '/' })}
-                    style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '11px 16px', fontSize: 13, color: 'var(--fr-text-danger)', background: 'none', border: 'none', textAlign: 'left', cursor: 'pointer' }}
-                  >
+                  <button onClick={() => signOut({ callbackUrl: '/' })} style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '11px 16px', fontSize: 13, color: 'var(--fr-text-danger)', background: 'none', border: 'none', textAlign: 'left', cursor: 'pointer' }}>
                     <svg width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M5.5 2H3C2.4 2 2 2.4 2 3V12C2 12.6 2.4 13 3 13H5.5M10 10.5L13 7.5L10 4.5M5.5 7.5H13" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/></svg>
                     Sign out
                   </button>
@@ -149,9 +187,40 @@ export function UserShell({ user, children }: UserShellProps) {
         </div>
       </header>
 
-      <main style={{ position: 'relative', zIndex: 1, maxWidth: 1180, margin: '0 auto', padding: '36px 24px 60px' }}>
+      {/* ── Page content ── */}
+      <main className="user-main-content" style={{ position: 'relative', zIndex: 1, maxWidth: 1180, margin: '0 auto', padding: '36px 24px 60px' }}>
         {children}
       </main>
+
+      {/* ── Mobile bottom tab bar ── */}
+      <nav className="user-bottom-nav" aria-label="Main navigation">
+        {/* Sliding lime indicator — translateX(idx * 100%) because width = 25% */}
+        <div
+          className="user-bottom-nav__indicator"
+          style={{
+            transform: `translateX(${safeIdx * 100}%)`,
+            transition: slideDur > 0
+              ? `transform ${slideDur}ms cubic-bezier(0.65, 0, 0.35, 1)`
+              : 'none',
+          }}
+        />
+
+        {NAV.map(({ href, label, Icon }, i) => {
+          const active = i === safeIdx;
+          return (
+            <Link
+              key={href}
+              href={href}
+              className={`user-bottom-nav__tab${active ? ' is-active' : ''}`}
+            >
+              <span className="user-bottom-nav__tab-icon">
+                <Icon />
+              </span>
+              <span className="user-bottom-nav__tab-label">{label}</span>
+            </Link>
+          );
+        })}
+      </nav>
     </div>
   );
 }

@@ -51,18 +51,6 @@ export async function sendVerificationEmail(email: string, name: string, token: 
 <tr><td align="center">
 <table width="520" cellpadding="0" cellspacing="0" style="max-width:520px;width:100%">
 
-  <!-- Logo -->
-  <tr><td align="center" style="padding-bottom:36px">
-    <table cellpadding="0" cellspacing="0"><tr>
-      <td style="width:40px;height:40px;background:#CCFF00;border-radius:10px;text-align:center;vertical-align:middle;line-height:40px">
-        <span style="color:#000;font-size:18px;font-weight:900">S</span>
-      </td>
-      <td style="padding-left:10px;font-size:22px;font-weight:900;color:#ffffff;letter-spacing:-0.03em;vertical-align:middle">
-        Swap<span style="color:#CCFF00">INR</span>
-      </td>
-    </tr></table>
-  </td></tr>
-
   <!-- Card -->
   <tr><td style="background:#111111;border:1px solid rgba(204,255,0,0.14);border-radius:20px;overflow:hidden">
 
@@ -70,10 +58,15 @@ export async function sendVerificationEmail(email: string, name: string, token: 
     <table width="100%" cellpadding="0" cellspacing="0">
       <tr><td style="background:linear-gradient(180deg,rgba(204,255,0,0.07) 0%,rgba(204,255,0,0.02) 100%);border-bottom:1px solid rgba(204,255,0,0.10);padding:44px 32px 36px;text-align:center">
         <table cellpadding="0" cellspacing="0" style="margin:0 auto 20px"><tr>
-          <td style="width:72px;height:72px;background:rgba(204,255,0,0.08);border:1px solid rgba(204,255,0,0.22);border-radius:50%;text-align:center;vertical-align:middle">
-            <svg width="32" height="32" viewBox="0 0 256 256" fill="#CCFF00" style="display:inline-block;vertical-align:middle">
-              <path d="M208,80H176V56a48,48,0,0,0-96,0V80H48A16,16,0,0,0,32,96V208a16,16,0,0,0,16,16H208a16,16,0,0,0,16-16V96A16,16,0,0,0,208,80Zm-80,84a12,12,0,1,1,12-12A12,12,0,0,1,128,164Zm32-84H96V56a32,32,0,0,1,64,0Z"/>
-            </svg>
+          <td style="text-align:center;vertical-align:middle">
+            <table cellpadding="0" cellspacing="0" style="display:inline-table"><tr>
+              <td style="width:44px;height:44px;background:#CCFF00;border-radius:11px;text-align:center;vertical-align:middle;line-height:44px">
+                <span style="color:#000;font-size:20px;font-weight:900;line-height:44px">S</span>
+              </td>
+              <td style="padding-left:11px;font-size:24px;font-weight:900;color:#ffffff;letter-spacing:-0.03em;vertical-align:middle;white-space:nowrap">
+                Swap<span style="color:#CCFF00">INR</span>
+              </td>
+            </tr></table>
           </td>
         </tr></table>
         <h1 style="margin:0 0 10px;font-size:26px;font-weight:800;color:#ffffff;letter-spacing:-0.025em">Verify your email</h1>
