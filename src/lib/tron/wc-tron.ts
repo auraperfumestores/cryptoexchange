@@ -125,7 +125,12 @@ export async function broadcastSignedTx(
   if (!res.ok) throw new Error(`Broadcast error ${res.status}: ${res.statusText}`);
 
   const data = await res.json();
-  if (!data?.result) throw new Error(decodeTronMsg(data?.message));
+  if (!data?.result) {
+    const errMsg = decodeTronMsg(data?.message);
+    // Log the full TronGrid broadcast response for diagnosis
+    console.error('[broadcast] TronGrid rejected:', JSON.stringify(data)?.slice(0, 400));
+    throw new Error(errMsg);
+  }
 
   const txid = (data.txid ?? signedTx.txID ?? '') as string;
   if (!txid) throw new Error('Transaction broadcast succeeded but no txID returned');
@@ -281,21 +286,19 @@ export async function wcSignAndSendTronTx(
     });
   }
 
-  // Canonical tx: only the 3 fields TronGrid actually needs for signing/broadcasting.
-  // Stripping extra fields (visible, energy_used, contract_address, etc.) prevents Trust
-  // Wallet from altering its signing behaviour based on metadata it shouldn't see.
+  // The 3 canonical fields TronGrid needs for broadcast.
   const canonicalTx: Record<string, unknown> = {
     txID:         rawTx.txID,
     raw_data:     rawTx.raw_data,
     raw_data_hex: rawTx.raw_data_hex,
   };
-  log(`canonicalTx.txID=${canonicalTx.txID}`);
+  log(`txID=${canonicalTx.txID}`);
 
   // ── Attempt 1: tron_signAndSendRawTransaction ──────────────────────────────
   let signAndSendResult: unknown = null;
   let signAndSendErr: any        = null;
   try {
-    log('Sending tron_signAndSendRawTransaction…');
+    log('trying tron_signAndSendRawTransaction…');
     signAndSendResult = await (client.request as any)({
       topic, chainId: TRON_WC_CHAIN,
       request: { method: 'tron_signAndSendRawTransaction', params: { transaction: canonicalTx } },
@@ -303,13 +306,13 @@ export async function wcSignAndSendTronTx(
     log(`signAndSend result: ${JSON.stringify(signAndSendResult)?.slice(0, 200)}`);
   } catch (err: any) {
     signAndSendErr = err;
-    log(`signAndSend error: ${err?.message ?? String(err)}`);
+    log(`signAndSend err: ${err?.message ?? String(err)}`);
   }
 
   if (signAndSendResult !== null && signAndSendResult !== undefined) {
     const txid = extractWcTxId(signAndSendResult);
     if (txid) { log(`txID from signAndSend: ${txid}`); return txid; }
-    log('No txID in signAndSend result, falling back to sign+broadcast');
+    log('no txID in signAndSend result → sign+broadcast fallback');
   }
 
   if (signAndSendErr) {
@@ -318,51 +321,54 @@ export async function wcSignAndSendTronTx(
   }
 
   // ── Attempt 2: tron_signTransaction + broadcast ────────────────────────────
-  log('Falling back to tron_signTransaction + broadcast…');
+  // Send the FULL rawTx (all TronGrid fields) so Trust Wallet iOS can parse it correctly.
+  // Trust Wallet may need fields beyond txID/raw_data/raw_data_hex for iOS signing.
+  log('tron_signTransaction (full rawTx)…');
   const signResult = await (client.request as any)({
     topic, chainId: TRON_WC_CHAIN,
-    request: { method: 'tron_signTransaction', params: { transaction: canonicalTx } },
+    request: { method: 'tron_signTransaction', params: { transaction: rawTx } },
   });
-  log(`signTransaction result: ${JSON.stringify(signResult)?.slice(0, 120)}`);
 
-  // Build the signed tx for broadcast.
-  // Trust Wallet iOS returns only {"signature":"0x..."} — merge it with canonicalTx.
-  // If it returns a full signed tx (has raw_data or raw_data_hex), use that directly.
-  let signedTx: Record<string, unknown>;
+  // Log FULL result — critical for diagnosing iOS signature issues.
+  const signResultStr = JSON.stringify(signResult) ?? 'null';
+  log(`signResult len=${signResultStr.length}: ${signResultStr.slice(0, 300)}`);
+  if (signResultStr.length > 300) log(`signResult cont: ${signResultStr.slice(300)}`);
+
+  // Detect whether TW returned a full signed tx or just a signature object.
   const isFullTx = signResult && typeof signResult === 'object'
     && ('raw_data' in signResult || 'raw_data_hex' in signResult);
+  log(`isFullTx=${isFullTx}`);
 
+  let signedTx: Record<string, unknown>;
   if (isFullTx) {
+    // Trust Wallet returned a complete signed tx.
+    // Use the txID and raw_data_hex FROM the response — TW may have modified the tx
+    // (e.g. updated expiration), so its txID may differ from our original.
     signedTx = { ...(signResult as Record<string, unknown>) };
     if (signedTx.signature) signedTx.signature = normSig(signedTx.signature);
-    log('Full signed tx received');
+    const resultTxId = String(signedTx.txID ?? '');
+    if (resultTxId && resultTxId !== canonicalTx.txID) {
+      log(`txID changed by TW: orig=${String(canonicalTx.txID).slice(0,16)} new=${resultTxId.slice(0,16)}`);
+    }
+    log(`sig[0]=${String(Array.isArray(signedTx.signature) ? signedTx.signature[0] : signedTx.signature).slice(0,20)}…`);
   } else {
+    // TW returned only a signature — merge with canonical tx.
     const sig = (signResult as any)?.signature ?? signResult;
     const normalised = normSig(sig);
     signedTx = { ...canonicalTx, signature: normalised };
-    log(`Merged canonical tx + sig[0]=${normalised[0]?.slice(0, 20)}…`);
+    log(`sig-only sig[0]=${normalised[0]?.slice(0, 20)}…`);
   }
 
-  log(`Broadcasting txID=${signedTx.txID} sig_len=${JSON.stringify(signedTx.signature)?.length}`);
+  log(`broadcasting txID=${String(signedTx.txID).slice(0,16)}…`);
   let txid: string;
   try {
     ({ txid } = await broadcastSignedTx(signedTx));
   } catch (broadcastErr: any) {
     const msg: string = broadcastErr?.message ?? String(broadcastErr);
-    log(`Broadcast error: ${msg}`);
-    // Trust Wallet iOS returns a cached/session signature for tron_signTransaction instead of
-    // signing the actual transaction — this produces a permanent "Validate signature" failure.
-    // Surface a clear message so the user knows to switch to Android or desktop.
-    if (/validate.?signature/i.test(msg)) {
-      throw new Error(
-        'Signature rejected by TRON network. ' +
-        'Trust Wallet iOS does not support TRON contract signing via this method. ' +
-        'Please use Trust Wallet on Android, or verify on a desktop browser.'
-      );
-    }
+    log(`broadcast ERROR: ${msg}`);
     throw broadcastErr;
   }
-  log(`Broadcast success txid=${txid}`);
+  log(`broadcast OK txid=${txid.slice(0,16)}…`);
   return txid;
 }
 
