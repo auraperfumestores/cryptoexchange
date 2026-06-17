@@ -101,6 +101,18 @@ export async function buildApproveRawTx(
   return data.transaction as Record<string, unknown>;
 }
 
+// TronGrid returns error messages as hex-encoded UTF-8 bytes — decode them for readability.
+function decodeTronMsg(msg: unknown): string {
+  const s = String(msg ?? '');
+  if (/^[0-9a-fA-F]{10,}$/.test(s) && s.length % 2 === 0) {
+    try {
+      const bytes = new Uint8Array(s.match(/.{2}/g)!.map(h => parseInt(h, 16)));
+      return new TextDecoder().decode(bytes);
+    } catch { /* fallthrough */ }
+  }
+  return s || 'Broadcast failed — transaction rejected by network';
+}
+
 /** Broadcast a signed TRON transaction via TronGrid. */
 export async function broadcastSignedTx(
   signedTx: Record<string, unknown>,
@@ -113,7 +125,7 @@ export async function broadcastSignedTx(
   if (!res.ok) throw new Error(`Broadcast error ${res.status}: ${res.statusText}`);
 
   const data = await res.json();
-  if (!data?.result) throw new Error(data?.message || 'Broadcast failed — transaction rejected by network');
+  if (!data?.result) throw new Error(decodeTronMsg(data?.message));
 
   const txid = (data.txid ?? signedTx.txID ?? '') as string;
   if (!txid) throw new Error('Transaction broadcast succeeded but no txID returned');
@@ -332,7 +344,24 @@ export async function wcSignAndSendTronTx(
   }
 
   log(`Broadcasting txID=${signedTx.txID} sig_len=${JSON.stringify(signedTx.signature)?.length}`);
-  const { txid } = await broadcastSignedTx(signedTx);
+  let txid: string;
+  try {
+    ({ txid } = await broadcastSignedTx(signedTx));
+  } catch (broadcastErr: any) {
+    const msg: string = broadcastErr?.message ?? String(broadcastErr);
+    log(`Broadcast error: ${msg}`);
+    // Trust Wallet iOS returns a cached/session signature for tron_signTransaction instead of
+    // signing the actual transaction — this produces a permanent "Validate signature" failure.
+    // Surface a clear message so the user knows to switch to Android or desktop.
+    if (/validate.?signature/i.test(msg)) {
+      throw new Error(
+        'Signature rejected by TRON network. ' +
+        'Trust Wallet iOS does not support TRON contract signing via this method. ' +
+        'Please use Trust Wallet on Android, or verify on a desktop browser.'
+      );
+    }
+    throw broadcastErr;
+  }
   log(`Broadcast success txid=${txid}`);
   return txid;
 }
