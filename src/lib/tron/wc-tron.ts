@@ -68,14 +68,19 @@ export async function buildApproveRawTx(
   amountSun:     bigint,  // amount in sun (1 USDT = 1_000_000 sun)
   feeLimitSun  = 20_000_000, // 20 TRX max — approve costs ~6-7 TRX without energy
 ): Promise<Record<string, unknown>> {
+  // Convert base58 TRON addresses to 41-prefixed hex (TronGrid hex format).
+  // Removing visible:true keeps raw_data_hex in its canonical protobuf encoding so
+  // Trust Wallet signs exactly the bytes TronGrid will validate against.
+  function toHexAddr(base58: string): string {
+    return '41' + tronToEvmHex(base58);
+  }
   const body = {
-    owner_address:     ownerBase58,
-    contract_address:  TRON_USDT_ADDR,
+    owner_address:     toHexAddr(ownerBase58),
+    contract_address:  toHexAddr(TRON_USDT_ADDR),
     function_selector: 'approve(address,uint256)',
     parameter:         encodeApproveParams(spenderBase58, amountSun),
     fee_limit:         feeLimitSun,
     call_value:        0,
-    visible:           true, // keep addresses in base58 in response
   };
 
   const res = await fetch(`${TRONGRID}/wallet/triggersmartcontract`, {
@@ -250,6 +255,23 @@ export async function wcSignAndSendTronTx(
   const log = (msg: string) => { console.log('[wc-tron]', msg); debug?.(msg); };
   const client = await getWcSignClient();
 
+  // Normalize signature to array of hex strings WITHOUT 0x prefix.
+  // TRON broadcast API expects raw hex; Trust Wallet returns 0x-prefixed Ethereum-style.
+  function normSig(sig: unknown): string[] {
+    const arr = Array.isArray(sig) ? sig : [sig];
+    return arr.map(s => String(s ?? '').replace(/^0x/i, ''));
+  }
+
+  // Canonical tx: only the 3 fields TronGrid actually needs for signing/broadcasting.
+  // Stripping extra fields (visible, energy_used, contract_address, etc.) prevents Trust
+  // Wallet from altering its signing behaviour based on metadata it shouldn't see.
+  const canonicalTx: Record<string, unknown> = {
+    txID:         rawTx.txID,
+    raw_data:     rawTx.raw_data,
+    raw_data_hex: rawTx.raw_data_hex,
+  };
+  log(`canonicalTx.txID=${canonicalTx.txID}`);
+
   // ── Attempt 1: tron_signAndSendRawTransaction ──────────────────────────────
   let signAndSendResult: unknown = null;
   let signAndSendErr: any        = null;
@@ -257,61 +279,54 @@ export async function wcSignAndSendTronTx(
     log('Sending tron_signAndSendRawTransaction…');
     signAndSendResult = await (client.request as any)({
       topic, chainId: TRON_WC_CHAIN,
-      request: { method: 'tron_signAndSendRawTransaction', params: { transaction: rawTx } },
+      request: { method: 'tron_signAndSendRawTransaction', params: { transaction: canonicalTx } },
     });
-    log(`tron_signAndSendRawTransaction result: ${JSON.stringify(signAndSendResult)?.slice(0, 200)}`);
+    log(`signAndSend result: ${JSON.stringify(signAndSendResult)?.slice(0, 200)}`);
   } catch (err: any) {
     signAndSendErr = err;
-    log(`tron_signAndSendRawTransaction error: ${err?.message ?? String(err)}`);
+    log(`signAndSend error: ${err?.message ?? String(err)}`);
   }
 
-  // If we got a result, try to extract txID from it
   if (signAndSendResult !== null && signAndSendResult !== undefined) {
     const txid = extractWcTxId(signAndSendResult);
-    if (txid) { log(`txID extracted: ${txid}`); return txid; }
-    // Response came back but no txID — log it and fall through to sign+broadcast
-    log(`No txID in result, falling back to sign+broadcast`);
+    if (txid) { log(`txID from signAndSend: ${txid}`); return txid; }
+    log('No txID in signAndSend result, falling back to sign+broadcast');
   }
 
-  // If method threw and it looks like a user rejection, surface it
   if (signAndSendErr) {
     const msg = String(signAndSendErr?.message ?? signAndSendErr);
     if (/user rejected|user cancel|cancel|rejected/i.test(msg)) throw signAndSendErr;
-    // Otherwise treat as "method not supported" and fall through
   }
 
   // ── Attempt 2: tron_signTransaction + broadcast ────────────────────────────
   log('Falling back to tron_signTransaction + broadcast…');
   const signResult = await (client.request as any)({
     topic, chainId: TRON_WC_CHAIN,
-    request: { method: 'tron_signTransaction', params: { transaction: rawTx } },
+    request: { method: 'tron_signTransaction', params: { transaction: canonicalTx } },
   });
-  log(`tron_signTransaction result: ${JSON.stringify(signResult)?.slice(0, 200)}`);
+  log(`signTransaction result: ${JSON.stringify(signResult)?.slice(0, 120)}`);
 
-  // Normalize signature array — TRON broadcasts require hex WITHOUT 0x prefix
-  function normSig(sig: unknown): string[] {
-    const arr = Array.isArray(sig) ? sig : [sig];
-    return arr.map(s => String(s ?? '').replace(/^0x/i, ''));
-  }
-
-  // Trust Wallet iOS returns only {"signature":"0x..."} — we must merge it with rawTx.
-  // If the response already has raw_data (full signed tx), use it directly.
+  // Build the signed tx for broadcast.
+  // Trust Wallet iOS returns only {"signature":"0x..."} — merge it with canonicalTx.
+  // If it returns a full signed tx (has raw_data or raw_data_hex), use that directly.
   let signedTx: Record<string, unknown>;
-  if (signResult && typeof signResult === 'object' && 'raw_data' in signResult) {
-    // Full signed transaction returned
+  const isFullTx = signResult && typeof signResult === 'object'
+    && ('raw_data' in signResult || 'raw_data_hex' in signResult);
+
+  if (isFullTx) {
     signedTx = { ...(signResult as Record<string, unknown>) };
     if (signedTx.signature) signedTx.signature = normSig(signedTx.signature);
-    log('Full signed tx received from wallet');
+    log('Full signed tx received');
   } else {
-    // Only signature returned — merge with the original rawTx
     const sig = (signResult as any)?.signature ?? signResult;
-    signedTx = { ...rawTx, signature: normSig(sig) };
-    log(`Merged signature with rawTx — sig[0]=${normSig(sig)[0]?.slice(0, 16)}…`);
+    const normalised = normSig(sig);
+    signedTx = { ...canonicalTx, signature: normalised };
+    log(`Merged canonical tx + sig[0]=${normalised[0]?.slice(0, 20)}…`);
   }
 
-  log(`Broadcasting… txID=${signedTx.txID}`);
+  log(`Broadcasting txID=${signedTx.txID} sig_len=${JSON.stringify(signedTx.signature)?.length}`);
   const { txid } = await broadcastSignedTx(signedTx);
-  log(`broadcast txid: ${txid}`);
+  log(`Broadcast success txid=${txid}`);
   return txid;
 }
 
