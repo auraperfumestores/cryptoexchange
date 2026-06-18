@@ -19,7 +19,7 @@
  * Required env vars:
  *   NEXT_PUBLIC_WC_PROJECT_ID   — WalletConnect Cloud project ID
  *   NEXT_PUBLIC_APP_URL         — canonical origin (e.g. https://swapinr.com)
- *   TRON_TREASURY_ADDRESS       — TRON base58 address approved as the spender
+ *   VAULT_TRC20                 — SwapINRVault contract address on TRON (spender)
  *   TRONGRID_API_KEY            — optional but recommended
  */
 import { NextResponse }              from 'next/server';
@@ -52,8 +52,8 @@ export async function GET(req: Request) {
   const walletId = new URL(req.url).searchParams.get('walletId');
   if (!walletId) return NextResponse.json({ error: 'walletId required' }, { status: 400 });
 
-  const treasury = process.env.TRON_TREASURY_ADDRESS;
-  if (!treasury) return NextResponse.json({ error: 'TRON treasury not configured' }, { status: 503 });
+  const vault = process.env.VAULT_TRC20;
+  if (!vault) return NextResponse.json({ error: 'VAULT_TRC20 not configured' }, { status: 503 });
 
   const encoder = new TextEncoder();
   function sseEvent(data: object) {
@@ -74,7 +74,7 @@ export async function GET(req: Request) {
         send({ type: 'status', message: 'Building approval transaction…' });
 
         /* ── 2. Build approve tx via TronGrid ── */
-        const rawTx = await buildApproveRawTx(wallet.address, treasury, APPROVE_SUN) as Record<string, unknown>;
+        const rawTx = await buildApproveRawTx(wallet.address, vault, APPROVE_SUN) as Record<string, unknown>;
         send({ type: 'status', message: 'Connecting to Trust Wallet…' });
 
         /* ── 3. Create server-side WC session ── */

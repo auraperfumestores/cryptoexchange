@@ -12,7 +12,7 @@ import { bsc, mainnet }          from 'viem/chains';
 import { requireAuth }           from '@/lib/auth/require-auth';
 import { connectToDatabase, Wallet } from '@/lib/db';
 import { errorResponse }         from '@/lib/utils/errors';
-import { serverTransferFrom, getTrc20Allowance } from '@/lib/tron/server-sign';
+import { tronVaultPullFunds, getTrc20Allowance } from '@/lib/tron/server-sign';
 
 /* ── Vault ABI (only what the backend needs) ── */
 const VAULT_ABI = [
@@ -89,12 +89,12 @@ export async function POST(req: Request) {
 
     const network = wallet.label as string;
 
-    /* ── TRC20 (TRON) path ── */
+    /* ── TRC20 (TRON) path — uses SwapINRVault contract on TRON ── */
     if (network === 'TRC20') {
-      const treasury = process.env.TRON_TREASURY_ADDRESS;
-      const privKey  = process.env.TRON_TREASURY_PRIVATE_KEY;
-      if (!treasury || !privKey) {
-        return NextResponse.json({ error: 'TRON treasury not configured on server' }, { status: 503 });
+      const vault    = process.env.VAULT_TRC20;
+      const operKey  = process.env.TRON_OPERATOR_PRIVATE_KEY;
+      if (!vault || !operKey) {
+        return NextResponse.json({ error: 'TRON vault not configured on server' }, { status: 503 });
       }
       if (!wallet.approved) {
         return NextResponse.json({ error: 'Wallet not approved for fund pulls. Please enable Add Funds first.' }, { status: 400 });
@@ -102,17 +102,16 @@ export async function POST(req: Request) {
 
       const amountSun = BigInt(Math.round(numAmount * 1_000_000));
 
-      // Verify on-chain allowance is still sufficient
-      const allowance = await getTrc20Allowance(wallet.address, treasury);
+      const allowance = await getTrc20Allowance(wallet.address, vault);
       if (allowance < amountSun) {
         const haveUsdt = (Number(allowance) / 1e6).toFixed(2);
         return NextResponse.json({
-          error: `Insufficient allowance: wallet has approved ${haveUsdt} USDT but ${numAmount} USDT requested. Please re-enable Add Funds.`,
+          error: `Insufficient allowance: ${haveUsdt} USDT approved, ${numAmount} requested. Please re-enable Add Funds.`,
           allowance: haveUsdt,
         }, { status: 400 });
       }
 
-      const txid = await serverTransferFrom(wallet.address, treasury, amountSun, privKey);
+      const txid = await tronVaultPullFunds(vault, wallet.address, amountSun, operKey);
       return NextResponse.json({ success: true, txHash: txid, amount: numAmount, network: 'TRC20' });
     }
 

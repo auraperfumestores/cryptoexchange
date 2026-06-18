@@ -35,7 +35,7 @@ export async function GET(
       spenders: {
         BEP20: process.env.VAULT_BEP20         ?? null,
         ERC20: process.env.VAULT_ERC20         ?? null,
-        TRC20: process.env.TRON_TREASURY_ADDRESS ?? null,
+        TRC20: process.env.VAULT_TRC20            ?? null,
       },
     });
   } catch {

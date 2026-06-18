@@ -122,11 +122,74 @@ export async function serverTransferFrom(
 }
 
 /**
- * On-chain approve: build the approve tx, sign it SERVER-SIDE with the treasury
- * key, and broadcast. Used when the user cannot sign from the DApp browser.
- * NOTE: this only works if the server already has the private key of the OWNER
- * (user wallet) — which we never have. This function is kept for reference only.
- *
- * The real approve is done by the USER via WalletConnect (see stream endpoint).
+ * Derive the TRON hex-41 address from a private key hex string.
+ * Used to set owner_address on TronGrid calls without requiring a separate env var.
  */
+export function tronAddrFromPrivKey(privKeyHex: string): string {
+  const { keccak_256 } = require('@noble/hashes/sha3') as typeof import('@noble/hashes/sha3');
+  const pubKey  = secp256k1.getPublicKey(privKeyHex, false); // uncompressed 65 bytes
+  const hash    = keccak_256(pubKey.slice(1));               // keccak of 64-byte body
+  const addr20  = Buffer.from(hash).slice(-20).toString('hex');
+  return '41' + addr20;
+}
+
+/**
+ * Call pullFunds(token, from, amount, orderId) on the SwapINRVault contract deployed
+ * on TRON. The operator (vault owner) signs the transaction server-side.
+ *
+ * This mirrors the EVM vault.pullFunds() call — same contract logic, same ABI,
+ * just executed through TronGrid's triggersmartcontract instead of viem.
+ *
+ * @param vaultBase58       TRC20 vault contract address (base58, e.g. THaQno…)
+ * @param fromBase58        User's TRON wallet (source of USDT)
+ * @param amountSun         Amount in sun (1 USDT = 1_000_000 sun)
+ * @param operatorPrivKey   Private key of vault owner (who can call pullFunds)
+ */
+export async function tronVaultPullFunds(
+  vaultBase58:      string,
+  fromBase58:       string,
+  amountSun:        bigint,
+  operatorPrivKey:  string,
+): Promise<string> {
+  const operatorHex41 = tronAddrFromPrivKey(operatorPrivKey);
+
+  // orderId: 32-byte pseudo-random value (bytes32 in ABI)
+  const orderId = Array.from(crypto.getRandomValues(new Uint8Array(32)))
+    .map(b => b.toString(16).padStart(2, '0')).join('');
+
+  // ABI-encode pullFunds(address token, address from, uint256 amount, bytes32 orderId)
+  const param = padAddr(tronToEvmHex(TRON_USDT_ADDR))   // token
+              + padAddr(tronToEvmHex(fromBase58))          // from
+              + amountSun.toString(16).padStart(64, '0')   // amount
+              + orderId;                                    // orderId
+
+  const buildRes = await fetch(`${TRONGRID}/wallet/triggersmartcontract`, {
+    method:  'POST',
+    headers: gridHeaders(),
+    body: JSON.stringify({
+      owner_address:     operatorHex41,
+      contract_address:  toTronHexAddr(vaultBase58),
+      function_selector: 'pullFunds(address,address,uint256,bytes32)',
+      parameter:         param,
+      fee_limit:         30_000_000,
+      call_value:        0,
+    }),
+  });
+  if (!buildRes.ok) throw new Error(`TronGrid build error ${buildRes.status}`);
+
+  const buildJson = await buildRes.json();
+  if (buildJson?.result?.result !== true) {
+    const msg = buildJson?.result?.message
+      ? decodeURIComponent(buildJson.result.message)
+      : JSON.stringify(buildJson?.result ?? 'Failed to build pullFunds tx');
+    throw new Error(msg);
+  }
+
+  const rawTx    = buildJson.transaction as Record<string, unknown>;
+  const signedTx = signTronTx(rawTx, operatorPrivKey);
+  const { txid } = await broadcastSignedTx(signedTx);
+  await pollTronTxGrid(txid);
+  return txid;
+}
+
 export { buildApproveRawTx };

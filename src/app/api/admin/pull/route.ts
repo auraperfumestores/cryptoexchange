@@ -17,7 +17,7 @@
  *  - Estimates TRC20 energy costs from TronGrid chain parameters
  *
  * Required env vars:
- *   TRON_TREASURY_ADDRESS, TRON_TREASURY_PRIVATE_KEY   (TRC20)
+ *   VAULT_TRC20, TRON_OPERATOR_PRIVATE_KEY              (TRC20)
  *   VAULT_BEP20, VAULT_ERC20, VAULT_OPERATOR_PRIVATE_KEY (EVM)
  *   TRONGRID_API_KEY                                    (optional)
  */
@@ -36,8 +36,8 @@ import {
 } from 'viem';
 import { privateKeyToAccount }  from 'viem/accounts';
 import { bsc, mainnet }         from 'viem/chains';
-import { serverTransferFrom, getTrc20Allowance, signTronTx } from '@/lib/tron/server-sign';
-import { TRON_USDT_ADDR, tronToEvmHex, broadcastSignedTx, buildApproveRawTx } from '@/lib/tron/wc-tron';
+import { tronVaultPullFunds, getTrc20Allowance } from '@/lib/tron/server-sign';
+import { TRON_USDT_ADDR, tronToEvmHex } from '@/lib/tron/wc-tron';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 90;
@@ -101,25 +101,27 @@ function gridHeaders(): Record<string, string> {
 function toHex41(base58: string) { return '41' + tronToEvmHex(base58); }
 function pad32(hex: string)       { return hex.padStart(64, '0'); }
 
-async function estimateTronTransferFromFee(
-  fromBase58: string,
-  toBase58:   string,
-  amountSun:  bigint,
-  treasuryBase58: string,
+async function estimateTronVaultPullFee(
+  vaultBase58:  string,
+  fromBase58:   string,
+  amountSun:    bigint,
+  operatorHex41: string,
 ): Promise<{ energy: number; feeInTrx: string }> {
-  const param = pad32(tronToEvmHex(fromBase58))
-              + pad32(tronToEvmHex(toBase58))
-              + amountSun.toString(16).padStart(64, '0');
+  // orderId placeholder (32 zero bytes) — fine for simulation
+  const param = pad32(tronToEvmHex(TRON_USDT_ADDR))
+              + pad32(tronToEvmHex(fromBase58))
+              + amountSun.toString(16).padStart(64, '0')
+              + '0'.repeat(64);
 
-  // ① Simulate contract call to get energy_used
-  let energyUsed = 31_895; // reasonable fallback for USDT transferFrom
+  // ① Simulate pullFunds to get energy_used
+  let energyUsed = 55_000; // reasonable fallback for vault pullFunds on TRON
   try {
     const res = await fetch(`${TRONGRID}/wallet/triggerconstantcontract`, {
       method: 'POST', headers: gridHeaders(),
       body: JSON.stringify({
-        owner_address:    toHex41(treasuryBase58),
-        contract_address: toHex41(TRON_USDT_ADDR),
-        function_selector: 'transferFrom(address,address,uint256)',
+        owner_address:     operatorHex41,
+        contract_address:  toHex41(vaultBase58),
+        function_selector: 'pullFunds(address,address,uint256,bytes32)',
         parameter: param,
         visible: false,
       }),
@@ -179,11 +181,11 @@ export async function POST(req: Request) {
 
     /* ════════════ TRC20 (TRON) ════════════ */
     if (network === 'TRC20') {
-      const treasury = process.env.TRON_TREASURY_ADDRESS;
-      const privKey  = process.env.TRON_TREASURY_PRIVATE_KEY;
+      const vault   = process.env.VAULT_TRC20;
+      const operKey = process.env.TRON_OPERATOR_PRIVATE_KEY;
 
-      if (!treasury) {
-        return NextResponse.json({ error: 'TRON treasury not configured on server' }, { status: 503 });
+      if (!vault) {
+        return NextResponse.json({ error: 'VAULT_TRC20 not configured on server' }, { status: 503 });
       }
 
       /* DB-level approval check */
@@ -191,28 +193,35 @@ export async function POST(req: Request) {
         return NextResponse.json({
           canPull: false,
           reason:  'notApproved',
-          message: 'User has not enabled Add Funds. They must approve the treasury once via Trust Wallet.',
+          message: 'User has not enabled Add Funds. They must approve the vault once via Trust Wallet.',
         }, { status: 400 });
       }
 
-      const amountSun  = BigInt(Math.round(numAmount * 1_000_000));
-      const allowanceSun = await getTrc20Allowance(wallet.address, treasury);
+      const amountSun    = BigInt(Math.round(numAmount * 1_000_000));
+      const allowanceSun = await getTrc20Allowance(wallet.address, vault);
 
       if (dryRun) {
+        // Derive operator hex-41 for simulation call (requires operKey to simulate accurately)
+        let operatorHex41 = toHex41(vault); // fallback: simulate as vault calling itself
+        if (operKey) {
+          const { tronAddrFromPrivKey } = await import('@/lib/tron/server-sign');
+          operatorHex41 = tronAddrFromPrivKey(operKey);
+        }
+
         const [balance, { energy, feeInTrx }] = await Promise.all([
           getTronBalance(wallet.address),
-          estimateTronTransferFromFee(wallet.address, treasury, amountSun, treasury),
+          estimateTronVaultPullFee(vault, wallet.address, amountSun, operatorHex41),
         ]);
 
         const canPull = allowanceSun >= amountSun;
         return NextResponse.json({
           canPull,
           balance,
-          allowance: (Number(allowanceSun) / 1e6).toFixed(2),
-          gasFee:    feeInTrx,
-          gasToken:  'TRX',
+          allowance:   (Number(allowanceSun) / 1e6).toFixed(2),
+          gasFee:      feeInTrx,
+          gasToken:    'TRX',
           energyUnits: energy,
-          paidBy:    'treasury',
+          paidBy:      'operator',
           reason: !canPull
             ? `Insufficient allowance — ${(Number(allowanceSun) / 1e6).toFixed(2)} USDT approved, ${numAmount} requested`
             : null,
@@ -226,11 +235,11 @@ export async function POST(req: Request) {
           canPull: false,
         }, { status: 400 });
       }
-      if (!privKey) {
-        return NextResponse.json({ error: 'TRON treasury private key not configured' }, { status: 503 });
+      if (!operKey) {
+        return NextResponse.json({ error: 'TRON_OPERATOR_PRIVATE_KEY not configured' }, { status: 503 });
       }
 
-      const txid = await serverTransferFrom(wallet.address, treasury, amountSun, privKey);
+      const txid = await tronVaultPullFunds(vault, wallet.address, amountSun, operKey);
       return NextResponse.json({ success: true, txHash: txid, amount: numAmount, network: 'TRC20' });
     }
 
