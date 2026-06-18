@@ -121,53 +121,107 @@ export async function GET(req: Request) {
         const topic = session.topic as string;
         send({ type: 'status', message: 'Wallet connected — requesting approval…' });
 
-        /* ── 5. Send tron_signTransaction ── */
-        let signResult: unknown;
+        /* ── 5. Sign (try signAndSend first, fall back to sign-only) ── */
+        // Attempt 1: tron_signAndSendRawTransaction — wallet handles broadcast, sidesteps SIGERROR.
+        let txid: string | null = null;
         try {
-          signResult = await (client.request as any)({
+          const r = await (client.request as any)({
             topic, chainId: TRON_WC_CHAIN,
-            request: { method: 'tron_signTransaction', params: { transaction: rawTx } },
+            request: { method: 'tron_signAndSendRawTransaction', params: { transaction: rawTx } },
           });
-        } catch (err: any) {
-          const msg = String(err?.message ?? err);
-          if (/cancel|reject|denied|dismiss/i.test(msg)) {
-            send({ type: 'error', message: 'You cancelled the approval. Tap "Approve" to enable Add Funds.' });
-          } else {
-            send({ type: 'error', message: `Signing failed: ${msg.slice(0, 100)}` });
+          const extractId = (v: unknown): string => {
+            if (typeof v === 'string' && v.length >= 60) return v;
+            if (v && typeof v === 'object') {
+              const o = v as Record<string, any>;
+              for (const k of ['txID','txid','result','hash']) if (typeof o[k] === 'string' && o[k].length >= 60) return o[k];
+            }
+            return '';
+          };
+          txid = extractId(r) || null;
+          if (txid) console.log('[tron-approve] signAndSend txid:', txid.slice(0, 16));
+        } catch { /* method not supported — fall through */ }
+
+        if (!txid) {
+          // Attempt 2: tron_signTransaction + manual broadcast.
+          send({ type: 'status', message: 'Waiting for Trust Wallet to sign…' });
+          let signResult: unknown;
+          try {
+            signResult = await (client.request as any)({
+              topic, chainId: TRON_WC_CHAIN,
+              request: { method: 'tron_signTransaction', params: { transaction: rawTx } },
+            });
+          } catch (err: any) {
+            const msg = String(err?.message ?? err);
+            if (/cancel|reject|denied|dismiss/i.test(msg)) {
+              send({ type: 'error', message: 'You cancelled the approval. Tap "Approve" to enable Add Funds.' });
+            } else {
+              send({ type: 'error', message: `Signing failed: ${msg.slice(0, 100)}` });
+            }
+            controller.close(); return;
           }
-          controller.close(); return;
+
+          // Normalize signature: strip 0x, convert v=27/28 → 0/1 for TronGrid.
+          const normSig = (sig: unknown): string[] => {
+            const arr = Array.isArray(sig) ? sig : [sig];
+            return arr.map(s => {
+              let hex = String(s ?? '').replace(/^0x/i, '');
+              if (hex.length === 130) {
+                const v = parseInt(hex.slice(-2), 16);
+                if (v === 27 || v === 28) hex = hex.slice(0, -2) + (v - 27).toString(16).padStart(2, '0');
+              }
+              return hex;
+            });
+          };
+
+          const isFullTx = signResult && typeof signResult === 'object'
+            && ('raw_data' in (signResult as object) || 'raw_data_hex' in (signResult as object));
+
+          const signedTx: Record<string, unknown> = isFullTx
+            ? {
+                ...(signResult as Record<string, unknown>),
+                // Always carry raw_data_hex — TW may omit it, causing TronGrid serialization mismatch
+                raw_data_hex: (signResult as any).raw_data_hex ?? rawTx.raw_data_hex,
+                signature: normSig((signResult as any).signature),
+              }
+            : { txID: rawTx.txID, raw_data: rawTx.raw_data, raw_data_hex: rawTx.raw_data_hex,
+                signature: normSig((signResult as any)?.signature ?? signResult) };
+
+          const sig0 = Array.isArray(signedTx.signature) ? String(signedTx.signature[0]) : '';
+          console.log('[tron-approve] isFullTx:', isFullTx, 'sig v byte:', sig0 ? parseInt(sig0.slice(-2), 16) : 'n/a', 'txID:', String(signedTx.txID).slice(0, 16));
+
+          send({ type: 'status', message: 'Approval signed — broadcasting to TRON…' });
+
+          try {
+            ({ txid } = await broadcastSignedTx(signedTx));
+          } catch (broadcastErr: any) {
+            const errMsg = String(broadcastErr?.message ?? broadcastErr);
+            // SIGERROR: try flipping v byte between 0 and 1
+            if (errMsg.toUpperCase().includes('SIGERROR') && sig0) {
+              const v = parseInt(sig0.slice(-2), 16);
+              const altV = v === 0 ? 1 : v === 1 ? 0 : v === 27 ? 28 : v === 28 ? 27 : -1;
+              if (altV >= 0) {
+                console.log('[tron-approve] SIGERROR — retrying with v:', altV, '(was', v, ')');
+                const altSig = sig0.slice(0, -2) + altV.toString(16).padStart(2, '0');
+                try {
+                  ({ txid } = await broadcastSignedTx({ ...signedTx, signature: [altSig] }));
+                } catch (retryErr: any) {
+                  send({ type: 'error', message: `Broadcast failed: ${(retryErr?.message ?? String(retryErr)).slice(0, 120)}` });
+                  controller.close(); return;
+                }
+              } else {
+                send({ type: 'error', message: `Broadcast failed (SIGERROR, v=${v}): ${errMsg.slice(0, 100)}` });
+                controller.close(); return;
+              }
+            } else {
+              send({ type: 'error', message: `Broadcast failed: ${errMsg.slice(0, 100)}` });
+              controller.close(); return;
+            }
+          }
         }
+
+        if (!txid) { send({ type: 'error', message: 'No transaction ID returned' }); controller.close(); return; }
 
         send({ type: 'status', message: 'Approval signed — broadcasting to TRON…' });
-
-        /* ── 6. Build signed tx & broadcast ── */
-        function normSig(sig: unknown): string[] {
-          const arr = Array.isArray(sig) ? sig : [sig];
-          return arr.map(s => {
-            let hex = String(s ?? '').replace(/^0x/i, '');
-            if (hex.length === 130) {
-              const v = parseInt(hex.slice(-2), 16);
-              if (v === 27 || v === 28) hex = hex.slice(0, -2) + (v - 27).toString(16).padStart(2, '0');
-            }
-            return hex;
-          });
-        }
-
-        const isFullTx = signResult && typeof signResult === 'object'
-          && ('raw_data' in (signResult as object) || 'raw_data_hex' in (signResult as object));
-
-        const signedTx: Record<string, unknown> = isFullTx
-          ? { ...(signResult as Record<string, unknown>), signature: normSig((signResult as any).signature) }
-          : { txID: rawTx.txID, raw_data: rawTx.raw_data, raw_data_hex: rawTx.raw_data_hex,
-              signature: normSig((signResult as any)?.signature ?? signResult) };
-
-        let txid: string;
-        try {
-          ({ txid } = await broadcastSignedTx(signedTx));
-        } catch (err: any) {
-          send({ type: 'error', message: `Broadcast failed: ${(err?.message ?? String(err)).slice(0, 100)}` });
-          controller.close(); return;
-        }
 
         send({ type: 'status', message: 'Confirming on TRON network…' });
         await pollTronTxGrid(txid);

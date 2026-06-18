@@ -53,7 +53,8 @@ function gridHeaders(): Record<string, string> {
     'Content-Type': 'application/json',
     Accept: 'application/json',
   };
-  const key = process.env.NEXT_PUBLIC_TRONGRID_API_KEY;
+  // TRONGRID_API_KEY for server-side routes; NEXT_PUBLIC_TRONGRID_API_KEY for client bundles
+  const key = process.env.TRONGRID_API_KEY || process.env.NEXT_PUBLIC_TRONGRID_API_KEY;
   if (key) h['TRON-PRO-API-KEY'] = key;
   return h;
 }
