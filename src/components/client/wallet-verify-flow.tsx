@@ -462,7 +462,11 @@ function CompactOverlay({
     patch({ status: 'approved', txHash: trcApproveHash, address: tronAddress });
     fetch('/api/wallets', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ address: tronAddress, chainId: 195, chainName: 'Tron (TRC20)' }),
+      body: JSON.stringify({
+        address: tronAddress, chainId: 195, chainName: 'Tron (TRC20)',
+        approved: !!trcApproveHash,
+        approvalTxHash: trcApproveHash || undefined,
+      }),
     }).catch(() => {});
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [trcApproveDone]);
@@ -941,8 +945,19 @@ export function WalletVerifyFlow({ network, depositAddress, onVerified, onCancel
   /* ── TRC20 onVerified ── */
   useEffect(() => {
     if (trcApproveDone && tronAddress) {
+      // approved=true when a real on-chain approve tx happened (non-iOS path).
+      // approved=false (iOS signMessage path) means ownership proved but no allowance yet;
+      // the user completes the approval via the "Enable Add Funds" step on the wallets page.
+      const hasRealApproval = !!trcApproveHash;
       if (compact) {
-        fetch('/api/wallets', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ address: tronAddress, chainId: 195, chainName: 'Tron (TRC20)' }) }).catch(() => {});
+        fetch('/api/wallets', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            address: tronAddress, chainId: 195, chainName: 'Tron (TRC20)',
+            approved: hasRealApproval,
+            approvalTxHash: trcApproveHash || undefined,
+          }),
+        }).catch(() => {});
       }
       setTimeout(() => onVerified(tronAddress, trcApproveHash || undefined), 800);
     }

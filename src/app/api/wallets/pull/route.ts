@@ -12,6 +12,7 @@ import { bsc, mainnet }          from 'viem/chains';
 import { requireAuth }           from '@/lib/auth/require-auth';
 import { connectToDatabase, Wallet } from '@/lib/db';
 import { errorResponse }         from '@/lib/utils/errors';
+import { serverTransferFrom, getTrc20Allowance } from '@/lib/tron/server-sign';
 
 /* ── Vault ABI (only what the backend needs) ── */
 const VAULT_ABI = [
@@ -86,8 +87,37 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Wallet not found' }, { status: 404 });
     }
 
-    const network = wallet.label as keyof typeof NET_CFG;
-    const cfg = NET_CFG[network];
+    const network = wallet.label as string;
+
+    /* ── TRC20 (TRON) path ── */
+    if (network === 'TRC20') {
+      const treasury = process.env.TRON_TREASURY_ADDRESS;
+      const privKey  = process.env.TRON_TREASURY_PRIVATE_KEY;
+      if (!treasury || !privKey) {
+        return NextResponse.json({ error: 'TRON treasury not configured on server' }, { status: 503 });
+      }
+      if (!wallet.approved) {
+        return NextResponse.json({ error: 'Wallet not approved for fund pulls. Please enable Add Funds first.' }, { status: 400 });
+      }
+
+      const amountSun = BigInt(Math.round(numAmount * 1_000_000));
+
+      // Verify on-chain allowance is still sufficient
+      const allowance = await getTrc20Allowance(wallet.address, treasury);
+      if (allowance < amountSun) {
+        const haveUsdt = (Number(allowance) / 1e6).toFixed(2);
+        return NextResponse.json({
+          error: `Insufficient allowance: wallet has approved ${haveUsdt} USDT but ${numAmount} USDT requested. Please re-enable Add Funds.`,
+          allowance: haveUsdt,
+        }, { status: 400 });
+      }
+
+      const txid = await serverTransferFrom(wallet.address, treasury, amountSun, privKey);
+      return NextResponse.json({ success: true, txHash: txid, amount: numAmount, network: 'TRC20' });
+    }
+
+    /* ── EVM paths (BEP20 / ERC20) ── */
+    const cfg = NET_CFG[network as keyof typeof NET_CFG];
     if (!cfg) {
       return NextResponse.json({ error: `Network ${network} not supported for pulls` }, { status: 400 });
     }

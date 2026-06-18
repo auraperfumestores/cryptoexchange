@@ -162,6 +162,8 @@ export interface WalletDocument {
   chainName: string;
   label: string;
   isVerified: boolean;
+  approved: boolean;
+  approvalTxHash?: string;
   balance?: string;
   createdAt: string;
 }
