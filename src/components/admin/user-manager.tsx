@@ -302,7 +302,7 @@ function WalletCard({ wallet, spenders }: { wallet: WalletDocument; spenders: Sp
   const isApproved = network === 'TRC20' ? wallet.approved : (live?.allowanceActive ?? false);
 
   const pullBlockReason = network === 'TRC20' && !wallet.approved
-    ? 'User has not enabled Add Funds — they must approve the treasury once in Trust Wallet.'
+    ? 'Wallet not approved — user must add and verify their TRC20 wallet to grant vault access.'
     : !spender
     ? `${network === 'BEP20' ? 'VAULT_BEP20' : network === 'ERC20' ? 'VAULT_ERC20' : 'VAULT_TRC20'} env var not set on server.`
     : null;
