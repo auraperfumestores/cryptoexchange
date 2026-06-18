@@ -16,7 +16,7 @@ export async function GET() {
   }
 }
 
-/** POST /api/wallets — connect a new wallet */
+/** POST /api/wallets — connect a new wallet (idempotent upsert) */
 export async function POST(req: Request) {
   try {
     const user = await requireAuth();
@@ -31,26 +31,37 @@ export async function POST(req: Request) {
 
     await connectToDatabase();
 
-    // Check for duplicate
-    const existing = await Wallet.findOne({
-      userId: user.id,
-      address: parsed.data.address.toLowerCase(),
-      chainId: parsed.data.chainId,
-    });
-    if (existing) {
-      return NextResponse.json({ error: 'Wallet already connected' }, { status: 409 });
+    // TRON addresses (base58, start with T) are case-sensitive — preserve case.
+    // EVM addresses (0x…) are canonically lowercase.
+    const normalizedAddress = parsed.data.address.startsWith('T')
+      ? parsed.data.address
+      : parsed.data.address.toLowerCase();
+
+    // Look for the wallet by both its normalized form and legacy lowercase form
+    // (older records were stored lowercase for all chains including TRON).
+    const addressQuery = normalizedAddress !== normalizedAddress.toLowerCase()
+      ? { $in: [normalizedAddress, normalizedAddress.toLowerCase()] }
+      : normalizedAddress;
+
+    // Use atomic upsert to avoid TOCTOU race condition on the unique index.
+    // If legacy lowercase record exists, update it in place; otherwise insert normalized.
+    let wallet = await Wallet.findOneAndUpdate(
+      { userId: user.id, address: addressQuery, chainId: parsed.data.chainId },
+      { $set: { isVerified: true, chainName: parsed.data.chainName } },
+      { new: true },
+    );
+    if (!wallet) {
+      wallet = await Wallet.findOneAndUpdate(
+        { userId: user.id, address: normalizedAddress, chainId: parsed.data.chainId },
+        {
+          $set:         { isVerified: true, chainName: parsed.data.chainName },
+          $setOnInsert: { label: parsed.data.label || 'Wallet' },
+        },
+        { upsert: true, new: true },
+      );
     }
 
-    const wallet = await Wallet.create({
-      userId: user.id,
-      address: parsed.data.address.toLowerCase(),
-      chainId: parsed.data.chainId,
-      chainName: parsed.data.chainName,
-      label: parsed.data.label || 'Wallet',
-      isVerified: true,
-    });
-
-    return NextResponse.json({ success: true, data: walletToDocument(wallet) }, { status: 201 });
+    return NextResponse.json({ success: true, data: walletToDocument(wallet) }, { status: 200 });
   } catch (err) {
     return errorResponse(err);
   }
