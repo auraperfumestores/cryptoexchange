@@ -271,7 +271,7 @@ function WalletCard({ wallet, spenders }: { wallet: WalletDocument; spenders: Sp
   const [liveErr,     setLiveErr]     = useState('');
   const [showPull,    setShowPull]    = useState(false);
 
-  const network = wallet.label as string;
+  const network = wallet.chainId === 195 ? 'TRC20' : wallet.chainId === 56 ? 'BEP20' : 'ERC20';
   const color   = NET_COLOR[network] ?? T.blue;
   const spender = spenders[network as keyof Spenders] ?? '';
 
