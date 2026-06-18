@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
-import { createPublicClient, http, formatUnits, encodeFunctionData } from 'viem';
+import { createPublicClient, http, formatUnits } from 'viem';
 import { mainnet, bsc } from 'viem/chains';
 import { requireAuth } from '@/lib/auth/require-auth';
+import { tronToEvmHex } from '@/lib/tron/wc-tron';
 
 export const dynamic = 'force-dynamic';
 
@@ -69,51 +70,40 @@ async function getTronInfo(walletAddress: string, spenderAddress: string) {
     }
     const balance = (Number(balanceRaw) / Math.pow(10, TRON_DECIMALS)).toFixed(6);
 
-    // Allowance on TRON: call contract via TronGrid triggersmartcontract
+    // Allowance on TRON: ABI-encode allowance(owner, spender) using tronToEvmHex (20-byte hex)
     let allowance = '0';
     let allowanceActive = false;
     if (spenderAddress) {
       try {
-        // ABI-encode allowance(owner, spender) call: selector 0xdd62ed3e
-        const ownerHex = walletAddress.startsWith('T')
-          ? await tronAddressToHex(walletAddress) : walletAddress;
-        const spenderHex = spenderAddress.startsWith('T')
-          ? await tronAddressToHex(spenderAddress) : spenderAddress;
+        const ownerHex20   = tronToEvmHex(walletAddress);   // strips 41 prefix → 20-byte hex
+        const spenderHex20 = tronToEvmHex(spenderAddress);
 
-        const param = ownerHex.replace('0x','').padStart(64,'0') + spenderHex.replace('0x','').padStart(64,'0');
+        const param = ownerHex20.padStart(64, '0') + spenderHex20.padStart(64, '0');
         const allowRes = await fetch('https://api.trongrid.io/wallet/triggerconstantcontract', {
           method: 'POST',
           headers: tronHeaders,
           body: JSON.stringify({
-            owner_address: walletAddress,
-            contract_address: TRON_USDT,
+            owner_address:     '41' + ownerHex20,
+            contract_address:  TRON_USDT,
             function_selector: 'allowance(address,address)',
-            parameter: param,
-            visible: true,
+            parameter:         param,
+            visible:           false,
           }),
         });
         const allowJson = await allowRes.json();
-        const hexResult = allowJson?.constant_result?.[0] || '0'.repeat(64);
-        const allowRaw = BigInt('0x' + hexResult);
-        allowance = (Number(allowRaw) / Math.pow(10, TRON_DECIMALS)).toFixed(6);
-        allowanceActive = allowRaw > 0n;
+        const hexResult = (allowJson?.constant_result?.[0] as string) ?? '';
+        if (hexResult) {
+          const allowRaw = BigInt('0x' + (hexResult.replace(/^0+/, '') || '0'));
+          allowance = (Number(allowRaw) / Math.pow(10, TRON_DECIMALS)).toFixed(6);
+          allowanceActive = allowRaw > 0n;
+        }
       } catch { /* allowance check optional */ }
     }
 
     return { balance, allowance, allowanceActive };
-  } catch {
-    return { balance: '?', allowance: '?', allowanceActive: false };
+  } catch (e: any) {
+    return { balance: 'err:' + (e?.message ?? 'unknown'), allowance: '?', allowanceActive: false };
   }
-}
-
-async function tronAddressToHex(addr: string): Promise<string> {
-  const res = await fetch(`https://api.trongrid.io/wallet/getaccount`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ address: addr, visible: true }),
-  });
-  const json = await res.json();
-  return json?.address || addr;
 }
 
 /** GET /api/admin/wallet-info?address=...&network=BEP20|ERC20|TRC20&spender=... */
@@ -141,6 +131,7 @@ export async function GET(req: Request) {
 
     return NextResponse.json({ success: true, data: info });
   } catch (err: any) {
-    return NextResponse.json({ error: err.message || 'Failed' }, { status: 500 });
+    console.error('[wallet-info]', err);
+    return NextResponse.json({ error: err?.message ?? 'Internal error' }, { status: 500 });
   }
 }

