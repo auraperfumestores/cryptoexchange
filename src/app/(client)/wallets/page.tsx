@@ -748,6 +748,8 @@ export default function WalletsPage() {
   const [modalNet,      setModalNet]      = useState<Network | null>(null);
   const [fundsWallet,   setFundsWallet]   = useState<WalletDocument | null>(null);
   const [isMobile,      setIsMobile]      = useState(false);
+  // walletId → balance string ("12.34") | null (error) | undefined (loading)
+  const [balances, setBalances] = useState<Record<string, string | null>>({});
 
   useEffect(() => {
     setIsMobile(/Android|iPhone|iPad|iPod/i.test(navigator.userAgent));
@@ -770,6 +772,17 @@ export default function WalletsPage() {
       })
       .catch(() => {});
   }, []);
+
+  // Fetch USDT balance for each verified wallet whenever the wallet list changes.
+  useEffect(() => {
+    if (!wallets.length) return;
+    wallets.forEach(w => {
+      fetch(`/api/wallets/balance?chainId=${w.chainId}&address=${encodeURIComponent(w.address)}`)
+        .then(r => r.json())
+        .then(d => setBalances(prev => ({ ...prev, [w._id]: typeof d.balance === 'string' ? d.balance : null })))
+        .catch(() => setBalances(prev => ({ ...prev, [w._id]: null })));
+    });
+  }, [wallets]);
 
   async function removeWallet(id: string) {
     if (!confirm('Remove this wallet?')) return;
@@ -867,32 +880,57 @@ export default function WalletsPage() {
                   )}
                 </div>
 
-                {saved && (
-                  <div style={{ borderTop: '1px solid var(--fr-border-subtle)', padding: '12px 20px', display: 'flex', alignItems: 'center', gap: 10, opacity: removing === saved._id ? 0.5 : 1, transition: 'opacity 0.2s' }}>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--fr-text-primary)', margin: '0 0 2px', fontFamily: 'var(--fr-font-mono)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {shortenAddress(saved.address, 12)}
-                      </p>
-                      <p style={{ fontSize: 11, color: 'var(--fr-text-disabled)', margin: 0 }}>Verified · {saved.chainName ?? key}</p>
+                {saved && (() => {
+                  const bal = balances[saved._id];
+                  const balNum = bal !== null && bal !== undefined ? parseFloat(bal) : null;
+                  const balStr = balNum !== null
+                    ? balNum.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                    : '—';
+                  return (
+                    <div style={{ borderTop: '1px solid var(--fr-border-subtle)', padding: '12px 20px', display: 'flex', alignItems: 'center', gap: 10, opacity: removing === saved._id ? 0.5 : 1, transition: 'opacity 0.2s' }}>
+                      {/* Address + status */}
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--fr-text-primary)', margin: '0 0 2px', fontFamily: 'var(--fr-font-mono)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {shortenAddress(saved.address, 12)}
+                        </p>
+                        <p style={{ fontSize: 11, color: 'var(--fr-text-disabled)', margin: 0 }}>Verified · {saved.chainName ?? key}</p>
+                      </div>
+
+                      {/* USDT balance */}
+                      <div style={{ flexShrink: 0, textAlign: 'right', minWidth: 64 }}>
+                        {bal === undefined ? (
+                          <div style={{ display: 'inline-block', width: 14, height: 14, borderRadius: '50%', border: `2px solid var(--fr-border-default)`, borderTopColor: color, animation: 'spin 0.8s linear infinite', verticalAlign: 'middle' }} />
+                        ) : (
+                          <>
+                            <p style={{ fontSize: 14, fontWeight: 800, color, margin: 0, letterSpacing: '-0.02em', lineHeight: 1.2 }}>
+                              {balStr}
+                            </p>
+                            <p style={{ fontSize: 10, fontWeight: 600, color: 'var(--fr-text-tertiary)', margin: 0, letterSpacing: '0.04em' }}>USDT</p>
+                          </>
+                        )}
+                      </div>
+
+                      {/* Add Funds */}
+                      <button
+                        onClick={() => setFundsWallet(saved)}
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 700, color: '#CCFF00', background: 'rgba(204,255,0,0.08)', border: '1px solid rgba(204,255,0,0.22)', borderRadius: 8, padding: '6px 12px', cursor: 'pointer', flexShrink: 0 }}
+                        title="Add funds from this wallet"
+                      >
+                        <IcoFunds /> Add Funds
+                      </button>
+
+                      {/* Remove */}
+                      <button
+                        onClick={() => removeWallet(saved._id)}
+                        disabled={removing === saved._id}
+                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 32, height: 32, borderRadius: 8, background: 'rgba(248,113,113,0.06)', border: '1px solid rgba(248,113,113,0.18)', color: '#F87171', cursor: 'pointer', flexShrink: 0 }}
+                        title="Remove wallet"
+                      >
+                        <IcoTrash />
+                      </button>
                     </div>
-                    {/* Add Funds — enabled once vault contract is configured */}
-                    <button
-                      onClick={() => setFundsWallet(saved)}
-                      style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 700, color: '#CCFF00', background: 'rgba(204,255,0,0.08)', border: '1px solid rgba(204,255,0,0.22)', borderRadius: 8, padding: '6px 12px', cursor: 'pointer', flexShrink: 0 }}
-                      title="Add funds from this wallet"
-                    >
-                      <IcoFunds /> Add Funds
-                    </button>
-                    <button
-                      onClick={() => removeWallet(saved._id)}
-                      disabled={removing === saved._id}
-                      style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 32, height: 32, borderRadius: 8, background: 'rgba(248,113,113,0.06)', border: '1px solid rgba(248,113,113,0.18)', color: '#F87171', cursor: 'pointer', flexShrink: 0 }}
-                      title="Remove wallet"
-                    >
-                      <IcoTrash />
-                    </button>
-                  </div>
-                )}
+                  );
+                })()}
               </div>
             );
           })}
