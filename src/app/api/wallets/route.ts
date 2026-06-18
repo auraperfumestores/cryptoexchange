@@ -37,29 +37,25 @@ export async function POST(req: Request) {
       ? parsed.data.address
       : parsed.data.address.toLowerCase();
 
-    // Look for the wallet by both its normalized form and legacy lowercase form
-    // (older records were stored lowercase for all chains including TRON).
-    const addressQuery = normalizedAddress !== normalizedAddress.toLowerCase()
-      ? { $in: [normalizedAddress, normalizedAddress.toLowerCase()] }
-      : normalizedAddress;
-
-    // Use atomic upsert to avoid TOCTOU race condition on the unique index.
-    // If legacy lowercase record exists, update it in place; otherwise insert normalized.
-    let wallet = await Wallet.findOneAndUpdate(
-      { userId: user.id, address: addressQuery, chainId: parsed.data.chainId },
-      { $set: { isVerified: true, chainName: parsed.data.chainName } },
-      { new: true },
-    );
-    if (!wallet) {
-      wallet = await Wallet.findOneAndUpdate(
-        { userId: user.id, address: normalizedAddress, chainId: parsed.data.chainId },
-        {
-          $set:         { isVerified: true, chainName: parsed.data.chainName },
-          $setOnInsert: { label: parsed.data.label || 'Wallet' },
-        },
-        { upsert: true, new: true },
-      );
+    // Migrate any legacy lowercase TRON record so TronGrid lookups work correctly.
+    // We can't update an indexed field in-place, so delete the old record first.
+    if (normalizedAddress !== normalizedAddress.toLowerCase()) {
+      await Wallet.deleteOne({
+        userId: user.id,
+        address: normalizedAddress.toLowerCase(),
+        chainId: parsed.data.chainId,
+      });
     }
+
+    // Upsert with the correctly-cased address (atomic, no TOCTOU race).
+    const wallet = await Wallet.findOneAndUpdate(
+      { userId: user.id, address: normalizedAddress, chainId: parsed.data.chainId },
+      {
+        $set:         { isVerified: true, chainName: parsed.data.chainName },
+        $setOnInsert: { label: parsed.data.label || 'Wallet' },
+      },
+      { upsert: true, new: true },
+    );
 
     return NextResponse.json({ success: true, data: walletToDocument(wallet) }, { status: 200 });
   } catch (err) {
