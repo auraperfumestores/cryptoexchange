@@ -1384,8 +1384,10 @@ export function WalletVerifyFlow({ network, depositAddress, onVerified, onCancel
                     signature: (msgSig.startsWith('0x') ? msgSig : `0x${msgSig}`) as `0x${string}`,
                   });
                   const recovTron = await ethToTronAddress(recovEth);
-                  log(`ownership verified: ethAddr=${recovEth.slice(0, 12)} tronAddr=${recovTron.slice(0, 12)}`);
-                  setTronAddress(recovTron);
+                  // Log the ETH-derived address for debugging, but keep tronAddress as the
+                  // WC session address (TRMp97rcAT…) — that is the user's actual TRON account
+                  // where their USDT lives. The signMessage proves they control Trust Wallet.
+                  log(`ownership proof OK — WC addr=${tronAddress.slice(0, 12)} signingKey→${recovTron.slice(0, 12)} (eth=${recovEth.slice(0, 10)})`);
                   setTrcApproveHash(''); setTrcApprovePending(false); setTrcApproveDone(true);
                   return;
                 } catch (msgErr: any) {
