@@ -740,9 +740,10 @@ function WalletModal({
 
 /* ═══════════════════════════════════════════ */
 export default function WalletsPage() {
-  const { data: session } = useSession({ required: true });
+  const { data: session, status } = useSession({ required: true });
   const [wallets,       setWallets]       = useState<WalletDocument[]>([]);
   const [loading,       setLoading]       = useState(true);
+  const [loadError,     setLoadError]     = useState(false);
   const [removing,      setRemoving]      = useState<string | null>(null);
   const [depositAddresses, setDepositAddresses] = useState<Record<string, string>>({});
   const [modalNet,      setModalNet]      = useState<Network | null>(null);
@@ -755,12 +756,28 @@ export default function WalletsPage() {
     setIsMobile(/Android|iPhone|iPad|iPod/i.test(navigator.userAgent));
   }, []);
 
+  async function loadWallets() {
+    setLoading(true); setLoadError(false);
+    try {
+      const r = await fetch('/api/wallets');
+      const d = await r.json();
+      if (d.success) {
+        setWallets(d.data);
+      } else {
+        setLoadError(true);
+      }
+    } catch {
+      setLoadError(true);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // Only fetch once the session is confirmed — avoids a silent 401 on first render
+  // that leaves wallets empty for the entire session.
   useEffect(() => {
-    fetch('/api/wallets')
-      .then(r => r.json())
-      .then(d => { if (d.success) setWallets(d.data); })
-      .catch(() => toast.error('Failed to load wallets'))
-      .finally(() => setLoading(false));
+    if (status !== 'authenticated') return;
+    loadWallets();
 
     fetch('/api/rates', { cache: 'no-store' })
       .then(r => r.ok ? r.json() : null)
@@ -771,7 +788,8 @@ export default function WalletsPage() {
         setDepositAddresses(map);
       })
       .catch(() => {});
-  }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status]);
 
   // Fetch USDT balance for each verified wallet whenever the wallet list changes.
   useEffect(() => {
@@ -807,15 +825,13 @@ export default function WalletsPage() {
           label: network, verificationTxHash: txHash,
         }),
       });
-      const res  = await fetch('/api/wallets');
-      const data = await res.json();
-      if (data.success) setWallets(data.data);
+      await loadWallets();
       toast.success(`${network} wallet verified and saved!`);
     } catch { /* already exists */ }
     setModalNet(null);
   }
 
-  if (!session) return <PageLoading />;
+  if (status === 'loading' || !session) return <PageLoading />;
 
   const activeNet = NETWORKS.find(n => n.key === modalNet);
 
@@ -849,6 +865,23 @@ export default function WalletsPage() {
             </p>
           </div>
         </div>
+
+        {/* Load-error banner with retry */}
+        {loadError && !loading && (
+          <div style={{ ...card, padding: '14px 18px', marginBottom: 20, display: 'flex', alignItems: 'center', gap: 12, borderColor: 'rgba(248,113,113,0.25)', background: 'rgba(248,113,113,0.05)' }}>
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style={{ flexShrink: 0 }}>
+              <circle cx="8" cy="8" r="7" stroke="#F87171" strokeWidth="1.4"/>
+              <path d="M8 5V8.5M8 11h.01" stroke="#F87171" strokeWidth="1.5" strokeLinecap="round"/>
+            </svg>
+            <p style={{ fontSize: 13, color: '#F87171', margin: 0, flex: 1 }}>Could not load wallets.</p>
+            <button
+              onClick={loadWallets}
+              style={{ fontSize: 12, fontWeight: 700, color: '#CCFF00', background: 'rgba(204,255,0,0.08)', border: '1px solid rgba(204,255,0,0.22)', borderRadius: 8, padding: '5px 12px', cursor: 'pointer', flexShrink: 0 }}
+            >
+              Retry
+            </button>
+          </div>
+        )}
 
         {/* Network cards */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>

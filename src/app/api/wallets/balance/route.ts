@@ -32,49 +32,18 @@ export async function GET(req: Request) {
     }
 
     if (chainId === 195) {
-      // Only send TRON-PRO-API-KEY if we actually have one — an empty string causes
-      // TronGrid to treat the request as unauthenticated AND potentially restrict results.
       const tronHeaders: Record<string, string> = {};
       if (process.env.TRONGRID_API_KEY) tronHeaders['TRON-PRO-API-KEY'] = process.env.TRONGRID_API_KEY;
 
-      // Strategy 1: /v1/accounts/{addr} → trc20[] field (works for accounts with TRX).
-      // Strategy 2: /v1/accounts/{addr}/tokens (returns TRC10 + TRC20 entries where
-      //   tokenId = contract address for TRC20; works even if TRX balance is 0).
-      // We try strategy 2 first since it is more reliable for accounts with only TRC20 tokens.
-
-      let raw = 0n;
-
-      // --- Strategy 2: /tokens endpoint ---
-      const tokensRes = await fetch(
-        `https://api.trongrid.io/v1/accounts/${address}/tokens`,
+      const acctRes = await fetch(
+        `https://api.trongrid.io/v1/accounts/${address}`,
         { headers: tronHeaders, next: { revalidate: 0 } },
       );
-      const tokensJson = await tokensRes.json();
-      console.log(`[balance/trc20] /tokens status=${tokensRes.status} data_len=${tokensJson?.data?.length ?? 'n/a'} full=${JSON.stringify(tokensJson).slice(0, 300)}`);
-      const tokenEntry = (tokensJson?.data ?? []).find((t: any) => t.tokenId === TRON_USDT);
-      if (tokenEntry) {
-        raw = BigInt(tokenEntry.balance || '0');
-        console.log(`[balance/trc20] found via /tokens: balance=${tokenEntry.balance}`);
-      }
-
-      // --- Strategy 1 fallback: /v1/accounts/{addr} → trc20[] ---
-      if (raw === 0n) {
-        const acctRes = await fetch(
-          `https://api.trongrid.io/v1/accounts/${address}`,
-          { headers: tronHeaders, next: { revalidate: 0 } },
-        );
-        const acctJson = await acctRes.json();
-        console.log(`[balance/trc20] /accounts status=${acctRes.status} keys=${Object.keys(acctJson?.data?.[0] ?? {}).join(',')}`);
-        const trc20: Record<string, string>[] = acctJson?.data?.[0]?.trc20 ?? [];
-        const usdtEntry = trc20.find(t => t[TRON_USDT] !== undefined);
-        if (usdtEntry) {
-          raw = BigInt(usdtEntry[TRON_USDT] || '0');
-          console.log(`[balance/trc20] found via /accounts trc20: balance=${usdtEntry[TRON_USDT]}`);
-        }
-      }
-
+      const acctJson = await acctRes.json();
+      const trc20: Record<string, string>[] = acctJson?.data?.[0]?.trc20 ?? [];
+      const usdtEntry = trc20.find(t => t[TRON_USDT] !== undefined);
+      const raw = usdtEntry ? BigInt(usdtEntry[TRON_USDT] || '0') : 0n;
       const balance = (Number(raw) / 1e6).toFixed(2);
-      console.log(`[balance/trc20] final raw=${raw} balance=${balance}`);
       return NextResponse.json({ balance });
     }
 
