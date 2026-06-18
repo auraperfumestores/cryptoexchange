@@ -1,47 +1,36 @@
 /**
  * GET /api/wallets/tron-approve?walletId=...
  *
- * Server-Sent Events endpoint.  The server acts as the WalletConnect "dApp":
+ * Server-Sent Events endpoint. The server acts as the WalletConnect "dApp":
  *
- *   1. Creates a WC Sign v2 session proposal — generates a URI.
- *   2. Streams  { type:'uri', uri, deepLink }  so the client can show the
- *      "Open in Trust Wallet" deep link.
- *   3. Waits for Trust Wallet to connect (timeout 90 s).
- *   4. Verifies the connected TRON address matches the stored wallet address.
- *   5. Builds the USDT approve() tx FRESH using the confirmed session address
- *      (avoids expiry + guarantees signing address == tx owner address).
- *   6. Sends tron_signTransaction; normalises + broadcasts; retries on SIGERROR.
- *   7. Marks wallet.approved = true in MongoDB, streams  { type:'approved', txHash }.
+ *   1. Creates a WC Sign v2 session proposal (URI streamed immediately).
+ *   2. Waits for Trust Wallet to connect.
+ *   3. Verifies connected TRON address matches the stored wallet address.
+ *   4. Builds the USDT approve() tx FRESH using the confirmed session address.
+ *   5. Sends tron_signTransaction.
+ *   6. Broadcasts the signed tx.
+ *      On SIGERROR: Trust Wallet on iOS modifies the tx before signing and
+ *      only returns the signature (not the modified tx), so our broadcast
+ *      fails. However TW may have already broadcast its own version — we
+ *      poll for allowance change as a fallback before surfacing an error.
+ *   7. Marks wallet.approved = true, streams { type:'approved', txHash }.
  *
  * Required env vars:
- *   NEXT_PUBLIC_WC_PROJECT_ID   — WalletConnect Cloud project ID
- *   NEXT_PUBLIC_APP_URL         — canonical origin (e.g. https://swapinr.com)
- *   VAULT_TRC20                 — SwapINRVault contract address on TRON (spender)
- *   TRONGRID_API_KEY            — optional but recommended
+ *   NEXT_PUBLIC_WC_PROJECT_ID, NEXT_PUBLIC_APP_URL, VAULT_TRC20, TRONGRID_API_KEY
  */
 import { NextResponse }              from 'next/server';
 import { requireAuth }               from '@/lib/auth/require-auth';
 import { connectToDatabase, Wallet } from '@/lib/db';
 import {
   buildApproveRawTx, broadcastSignedTx, pollTronTxGrid,
-  TRON_WC_CHAIN, tronToEvmHex,
+  TRON_WC_CHAIN, tronToEvmHex, getWcSignClient,
 } from '@/lib/tron/wc-tron';
+import { getTrc20Allowance } from '@/lib/tron/server-sign';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 90;
 
 const APPROVE_SUN = 100_000_000n; // 100 USDT
-
-function makeMemStorage() {
-  const s = new Map<string, unknown>();
-  return {
-    getKeys:    async () => Array.from(s.keys()),
-    getEntries: async () => Array.from(s.entries()) as [string, unknown][],
-    getItem:    async (key: string) => s.get(key),
-    setItem:    async (key: string, v: unknown) => { s.set(key, v); },
-    removeItem: async (key: string) => { s.delete(key); },
-  };
-}
 
 /** Extract TRON base58 address from WC session (strips chain prefix). */
 function sessionTronAddr(session: any): string {
@@ -49,9 +38,10 @@ function sessionTronAddr(session: any): string {
   return accounts[0]?.split(':').at(-1) ?? '';
 }
 
-/** Normalise: convert base58 → 20-byte lowercase hex for comparison. */
-function addrKey(base58: string): string {
-  try { return tronToEvmHex(base58).toLowerCase(); } catch { return base58.toLowerCase(); }
+/** Compare two TRON addresses via their 20-byte hex (handles casing differences). */
+function addrEq(a: string, b: string): boolean {
+  try { return tronToEvmHex(a).toLowerCase() === tronToEvmHex(b).toLowerCase(); }
+  catch { return a.toLowerCase() === b.toLowerCase(); }
 }
 
 /** Normalise sig: strip 0x, convert Ethereum-style v (27/28) → TRON (0/1). */
@@ -65,6 +55,27 @@ function normSig(sig: unknown): string[] {
     }
     return hex;
   });
+}
+
+/**
+ * Poll USDT.allowance(owner, vault) until it becomes > 0 or timeout.
+ * Used as fallback when our broadcast gets SIGERROR — Trust Wallet iOS
+ * likely signed and broadcast its own version of the tx successfully.
+ */
+async function pollForAllowance(
+  ownerAddr: string,
+  vaultAddr: string,
+  timeoutMs = 60_000,
+): Promise<boolean> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    await new Promise(r => setTimeout(r, 4_000));
+    try {
+      const sun = await getTrc20Allowance(ownerAddr, vaultAddr);
+      if (sun > 0n) return true;
+    } catch { /* keep polling */ }
+  }
+  return false;
 }
 
 export async function GET(req: Request) {
@@ -94,18 +105,10 @@ export async function GET(req: Request) {
 
         send({ type: 'status', message: 'Connecting to Trust Wallet…' });
 
-        /* ── 2. Create WC session (URI first — rawTx is built after connect) ── */
-        const { SignClient } = await import('@walletconnect/sign-client');
-        const client = await SignClient.init({
-          projectId: process.env.NEXT_PUBLIC_WC_PROJECT_ID ?? '',
-          metadata: {
-            name:        'SwapINR',
-            description: 'USDT ↔ INR Exchange',
-            url:         process.env.NEXT_PUBLIC_APP_URL ?? '',
-            icons:       [`${process.env.NEXT_PUBLIC_APP_URL ?? ''}/logo.png`],
-          },
-          storage: makeMemStorage() as any,
-        });
+        /* ── 2. Create WC session using the module singleton ── */
+        // Use getWcSignClient() so SignClient.init() is called at most once per warm
+        // Vercel instance — avoids "Core already initialized" state corruption.
+        const client = await getWcSignClient();
 
         const { uri, approval } = await client.connect({
           optionalNamespaces: {
@@ -128,7 +131,8 @@ export async function GET(req: Request) {
         try {
           session = await Promise.race([
             approval(),
-            new Promise<never>((_, rej) => setTimeout(() => rej(new Error('Timed out waiting for wallet connection. Please try again.')), 85_000)),
+            new Promise<never>((_, rej) =>
+              setTimeout(() => rej(new Error('Timed out waiting for wallet connection. Please try again.')), 85_000)),
           ]);
         } catch (err: any) {
           send({ type: 'error', message: err.message ?? 'Connection timed out' });
@@ -137,16 +141,16 @@ export async function GET(req: Request) {
 
         const topic = session.topic as string;
 
-        /* ── 4. Verify connected address matches registered wallet ── */
+        /* ── 4. Verify address ── */
         const sessionAddr = sessionTronAddr(session);
         if (!sessionAddr) {
           send({ type: 'error', message: 'No TRON address found in wallet session.' });
           controller.close(); return;
         }
-        if (addrKey(sessionAddr) !== addrKey(wallet.address)) {
+        if (!addrEq(sessionAddr, wallet.address)) {
           send({
             type: 'error',
-            message: `Wrong wallet connected. Please open Trust Wallet and switch to address ${wallet.address.slice(0, 8)}…${wallet.address.slice(-6)}, then try again.`,
+            message: `Wrong wallet connected. Please switch to ${wallet.address.slice(0, 8)}…${wallet.address.slice(-6)} in Trust Wallet, then try again.`,
           });
           try { await client.disconnect({ topic, reason: { code: 6000, message: 'wrong address' } }); } catch { /* ok */ }
           controller.close(); return;
@@ -154,8 +158,8 @@ export async function GET(req: Request) {
 
         send({ type: 'status', message: 'Wallet connected — building approval transaction…' });
 
-        /* ── 5. Build rawTx FRESH with the confirmed session address ── */
-        // Building after connect means: no expiry window, and owner_address === signing key.
+        /* ── 5. Build rawTx FRESH after connect ── */
+        // Building after connect: owner_address in tx == signing key; tx is fresh (no expiry window).
         let rawTx: Record<string, unknown>;
         try {
           rawTx = await buildApproveRawTx(sessionAddr, vault, APPROVE_SUN) as Record<string, unknown>;
@@ -183,21 +187,33 @@ export async function GET(req: Request) {
           controller.close(); return;
         }
 
+        // Log full result — critical for diagnosing iOS TW sign format.
+        const signStr = JSON.stringify(signResult) ?? 'null';
+        console.log('[tron-approve] signResult:', signStr.slice(0, 500));
+        if (signStr.length > 500) console.log('[tron-approve] signResult (cont):', signStr.slice(500, 1000));
+
         /* ── 7. Assemble signed tx ── */
-        const isFullTx = signResult && typeof signResult === 'object'
-          && ('raw_data' in (signResult as object) || 'raw_data_hex' in (signResult as object));
+        // TW on iOS often modifies the tx (updates timestamp/ref_block) and returns
+        // only the signature — not the full signed tx. Unwrap nested wrappers first.
+        const inner: Record<string, unknown> =
+          (signResult && typeof signResult === 'object' && 'transaction' in (signResult as object))
+            ? (signResult as any).transaction
+            : (signResult as Record<string, unknown>);
+
+        const isFullTx = inner && typeof inner === 'object'
+          && ('raw_data' in inner || 'raw_data_hex' in inner);
 
         const signedTx: Record<string, unknown> = isFullTx
           ? {
-              ...(signResult as Record<string, unknown>),
-              raw_data_hex: (signResult as any).raw_data_hex ?? rawTx.raw_data_hex,
-              signature: normSig((signResult as any).signature),
+              ...inner,
+              raw_data_hex: (inner.raw_data_hex ?? rawTx.raw_data_hex) as unknown,
+              signature: normSig(inner.signature),
             }
           : {
-              txID:        rawTx.txID,
-              raw_data:    rawTx.raw_data,
+              txID:         rawTx.txID,
+              raw_data:     rawTx.raw_data,
               raw_data_hex: rawTx.raw_data_hex,
-              signature:   normSig((signResult as any)?.signature ?? signResult),
+              signature:    normSig((inner as any)?.signature ?? signResult),
             };
 
         const sig0 = Array.isArray(signedTx.signature) ? String(signedTx.signature[0]) : '';
@@ -205,44 +221,57 @@ export async function GET(req: Request) {
 
         send({ type: 'status', message: 'Broadcasting to TRON network…' });
 
-        /* ── 8. Broadcast (retry with flipped v on SIGERROR) ── */
-        let txid: string;
-        try {
-          ({ txid } = await broadcastSignedTx(signedTx));
-        } catch (broadcastErr: any) {
-          const errMsg = String(broadcastErr?.message ?? broadcastErr);
-          if (errMsg.toUpperCase().includes('SIGERROR') && sig0) {
-            const v    = parseInt(sig0.slice(-2), 16);
-            const altV = v === 0 ? 1 : v === 1 ? 0 : v === 27 ? 28 : v === 28 ? 27 : -1;
-            if (altV >= 0) {
-              console.log('[tron-approve] SIGERROR — retrying v:', v, '→', altV);
-              try {
-                ({ txid } = await broadcastSignedTx({
-                  ...signedTx,
-                  signature: [sig0.slice(0, -2) + altV.toString(16).padStart(2, '0')],
-                }));
-              } catch (retryErr: any) {
-                send({ type: 'error', message: `Broadcast failed: ${(retryErr?.message ?? String(retryErr)).slice(0, 120)}` });
-                controller.close(); return;
-              }
-            } else {
-              send({ type: 'error', message: `Broadcast failed (SIGERROR v=${v}): contact support` });
-              controller.close(); return;
-            }
-          } else {
-            send({ type: 'error', message: `Broadcast failed: ${errMsg.slice(0, 120)}` });
-            controller.close(); return;
+        /* ── 8. Broadcast + fallback ── */
+        let txid: string | null = null;
+
+        const tryBroadcast = async (tx: Record<string, unknown>): Promise<string | null> => {
+          try {
+            const r = await broadcastSignedTx(tx);
+            return r.txid;
+          } catch { return null; }
+        };
+
+        txid = await tryBroadcast(signedTx);
+
+        // If failed and v byte is 0 or 1, retry with the alternate v.
+        if (!txid && sig0) {
+          const v    = parseInt(sig0.slice(-2), 16);
+          const altV = v === 0 ? 1 : v === 1 ? 0 : v === 27 ? 28 : v === 28 ? 27 : -1;
+          if (altV >= 0) {
+            console.log('[tron-approve] retrying broadcast with v:', altV);
+            txid = await tryBroadcast({
+              ...signedTx,
+              signature: [sig0.slice(0, -2) + altV.toString(16).padStart(2, '0')],
+            });
           }
         }
 
+        // Both broadcasts failed.
+        // Trust Wallet iOS may have modified the tx before signing and broadcast
+        // its own version internally. Poll allowance as a fallback.
+        if (!txid) {
+          console.log('[tron-approve] broadcast failed both ways — polling allowance for TW self-broadcast');
+          send({ type: 'status', message: 'Verifying approval on TRON…' });
+
+          const approved = await pollForAllowance(wallet.address, vault, 60_000);
+          if (!approved) {
+            send({ type: 'error', message: 'Approval could not be confirmed on-chain. Please try again.' });
+            controller.close(); return;
+          }
+          // TW broadcast it — mark approved without our txid.
+          await Wallet.findByIdAndUpdate(walletId, { approved: true });
+          send({ type: 'approved', txHash: '' });
+          try { await client.disconnect({ topic, reason: { code: 6000, message: 'Done' } }); } catch { /* ok */ }
+          controller.close(); return;
+        }
+
+        /* ── 9. Confirm + persist ── */
         send({ type: 'status', message: 'Confirming on TRON network…' });
         await pollTronTxGrid(txid);
-
-        /* ── 9. Persist approval ── */
         await Wallet.findByIdAndUpdate(walletId, { approved: true, approvalTxHash: txid });
         send({ type: 'approved', txHash: txid });
-
         try { await client.disconnect({ topic, reason: { code: 6000, message: 'Done' } }); } catch { /* ok */ }
+
       } catch (err: any) {
         send({ type: 'error', message: err?.message ?? 'Unexpected error during approval' });
       } finally {
