@@ -13,7 +13,7 @@ interface WalletAttrs {
 const WalletSchema = new Schema<WalletAttrs>(
   {
     userId: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
-    address: { type: String, required: true, lowercase: true },
+    address: { type: String, required: true },
     chainId: { type: Number, required: true },
     chainName: { type: String, required: true },
     label: { type: String, default: 'Wallet' },
