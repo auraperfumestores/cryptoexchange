@@ -32,12 +32,19 @@ export async function GET(req: Request) {
     }
 
     if (chainId === 195) {
+      // /tokens?token_id= is for TRC10 numeric IDs — it does not filter TRC20.
+      // The correct path is /v1/accounts/{address} which has a trc20[] field
+      // where each entry is { [contractAddress]: "balanceString" }.
       const res = await fetch(
-        `https://api.trongrid.io/v1/accounts/${address}/tokens?token_id=${TRON_USDT}&limit=1`,
+        `https://api.trongrid.io/v1/accounts/${address}`,
         { headers: { 'TRON-PRO-API-KEY': process.env.TRONGRID_API_KEY || '' }, next: { revalidate: 0 } },
       );
       const json = await res.json();
-      const raw  = json?.data?.[0] ? BigInt(json.data[0].balance || '0') : 0n;
+      console.log(`[balance/trc20] addr=${address} response keys=${Object.keys(json?.data?.[0] ?? {}).join(',')}`);
+      const trc20: Record<string, string>[] = json?.data?.[0]?.trc20 ?? [];
+      const usdtEntry = trc20.find(t => t[TRON_USDT] !== undefined);
+      const raw = usdtEntry ? BigInt(usdtEntry[TRON_USDT] || '0') : 0n;
+      console.log(`[balance/trc20] usdtEntry=${JSON.stringify(usdtEntry)} raw=${raw}`);
       const balance = (Number(raw) / 1e6).toFixed(2);
       return NextResponse.json({ balance });
     }

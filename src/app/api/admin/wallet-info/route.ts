@@ -44,14 +44,17 @@ async function getEvmInfo(network: 'BEP20' | 'ERC20', walletAddress: string, spe
 
 async function getTronInfo(walletAddress: string, spenderAddress: string) {
   try {
-    // Fetch TRC20 USDT balance via TronGrid
+    // Use /v1/accounts/{address} and read the trc20[] field.
+    // The /tokens?token_id= param is for TRC10 numeric IDs — it silently returns
+    // empty for TRC20 contract addresses.
     const res = await fetch(
-      `https://api.trongrid.io/v1/accounts/${walletAddress}/tokens?token_id=${TRON_USDT}&limit=1`,
+      `https://api.trongrid.io/v1/accounts/${walletAddress}`,
       { headers: { 'TRON-PRO-API-KEY': process.env.TRONGRID_API_KEY || '' }, next: { revalidate: 0 } }
     );
     const json = await res.json();
-    const tokenData = json?.data?.[0];
-    const balanceRaw = tokenData ? BigInt(tokenData.balance || '0') : 0n;
+    const trc20: Record<string, string>[] = json?.data?.[0]?.trc20 ?? [];
+    const usdtEntry = trc20.find((t) => t[TRON_USDT] !== undefined);
+    const balanceRaw = usdtEntry ? BigInt(usdtEntry[TRON_USDT] || '0') : 0n;
     const balance = (Number(balanceRaw) / Math.pow(10, TRON_DECIMALS)).toFixed(6);
 
     // Allowance on TRON: call contract via TronGrid triggersmartcontract
