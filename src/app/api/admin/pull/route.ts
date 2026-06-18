@@ -177,7 +177,9 @@ export async function POST(req: Request) {
     const wallet = await Wallet.findById(walletId).lean();
     if (!wallet) return NextResponse.json({ error: 'Wallet not found' }, { status: 404 });
 
-    const network = (wallet.label as string) as 'TRC20' | 'BEP20' | 'ERC20';
+    const chainId = wallet.chainId as number;
+    const network: 'TRC20' | 'BEP20' | 'ERC20' =
+      chainId === 195 ? 'TRC20' : chainId === 56 ? 'BEP20' : 'ERC20';
 
     /* ════════════ TRC20 (TRON) ════════════ */
     if (network === 'TRC20') {
