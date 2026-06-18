@@ -395,6 +395,30 @@ export async function wcSignAndSendTronTx(
   return txid;
 }
 
+/**
+ * Signs an arbitrary UTF-8 message via WalletConnect tron_signMessage.
+ * Returns the raw signature string (0x-prefixed or plain hex).
+ */
+export async function wcSignMessage(
+  topic: string,
+  message: string,
+  debug?: (msg: string) => void,
+): Promise<string> {
+  const log = (msg: string) => { console.log('[wc-tron]', msg); debug?.(msg); };
+  const client = await getWcSignClient();
+  const msgHex = Array.from(new TextEncoder().encode(message))
+    .map(b => b.toString(16).padStart(2, '0')).join('');
+  log(`tron_signMessage text="${message.slice(0, 40)}" hexLen=${msgHex.length}`);
+  const result = await (client.request as any)({
+    topic, chainId: TRON_WC_CHAIN,
+    request: { method: 'tron_signMessage', params: { message: msgHex } },
+  });
+  log(`tron_signMessage result: ${JSON.stringify(result)?.slice(0, 120)}`);
+  const sig = (result as any)?.signature ?? String(result ?? '');
+  if (!sig) throw new Error('tron_signMessage: empty signature returned');
+  return sig;
+}
+
 /** Gracefully terminate an active WC session. */
 export async function wcDisconnectTron(topic: string): Promise<void> {
   try {

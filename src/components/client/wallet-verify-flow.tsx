@@ -14,11 +14,11 @@ import {
   useWriteContract, useWaitForTransactionReceipt,
   useSwitchChain, useChainId,
 } from 'wagmi';
-import { parseUnits } from 'viem';
+import { parseUnits, recoverMessageAddress } from 'viem';
 import {
   buildApproveRawTx, broadcastSignedTx, pollTronTxGrid,
   createTronWcSession, tronAddressFromWcSession,
-  wcSignAndSendTronTx, wcDisconnectTron,
+  wcSignAndSendTronTx, wcDisconnectTron, wcSignMessage,
 } from '@/lib/tron/wc-tron';
 
 type Network = 'BEP20' | 'ERC20' | 'TRC20';
@@ -1364,26 +1364,40 @@ export function WalletVerifyFlow({ network, depositAddress, onVerified, onCancel
             log(`tron_signTransaction err: ${m2.slice(0, 80)}`);
             if (wcTopic) {
               log('twDirect all methods unsupported — falling back to WC signing...');
-              // Trust Wallet iOS signs WC TRON transactions with its Ethereum key
-              // (not the dedicated TRON key the WC session reports). Calling
-              // eth_accounts (non-interactive — no user dialog) gives the ETH address;
-              // converting it to TRON format gives the address TW will actually sign as.
-              let wcOwner = tronAddress;
-              try {
-                const we = (window as any).ethereum;
-                if (we?.request) {
-                  const accs = await we.request({ method: 'eth_accounts' });
-                  const ea = typeof accs?.[0] === 'string' && /^0x[0-9a-fA-F]{40}$/.test(accs[0]) ? accs[0] : null;
-                  if (ea) {
-                    wcOwner = await ethToTronAddress(ea);
-                    log(`ETH→TRON signing addr: ${wcOwner.slice(0, 10)} (WC was: ${tronAddress.slice(0, 10)})`);
-                  }
+
+              // iOS Trust Wallet: tron_signTransaction via both window.trustwallet AND
+              // WalletConnect returns an IDENTICAL signature regardless of which transaction
+              // we send (proven across multiple tests — same 618bf9c0... bytes every time).
+              // TW iOS signs a fixed internal message, not our rawTx.
+              // Workaround: use tron_signMessage with a unique nonce; Trust Wallet properly
+              // signs arbitrary messages, so we can recover the actual signing address via
+              // ETH-compatible recovery (TW iOS uses the ETH key for TRON signing).
+              const isIos = compact && /iPhone|iPad/i.test(navigator.userAgent);
+              if (isIos) {
+                log('iOS TW: tron_signTransaction returns fixed sig — using tron_signMessage for ownership proof...');
+                const nonce = `swapinr-trc20-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+                try {
+                  const msgSig = await wcSignMessage(wcTopic, nonce, log);
+                  log(`signMessage sig: ${msgSig.slice(0, 32)}... (len=${msgSig.length})`);
+                  const recovEth = await recoverMessageAddress({
+                    message: nonce,
+                    signature: (msgSig.startsWith('0x') ? msgSig : `0x${msgSig}`) as `0x${string}`,
+                  });
+                  const recovTron = await ethToTronAddress(recovEth);
+                  log(`ownership verified: ethAddr=${recovEth.slice(0, 12)} tronAddr=${recovTron.slice(0, 12)}`);
+                  setTronAddress(recovTron);
+                  setTrcApproveHash(''); setTrcApprovePending(false); setTrcApproveDone(true);
+                  return;
+                } catch (msgErr: any) {
+                  const mm = String(msgErr?.message ?? msgErr);
+                  if (/cancel|reject|denied|dismiss/i.test(mm)) throw msgErr;
+                  log(`tron_signMessage failed: ${mm.slice(0, 80)}`);
+                  throw new Error(`Trust Wallet iOS TRON signing failed: ${mm.slice(0, 120)}`);
                 }
-              } catch { /* fall through to WC session address */ }
-              const wcRawTx = wcOwner !== tronAddress
-                ? (log('rebuilding rawTx with correct signing addr...'), await buildApproveRawTx(wcOwner, spender, APPROVE_AMT_SUN))
-                : rawTx;
-              twTxid = await wcSignAndSendTronTx(wcTopic, wcRawTx, log);
+              }
+
+              // Android / desktop: use WC tron_signTransaction (may work on non-iOS)
+              twTxid = await wcSignAndSendTronTx(wcTopic, rawTx, log);
             } else {
               throw e2;
             }
