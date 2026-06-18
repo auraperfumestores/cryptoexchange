@@ -36,6 +36,8 @@ export function walletToDocument(doc: any): WalletDocument {
     chainName: doc.chainName,
     label: doc.label || 'Wallet',
     isVerified: !!doc.isVerified,
+    approved: !!doc.approved,
+    approvalTxHash: doc.approvalTxHash,
     balance: doc.balance,
     createdAt: (doc.createdAt instanceof Date ? doc.createdAt : new Date(doc.createdAt)).toISOString(),
   };
