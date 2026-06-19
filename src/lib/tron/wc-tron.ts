@@ -296,27 +296,14 @@ export async function wcSignAndSendTronTx(
   const log = (msg: string) => { console.log('[wc-tron]', msg); debug?.(msg); };
   const client = await getWcSignClient();
 
-  // Normalize signature: strip 0x prefix and convert Ethereum-style recovery byte to TRON.
-  // Trust Wallet returns v=27 or v=28 (Ethereum convention); TronGrid expects v=0 or v=1.
-  function normSig(sig: unknown): string[] {
+  // Strip the 0x prefix that Trust Wallet prepends to signatures.
+  // Do NOT normalise the recovery byte (v) — TronGrid accepts the raw v from the wallet.
+  function stripSig(sig: unknown): string[] {
     const arr = Array.isArray(sig) ? sig : [sig];
-    return arr.map(s => {
-      let hex = String(s ?? '').replace(/^0x/i, '');
-      if (hex.length === 130) {
-        const v = parseInt(hex.slice(-2), 16);
-        if (v === 27 || v === 28) hex = hex.slice(0, -2) + (v - 27).toString(16).padStart(2, '0');
-      }
-      return hex;
-    });
+    return arr.map(s => String(s ?? '').replace(/^0x/i, ''));
   }
 
-  // The 3 canonical fields TronGrid needs for broadcast.
-  const canonicalTx: Record<string, unknown> = {
-    txID:         rawTx.txID,
-    raw_data:     rawTx.raw_data,
-    raw_data_hex: rawTx.raw_data_hex,
-  };
-  log(`txID=${canonicalTx.txID}`);
+  log(`txID=${rawTx.txID}`);
 
   // ── Attempt 1: tron_signAndSendRawTransaction ──────────────────────────────
   // Pass the FULL rawTx (all TronGrid fields) — Trust Wallet iOS needs all fields present
@@ -367,57 +354,26 @@ export async function wcSignAndSendTronTx(
 
   let signedTx: Record<string, unknown>;
   if (isFullTx) {
-    // Trust Wallet returned a complete signed tx.
-    // Use the txID and raw_data_hex FROM the response — TW may have modified the tx
-    // (e.g. updated expiration), so its txID may differ from our original.
+    // TW returned a complete signed tx — use it as-is, preserving all fields including
+    // any txID/expiration changes TW may have made during signing.
     signedTx = { ...(signResult as Record<string, unknown>) };
-    if (signedTx.signature) signedTx.signature = normSig(signedTx.signature);
+    if (signedTx.signature) signedTx.signature = stripSig(signedTx.signature);
     const resultTxId = String(signedTx.txID ?? '');
-    if (resultTxId && resultTxId !== canonicalTx.txID) {
-      log(`txID changed by TW: orig=${String(canonicalTx.txID).slice(0,16)} new=${resultTxId.slice(0,16)}`);
+    if (resultTxId && resultTxId !== String(rawTx.txID ?? '')) {
+      log(`txID changed by TW: orig=${String(rawTx.txID).slice(0,16)} new=${resultTxId.slice(0,16)}`);
     }
     log(`sig[0]=${String(Array.isArray(signedTx.signature) ? signedTx.signature[0] : signedTx.signature).slice(0,20)}…`);
   } else {
-    // TW returned only a signature — merge with canonical tx.
+    // TW returned only a signature — attach it directly to the ORIGINAL rawTx.
+    // Do not rebuild or trim fields: broadcast must see the exact tx TW was shown.
     const sig = (signResult as any)?.signature ?? signResult;
-    const normalised = normSig(sig);
-    signedTx = { ...canonicalTx, signature: normalised };
-    log(`sig-only sig[0]=${normalised[0]?.slice(0, 20)}…`);
+    const stripped = stripSig(sig);
+    signedTx = { ...rawTx, signature: stripped };
+    log(`sig-only sig[0]=${stripped[0]?.slice(0, 20)}… v=0x${stripped[0]?.slice(-2)}`);
   }
 
   log(`broadcasting txID=${String(signedTx.txID).slice(0,16)}…`);
-  let txid: string;
-  try {
-    ({ txid } = await broadcastSignedTx(signedTx));
-  } catch (broadcastErr: any) {
-    const msg: string = broadcastErr?.message ?? String(broadcastErr);
-    log(`broadcast ERROR: ${msg}`);
-
-    // "Validate signature error: signed by X but not in permission" means TW signed with
-    // a different key than the announced address (iOS WC bug: ETH HD path used instead of TRON).
-    // Retry with the recovery bit flipped (v=0→1 or v=1→0): one of the two ECDSA solutions
-    // may still recover the correct owner address.
-    if (/Validate signature/i.test(msg) && !isFullTx) {
-      log('wrong signer — retrying with recovery bit flipped (v-flip)…');
-      const flippedSigs = (signedTx.signature as string[]).map(s => {
-        const hex = String(s).replace(/^0x/i, '');
-        if (hex.length < 2) return s;
-        const v = parseInt(hex.slice(-2), 16);
-        const vFlipped = v === 0 ? 1 : v === 1 ? 0 : v;
-        return hex.slice(0, -2) + vFlipped.toString(16).padStart(2, '0');
-      });
-      log(`v-flip sig[0]=${flippedSigs[0]?.slice(0, 20)}…`);
-      try {
-        ({ txid } = await broadcastSignedTx({ ...signedTx, signature: flippedSigs }));
-        log(`v-flip broadcast OK txid=${txid.slice(0, 16)}…`);
-        return txid;
-      } catch (flipErr: any) {
-        log(`v-flip broadcast ERROR: ${flipErr?.message ?? String(flipErr)}`);
-      }
-    }
-
-    throw broadcastErr;
-  }
+  const { txid } = await broadcastSignedTx(signedTx);
   log(`broadcast OK txid=${txid.slice(0,16)}…`);
   return txid;
 }
