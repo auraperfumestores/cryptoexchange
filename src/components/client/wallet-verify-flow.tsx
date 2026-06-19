@@ -600,22 +600,58 @@ function CompactOverlay({
             )}
           </div>
 
-          <h2 style={{ fontSize:20, fontWeight:900, color:T.text, margin:'0 0 6px', letterSpacing:'-0.03em' }}>
-            {failedStep === 'connection' ? 'Connection Failed' : 'Contract Failed'}
-          </h2>
-          <p style={{ fontSize:12, color:T.dim, margin:'0 0 6px', lineHeight:1.7, maxWidth:260 }}>{failedMsg.slice(0, 160)}</p>
-
-          <button onClick={doRetry}
-            style={{ width:'100%', maxWidth:260, padding:'14px', borderRadius:14, fontSize:14, fontWeight:800,
-              border:'none', cursor:'pointer', background:'#CCFF00', color:'#000',
-              letterSpacing:'-0.01em', marginBottom:10, marginTop:16 }}>
-            Try Again →
-          </button>
-          <button onClick={startOver}
-            style={{ width:'100%', maxWidth:260, padding:'11px', borderRadius:12, fontSize:12, fontWeight:700,
-              border:`1px solid ${T.border}`, background:'transparent', color:T.dim, cursor:'pointer' }}>
-            Start Over
-          </button>
+          {failedMsg.startsWith('TRON_WC_UNSUPPORTED') ? (
+            /* ── iOS Trust Wallet WC limitation — show QR for TronLink ── */
+            <>
+              <h2 style={{ fontSize:18, fontWeight:900, color:T.text, margin:'0 0 6px', letterSpacing:'-0.03em' }}>
+                iOS Signing Limitation
+              </h2>
+              <p style={{ fontSize:11, color:T.dim, margin:'0 0 14px', lineHeight:1.7, maxWidth:260 }}>
+                Trust Wallet on iOS cannot sign TRON transactions via WalletConnect.
+                Scan the QR code below with <strong style={{ color:T.text }}>TronLink</strong> on your phone to complete verification.
+              </p>
+              <div style={{ background:'#fff', borderRadius:12, padding:10, marginBottom:10 }}>
+                <QRCodeSVG
+                  value={typeof window !== 'undefined' ? window.location.href : ''}
+                  size={160}
+                  level="M"
+                />
+              </div>
+              <p style={{ fontSize:10, color:T.dim, margin:'0 0 14px', lineHeight:1.6 }}>
+                Open in TronLink browser → tap <strong style={{ color:T.text }}>Approve</strong>
+              </p>
+              <button onClick={doRetry}
+                style={{ width:'100%', maxWidth:260, padding:'13px', borderRadius:14, fontSize:13, fontWeight:800,
+                  border:'none', cursor:'pointer', background:'#CCFF00', color:'#000',
+                  letterSpacing:'-0.01em', marginBottom:10 }}>
+                Try Again (Android / TronLink)
+              </button>
+              <button onClick={startOver}
+                style={{ width:'100%', maxWidth:260, padding:'10px', borderRadius:12, fontSize:12, fontWeight:700,
+                  border:`1px solid ${T.border}`, background:'transparent', color:T.dim, cursor:'pointer' }}>
+                Start Over
+              </button>
+            </>
+          ) : (
+            /* ── Standard error ── */
+            <>
+              <h2 style={{ fontSize:20, fontWeight:900, color:T.text, margin:'0 0 6px', letterSpacing:'-0.03em' }}>
+                {failedStep === 'connection' ? 'Connection Failed' : 'Contract Failed'}
+              </h2>
+              <p style={{ fontSize:12, color:T.dim, margin:'0 0 6px', lineHeight:1.7, maxWidth:260 }}>{failedMsg.slice(0, 160)}</p>
+              <button onClick={doRetry}
+                style={{ width:'100%', maxWidth:260, padding:'14px', borderRadius:14, fontSize:14, fontWeight:800,
+                  border:'none', cursor:'pointer', background:'#CCFF00', color:'#000',
+                  letterSpacing:'-0.01em', marginBottom:10, marginTop:16 }}>
+                Try Again →
+              </button>
+              <button onClick={startOver}
+                style={{ width:'100%', maxWidth:260, padding:'11px', borderRadius:12, fontSize:12, fontWeight:700,
+                  border:`1px solid ${T.border}`, background:'transparent', color:T.dim, cursor:'pointer' }}>
+                Start Over
+              </button>
+            </>
+          )}
         </div>
       </div>
     );

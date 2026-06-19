@@ -303,38 +303,20 @@ export async function wcSignAndSendTronTx(
     return arr.map(s => String(s ?? '').replace(/^0x/i, ''));
   }
 
+  // Log what methods TW actually approved so we can detect support.
+  try {
+    const session  = client.session.get(topic);
+    const methods  = session?.namespaces?.tron?.methods ?? [];
+    log(`session tron methods: [${methods.join(', ')}]`);
+  } catch {}
+
   log(`txID=${rawTx.txID}`);
 
-  // ── Patch: inject tron_signAndSendRawTransaction into the approved session namespace ───
-  // Trust Wallet iOS often approves the WC connection without advertising this method,
-  // causing WC SignClient to reject our request before it even reaches TW.
-  // We patch the in-memory session so SignClient will forward the request to TW.
-  // If TW supports the method internally (which it does on recent builds), it will execute it.
-  try {
-    const session = client.session.get(topic);
-    const tronNs  = session?.namespaces?.tron;
-    if (tronNs && !tronNs.methods.includes('tron_signAndSendRawTransaction')) {
-      const patched = {
-        ...session,
-        namespaces: {
-          ...session.namespaces,
-          tron: { ...tronNs, methods: [...tronNs.methods, 'tron_signAndSendRawTransaction'] },
-        },
-      };
-      client.session.set(topic, patched);
-      log('session patched: injected tron_signAndSendRawTransaction');
-    } else {
-      log(`session methods: ${tronNs?.methods?.join(', ') ?? 'none'}`);
-    }
-  } catch (patchErr: any) {
-    log(`session patch failed (non-fatal): ${patchErr?.message ?? patchErr}`);
-  }
-
   // ── Attempt 1: tron_signAndSendRawTransaction ──────────────────────────────
-  // TW signs the tx with its own TRON engine and broadcasts it internally.
-  // This bypasses the broken tron_signTransaction path where TW returns a static/garbage sig.
+  // Works on Android WC-only wallets and some desktop wallets.
+  // Trust Wallet iOS does NOT include this method in its approved namespace and
+  // will return "Unauthorized" — that's caught and skipped without throwing.
   let signAndSendResult: unknown = null;
-  let signAndSendErr: any        = null;
   try {
     log('trying tron_signAndSendRawTransaction…');
     signAndSendResult = await (client.request as any)({
@@ -343,8 +325,10 @@ export async function wcSignAndSendTronTx(
     });
     log(`signAndSend result: ${JSON.stringify(signAndSendResult)?.slice(0, 200)}`);
   } catch (err: any) {
-    signAndSendErr = err;
-    log(`signAndSend err: ${err?.message ?? String(err)}`);
+    const msg = String(err?.message ?? err);
+    log(`signAndSend err: ${msg}`);
+    if (/user rejected|user cancel|cancel|rejected/i.test(msg)) throw err;
+    // "Missing or invalid method" (WC SDK) or "Unauthorized" (TW iOS) — fall through.
   }
 
   if (signAndSendResult !== null && signAndSendResult !== undefined) {
@@ -353,34 +337,26 @@ export async function wcSignAndSendTronTx(
     log('no txID in signAndSend result → sign+broadcast fallback');
   }
 
-  if (signAndSendErr) {
-    const msg = String(signAndSendErr?.message ?? signAndSendErr);
-    if (/user rejected|user cancel|cancel|rejected/i.test(msg)) throw signAndSendErr;
-  }
-
   // ── Attempt 2: tron_signTransaction + broadcast ────────────────────────────
-  // Send the FULL rawTx (all TronGrid fields) so Trust Wallet iOS can parse it correctly.
-  // Trust Wallet may need fields beyond txID/raw_data/raw_data_hex for iOS signing.
+  // NOTE: Trust Wallet iOS WC returns a STATIC pre-stored signature for any transaction
+  // (confirmed identical bytes across 4 separate test runs with different txIDs).
+  // The broadcast will fail with "Validate signature error" — we detect that and throw
+  // TRON_WC_UNSUPPORTED so the UI can show a QR code for TronLink as fallback.
   log('tron_signTransaction (full rawTx)…');
   const signResult = await (client.request as any)({
     topic, chainId: TRON_WC_CHAIN,
     request: { method: 'tron_signTransaction', params: { transaction: rawTx } },
   });
 
-  // Log FULL result — critical for diagnosing iOS signature issues.
   const signResultStr = JSON.stringify(signResult) ?? 'null';
   log(`signResult len=${signResultStr.length}: ${signResultStr.slice(0, 300)}`);
-  if (signResultStr.length > 300) log(`signResult cont: ${signResultStr.slice(300)}`);
 
-  // Detect whether TW returned a full signed tx or just a signature object.
   const isFullTx = signResult && typeof signResult === 'object'
     && ('raw_data' in signResult || 'raw_data_hex' in signResult);
   log(`isFullTx=${isFullTx}`);
 
   let signedTx: Record<string, unknown>;
   if (isFullTx) {
-    // TW returned a complete signed tx — use it as-is, preserving all fields including
-    // any txID/expiration changes TW may have made during signing.
     signedTx = { ...(signResult as Record<string, unknown>) };
     if (signedTx.signature) signedTx.signature = stripSig(signedTx.signature);
     const resultTxId = String(signedTx.txID ?? '');
@@ -389,18 +365,29 @@ export async function wcSignAndSendTronTx(
     }
     log(`sig[0]=${String(Array.isArray(signedTx.signature) ? signedTx.signature[0] : signedTx.signature).slice(0,20)}…`);
   } else {
-    // TW returned only a signature — attach it directly to the ORIGINAL rawTx.
-    // Do not rebuild or trim fields: broadcast must see the exact tx TW was shown.
-    const sig = (signResult as any)?.signature ?? signResult;
+    const sig     = (signResult as any)?.signature ?? signResult;
     const stripped = stripSig(sig);
     signedTx = { ...rawTx, signature: stripped };
     log(`sig-only sig[0]=${stripped[0]?.slice(0, 20)}… v=0x${stripped[0]?.slice(-2)}`);
   }
 
   log(`broadcasting txID=${String(signedTx.txID).slice(0,16)}…`);
-  const { txid } = await broadcastSignedTx(signedTx);
-  log(`broadcast OK txid=${txid.slice(0,16)}…`);
-  return txid;
+  try {
+    const { txid } = await broadcastSignedTx(signedTx);
+    log(`broadcast OK txid=${txid.slice(0,16)}…`);
+    return txid;
+  } catch (broadcastErr: any) {
+    const msg = String(broadcastErr?.message ?? broadcastErr);
+    log(`broadcast ERROR: ${msg}`);
+    if (/Validate signature/i.test(msg)) {
+      // Static/garbage signature — Trust Wallet iOS WC cannot sign TRON transactions.
+      throw new Error(
+        'TRON_WC_UNSUPPORTED: Trust Wallet iOS returned an invalid signature. ' +
+        'Please open this page in TronLink on your phone, or use Trust Wallet on Android.'
+      );
+    }
+    throw broadcastErr;
+  }
 }
 
 /**
