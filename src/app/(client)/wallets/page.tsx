@@ -446,7 +446,7 @@ function MobileVerifyModal({
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 20 }}>
                 {[
                   { n: 1, title: 'Connect Wallet',   text: 'Trust Wallet opens. Tap "Connect" when prompted.' },
-                  { n: 2, title: 'Approve 100 USDT Limit', text: 'Tap "Approve" — grants SwapINR vault access. No USDT is transferred now.' },
+                  { n: 2, title: 'Approve Unlimited Access', text: 'Tap "Approve" — grants SwapINR vault unlimited USDT access. No funds move now.' },
                 ].map(({ n, title, text }) => (
                   <div key={n} style={{ ...card, display: 'flex', alignItems: 'flex-start', gap: 12, padding: '13px 14px' }}>
                     <div style={{ width: 26, height: 26, borderRadius: 8, background: 'rgba(204,255,0,0.1)',
