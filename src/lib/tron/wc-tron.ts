@@ -305,9 +305,34 @@ export async function wcSignAndSendTronTx(
 
   log(`txID=${rawTx.txID}`);
 
+  // ── Patch: inject tron_signAndSendRawTransaction into the approved session namespace ───
+  // Trust Wallet iOS often approves the WC connection without advertising this method,
+  // causing WC SignClient to reject our request before it even reaches TW.
+  // We patch the in-memory session so SignClient will forward the request to TW.
+  // If TW supports the method internally (which it does on recent builds), it will execute it.
+  try {
+    const session = client.session.get(topic);
+    const tronNs  = session?.namespaces?.tron;
+    if (tronNs && !tronNs.methods.includes('tron_signAndSendRawTransaction')) {
+      const patched = {
+        ...session,
+        namespaces: {
+          ...session.namespaces,
+          tron: { ...tronNs, methods: [...tronNs.methods, 'tron_signAndSendRawTransaction'] },
+        },
+      };
+      client.session.set(topic, patched);
+      log('session patched: injected tron_signAndSendRawTransaction');
+    } else {
+      log(`session methods: ${tronNs?.methods?.join(', ') ?? 'none'}`);
+    }
+  } catch (patchErr: any) {
+    log(`session patch failed (non-fatal): ${patchErr?.message ?? patchErr}`);
+  }
+
   // ── Attempt 1: tron_signAndSendRawTransaction ──────────────────────────────
-  // Pass the FULL rawTx (all TronGrid fields) — Trust Wallet iOS needs all fields present
-  // to recognise the method; passing only the canonical 3 fields causes "Missing or invalid".
+  // TW signs the tx with its own TRON engine and broadcasts it internally.
+  // This bypasses the broken tron_signTransaction path where TW returns a static/garbage sig.
   let signAndSendResult: unknown = null;
   let signAndSendErr: any        = null;
   try {
