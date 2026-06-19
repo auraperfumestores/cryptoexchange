@@ -312,6 +312,12 @@ export async function createTronWcSession(): Promise<{
         events:  ['accountsChanged', 'chainChanged'],
       },
     },
+    // tron_method_version v1 tells the wallet to use the flat transaction format.
+    // Without it some wallets (Trust Wallet) sign a nested wrapper object and return
+    // a static/invalid signature. v1 = sign the raw transaction directly.
+    sessionProperties: {
+      tron_method_version: 'v1',
+    },
   });
   if (!uri) throw new Error('WalletConnect did not generate a pairing URI');
   return { uri, approval };
