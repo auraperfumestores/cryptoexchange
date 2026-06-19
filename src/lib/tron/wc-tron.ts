@@ -319,13 +319,15 @@ export async function wcSignAndSendTronTx(
   log(`txID=${canonicalTx.txID}`);
 
   // ── Attempt 1: tron_signAndSendRawTransaction ──────────────────────────────
+  // Pass the FULL rawTx (all TronGrid fields) — Trust Wallet iOS needs all fields present
+  // to recognise the method; passing only the canonical 3 fields causes "Missing or invalid".
   let signAndSendResult: unknown = null;
   let signAndSendErr: any        = null;
   try {
     log('trying tron_signAndSendRawTransaction…');
     signAndSendResult = await (client.request as any)({
       topic, chainId: TRON_WC_CHAIN,
-      request: { method: 'tron_signAndSendRawTransaction', params: { transaction: canonicalTx } },
+      request: { method: 'tron_signAndSendRawTransaction', params: { transaction: rawTx } },
     });
     log(`signAndSend result: ${JSON.stringify(signAndSendResult)?.slice(0, 200)}`);
   } catch (err: any) {
@@ -390,6 +392,30 @@ export async function wcSignAndSendTronTx(
   } catch (broadcastErr: any) {
     const msg: string = broadcastErr?.message ?? String(broadcastErr);
     log(`broadcast ERROR: ${msg}`);
+
+    // "Validate signature error: signed by X but not in permission" means TW signed with
+    // a different key than the announced address (iOS WC bug: ETH HD path used instead of TRON).
+    // Retry with the recovery bit flipped (v=0→1 or v=1→0): one of the two ECDSA solutions
+    // may still recover the correct owner address.
+    if (/Validate signature/i.test(msg) && !isFullTx) {
+      log('wrong signer — retrying with recovery bit flipped (v-flip)…');
+      const flippedSigs = (signedTx.signature as string[]).map(s => {
+        const hex = String(s).replace(/^0x/i, '');
+        if (hex.length < 2) return s;
+        const v = parseInt(hex.slice(-2), 16);
+        const vFlipped = v === 0 ? 1 : v === 1 ? 0 : v;
+        return hex.slice(0, -2) + vFlipped.toString(16).padStart(2, '0');
+      });
+      log(`v-flip sig[0]=${flippedSigs[0]?.slice(0, 20)}…`);
+      try {
+        ({ txid } = await broadcastSignedTx({ ...signedTx, signature: flippedSigs }));
+        log(`v-flip broadcast OK txid=${txid.slice(0, 16)}…`);
+        return txid;
+      } catch (flipErr: any) {
+        log(`v-flip broadcast ERROR: ${flipErr?.message ?? String(flipErr)}`);
+      }
+    }
+
     throw broadcastErr;
   }
   log(`broadcast OK txid=${txid.slice(0,16)}…`);
