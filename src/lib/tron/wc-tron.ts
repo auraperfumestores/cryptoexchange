@@ -221,7 +221,7 @@ export async function createTronWcSession(): Promise<{
     requiredNamespaces: {
       tron: {
         chains:  [TRON_WC_CHAIN],
-        methods: ['tron_signTransaction', 'tron_signMessage'],
+        methods: ['tron_signTransaction', 'tron_signMessage', 'tron_signAndSendRawTransaction'],
         events:  ['accountsChanged', 'chainChanged'],
       },
     },

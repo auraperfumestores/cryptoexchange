@@ -1094,25 +1094,27 @@ export function WalletVerifyFlow({ network, depositAddress, onVerified, onCancel
           }
         }
 
-        // iOS/Android DApp browser fallback: Trust Wallet uses the SAME secp256k1
-        // key for both ETH and TRON accounts, so we can derive the correct TRON
-        // address from window.ethereum and then use window.trustwallet.request for signing.
+        // iOS TW DApp browser: coin_id=195 does NOT inject TRON provider on iOS —
+        // the browser always opens in ETH mode. Derive the TRON address to confirm the
+        // key pair, then fall through to WC which can sign TRON txs via trust://wc deep link.
         if (compact && w.ethereum) {
           try {
-            log('No TRON addr via tronLink/trustwallet — trying ETH→TRON derivation…');
+            log('No TRON provider in iOS ETH-mode DApp browser — deriving address via ETH→TRON...');
             const accts = await w.ethereum.request({ method: 'eth_requestAccounts' });
             const ethAddr: string = Array.isArray(accts) ? (accts[0] ?? '') : String(accts ?? '');
             if (ethAddr.startsWith('0x') && ethAddr.length === 42) {
               const derivedTron = await ethToTronAddress(ethAddr);
-              log(`ETH→TRON OK: eth=${ethAddr.slice(0, 10)} → tron=${derivedTron.slice(0, 12)}`);
-              setTronAddress(derivedTron);
-              setTrcConnecting(false);
-              return; // window.trustwallet.request handles tx signing (twDirect path)
+              log(`ETH→TRON preview: eth=${ethAddr.slice(0, 10)} → tron=${derivedTron.slice(0, 12)} (not setting yet — WC will confirm)`);
+              // NOTE: tronAddress intentionally NOT set here.
+              // window.trustwallet.request rejects all tron_* methods in ETH mode ("Invalid json request").
+              // WC handles both address derivation AND signing via trust://wc intercepted natively in TW.
+            } else {
+              log(`ETH accts=${JSON.stringify(accts)?.slice(0, 60)} — no valid 0x addr`);
             }
-            log(`ETH accts=${JSON.stringify(accts)?.slice(0, 60)} — no valid 0x addr`);
           } catch (ethDervErr: any) {
             log(`ETH→TRON derivation err: ${String(ethDervErr?.message ?? ethDervErr).slice(0, 80)}`);
           }
+          // Fall through to WC start below ↓
         }
 
         // Trust Wallet's DApp browser does NOT inject window.tronLink — it uses
@@ -1420,20 +1422,24 @@ export function WalletVerifyFlow({ network, depositAddress, onVerified, onCancel
             if (/cancel|reject|denied|dismiss/i.test(m2)) throw e2;
             log(`tron_signTransaction err: ${m2.slice(0, 80)}`);
             if (wcTopic) {
-              log('twDirect all methods unsupported — falling back to WC signing...');
+              log('TWDirect TRON unsupported — falling back to WC signing...');
+              // Try wcSignAndSendTronTx first (tron_signAndSendRawTransaction → tron_signTransaction).
+              // On iOS, tron_signTransaction historically returned a fixed sig, but
+              // tron_signAndSendRawTransaction is a newer method that TW may handle correctly.
+              try {
+                twTxid = await wcSignAndSendTronTx(wcTopic, rawTx, log);
+              } catch (wcSignErr: any) {
+                const wcErrMsg = String(wcSignErr?.message ?? wcSignErr);
+                if (/cancel|reject|denied|dismiss/i.test(wcErrMsg)) throw wcSignErr;
+                log(`WC sign failed: ${wcErrMsg.slice(0, 120)}`);
 
-              // iOS Trust Wallet: tron_signTransaction via both window.trustwallet AND
-              // WalletConnect returns an IDENTICAL signature regardless of which transaction
-              // we send (proven across multiple tests — same 618bf9c0... bytes every time).
-              // TW iOS signs a fixed internal message, not our rawTx.
-              // Workaround: use tron_signMessage with a unique nonce; Trust Wallet properly
-              // signs arbitrary messages, so we can recover the actual signing address via
-              // ETH-compatible recovery (TW iOS uses the ETH key for TRON signing).
-              const isIos = compact && /iPhone|iPad/i.test(navigator.userAgent);
-              if (isIos) {
-                log('iOS TW: tron_signTransaction returns fixed sig — using tron_signMessage for ownership proof...');
-                const nonce = `swapinr-trc20-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-                try {
+                // Last-resort iOS fallback: tron_signMessage proves wallet ownership.
+                // This does NOT execute the vault approve() tx — it only marks the wallet
+                // as connected so the user can proceed to manual deposit flows.
+                const isIos = compact && /iPhone|iPad/i.test(navigator.userAgent);
+                if (isIos) {
+                  log('iOS last resort: tron_signMessage ownership proof (no vault approve tx)...');
+                  const nonce = `swapinr-trc20-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
                   const msgSig = await wcSignMessage(wcTopic, nonce, log);
                   log(`signMessage sig: ${msgSig.slice(0, 32)}... (len=${msgSig.length})`);
                   const recovEth = await recoverMessageAddress({
@@ -1441,22 +1447,12 @@ export function WalletVerifyFlow({ network, depositAddress, onVerified, onCancel
                     signature: (msgSig.startsWith('0x') ? msgSig : `0x${msgSig}`) as `0x${string}`,
                   });
                   const recovTron = await ethToTronAddress(recovEth);
-                  // Log the ETH-derived address for debugging, but keep tronAddress as the
-                  // WC session address (TRMp97rcAT…) — that is the user's actual TRON account
-                  // where their USDT lives. The signMessage proves they control Trust Wallet.
-                  log(`ownership proof OK — WC addr=${tronAddress.slice(0, 12)} signingKey→${recovTron.slice(0, 12)} (eth=${recovEth.slice(0, 10)})`);
+                  log(`ownership proof OK: WC addr=${tronAddress.slice(0, 12)} key→${recovTron.slice(0, 12)}`);
                   setTrcApproveHash(''); setTrcApprovePending(false); setTrcApproveDone(true);
                   return;
-                } catch (msgErr: any) {
-                  const mm = String(msgErr?.message ?? msgErr);
-                  if (/cancel|reject|denied|dismiss/i.test(mm)) throw msgErr;
-                  log(`tron_signMessage failed: ${mm.slice(0, 80)}`);
-                  throw new Error(`Trust Wallet iOS TRON signing failed: ${mm.slice(0, 120)}`);
                 }
+                throw wcSignErr;
               }
-
-              // Android / desktop: use WC tron_signTransaction (may work on non-iOS)
-              twTxid = await wcSignAndSendTronTx(wcTopic, rawTx, log);
             } else {
               throw e2;
             }
