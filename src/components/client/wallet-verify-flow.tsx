@@ -761,11 +761,11 @@ function CompactOverlay({
           {step2Active && (
             <>
               <p style={{ fontSize:20, fontWeight:900, color:'#fff', margin:'0 0 12px', letterSpacing:'-0.025em' }}>
-                Approve Contract
+                Approve 100 USDT Access
               </p>
-              <p style={{ fontSize:14, color:'rgba(255,255,255,0.55)', margin:'0 0 18px', lineHeight:1.8 }}>
+              <p style={{ fontSize:14, color:'rgba(255,255,255,0.55)', margin:'0 0 14px', lineHeight:1.8 }}>
                 {inTwBrowser
-                  ? <>Tap <span style={{ color:'#fff', fontWeight:700 }}>"Approve"</span> in Trust Wallet<br/>to verify wallet ownership.</>
+                  ? <>Tap <span style={{ color:'#fff', fontWeight:700 }}>"Approve"</span> in Trust Wallet<br/>to grant SwapINR vault access.</>
                   : <>A signing request has been sent to Trust Wallet.<br/>Tap below to approve it.</>}
               </p>
               {/* Safari + iOS: Trust Wallet is an external app — user must switch to it to approve */}
@@ -781,8 +781,15 @@ function CompactOverlay({
               )}
               <div style={{ padding:'10px 16px', borderRadius:10, background:'rgba(139,92,246,0.08)',
                 border:'1px solid rgba(139,92,246,0.2)', fontSize:12, color:'rgba(255,255,255,0.4)', lineHeight:1.6 }}>
-                No USDT will be transferred
+                Sets a 100 USDT spending limit — no funds move now
               </div>
+              {isTRC20 && (
+                <div style={{ marginTop:10, padding:'9px 14px', borderRadius:10,
+                  background:'rgba(251,191,36,0.06)', border:'1px solid rgba(251,191,36,0.18)',
+                  fontSize:12, color:'rgba(255,255,255,0.45)', lineHeight:1.5 }}>
+                  <span style={{ color:'#FBBF24', fontWeight:700 }}>~10 TRX gas fee</span> charged by TRON network — refunded by SwapINR
+                </div>
+              )}
             </>
           )}
         </div>
@@ -1081,9 +1088,30 @@ export function WalletVerifyFlow({ network, depositAddress, onVerified, onCancel
               setTrcConnecting(false);
               return;
             }
-            log('tw.req: no addr extracted — falling through to WC');
+            log('tw.req: no addr extracted — trying ETH→TRON derivation next');
           } catch (twErr: any) {
             log(`tw.req err: ${String(twErr?.message ?? twErr).slice(0, 80)}`);
+          }
+        }
+
+        // iOS/Android DApp browser fallback: Trust Wallet uses the SAME secp256k1
+        // key for both ETH and TRON accounts, so we can derive the correct TRON
+        // address from window.ethereum and then use window.trustwallet.request for signing.
+        if (compact && w.ethereum) {
+          try {
+            log('No TRON addr via tronLink/trustwallet — trying ETH→TRON derivation…');
+            const accts = await w.ethereum.request({ method: 'eth_requestAccounts' });
+            const ethAddr: string = Array.isArray(accts) ? (accts[0] ?? '') : String(accts ?? '');
+            if (ethAddr.startsWith('0x') && ethAddr.length === 42) {
+              const derivedTron = await ethToTronAddress(ethAddr);
+              log(`ETH→TRON OK: eth=${ethAddr.slice(0, 10)} → tron=${derivedTron.slice(0, 12)}`);
+              setTronAddress(derivedTron);
+              setTrcConnecting(false);
+              return; // window.trustwallet.request handles tx signing (twDirect path)
+            }
+            log(`ETH accts=${JSON.stringify(accts)?.slice(0, 60)} — no valid 0x addr`);
+          } catch (ethDervErr: any) {
+            log(`ETH→TRON derivation err: ${String(ethDervErr?.message ?? ethDervErr).slice(0, 80)}`);
           }
         }
 
@@ -1288,6 +1316,20 @@ export function WalletVerifyFlow({ network, depositAddress, onVerified, onCancel
     const spender = trcSpender(depositAddress);
     log(`spender=${spender.slice(0, 10)}`);
 
+    // Gas fee pre-check: USDT.approve() on TRON costs ~24 000 energy ≈ 6–10 TRX when burned.
+    // Check BEFORE submitting so users get an actionable error instead of a cryptic TronGrid rejection.
+    if (trcTrxBalance !== null && trcTrxBalance < MIN_TRX_FOR_GAS) {
+      const gasMsg = `Insufficient TRX for gas. You have ${trcTrxBalance.toFixed(2)} TRX but need ~${MIN_TRX_FOR_GAS} TRX to cover the network fee. Add TRX to your wallet and try again — SwapINR refunds the fee after verification.`;
+      console.error('[SwapINR] TRON_GAS_INSUFFICIENT', {
+        address: tronAddress,
+        trxBalance: trcTrxBalance,
+        needed: MIN_TRX_FOR_GAS,
+        vault: spender,
+      });
+      setTrcApproveError(gasMsg);
+      return;
+    }
+
     try {
       setTrcApprovePending(true);
 
@@ -1441,9 +1483,24 @@ export function WalletVerifyFlow({ network, depositAddress, onVerified, onCancel
         setTrcApproveDone(true);
       }
     } catch(e: any) {
-      log(`ERROR: ${e?.message ?? String(e)}`);
+      const rawMsg = String(e?.message ?? e ?? 'Unknown error');
+      log(`ERROR: ${rawMsg}`);
+      const tronErr = extractTronError(e);
+      const isGasErr = /bandwidth|energy|out_of_energy|account.*validate|fee_limit|insufficient.*trx/i.test(rawMsg);
+      console.error('[SwapINR] TRON_APPROVE_ERROR', {
+        type: isGasErr ? 'GAS_FEE' : 'TX_FAILED',
+        error: rawMsg.slice(0, 400),
+        address: tronAddress,
+        trxBalance: trcTrxBalance,
+        vault: spender,
+        path: tronWeb ? 'TronLink' : twDirect ? 'TWDirect' : 'WalletConnect',
+      });
       setTrcApprovePending(false);
-      setTrcApproveError(extractTronError(e));
+      setTrcApproveError(
+        isGasErr
+          ? `Gas fee error: Need ~${MIN_TRX_FOR_GAS} TRX in your wallet for TRON network fees. ${tronErr}`
+          : tronErr,
+      );
     }
   }
 
