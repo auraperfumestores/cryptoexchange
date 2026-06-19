@@ -163,18 +163,53 @@ export async function pollTronTxGrid(txId: string): Promise<void> {
 let _client: any = null;
 let _clientPromise: Promise<any> | null = null;
 
-// Trust Wallet's WKWebView leaves IndexedDB in a "closing" state after the tab
-// is killed/reloaded, causing SignClient.init to throw on the next page load.
-// A plain Map-backed storage avoids IndexedDB entirely — persistence across reloads
-// isn't needed because the compact overlay starts a fresh WC session every time.
-function makeMemStorage() {
-  const s = new Map<string, unknown>();
+// sessionStorage-backed WC storage: preserves pairing + crypto keys across the
+// Trust Wallet DApp browser reload that occurs when TW navigates back after the
+// user approves a WC connection. With in-memory storage the approval event (queued
+// on the relay while iOS suspended JavaScript) would be delivered to a fresh client
+// that knows nothing about the old pairing, requiring the user to approve twice.
+// Falls back to a plain Map if sessionStorage is unavailable (SSR / private mode).
+function makeWcStorage() {
+  const PREFIX = 'swapinr_wc_';
+  let mem: Map<string, unknown> | null = null;
+  function ss() {
+    try { return typeof sessionStorage !== 'undefined' ? sessionStorage : null; } catch { return null; }
+  }
+  function fb() { if (!mem) mem = new Map(); return mem; }
   return {
-    getKeys:    async () => Array.from(s.keys()),
-    getEntries: async () => Array.from(s.entries()) as [string, unknown][],
-    getItem:    async (key: string) => s.get(key),
-    setItem:    async (key: string, value: unknown) => { s.set(key, value); },
-    removeItem: async (key: string) => { s.delete(key); },
+    getKeys: async () => {
+      const s = ss();
+      return s
+        ? Object.keys(s).filter(k => k.startsWith(PREFIX)).map(k => k.slice(PREFIX.length))
+        : Array.from(fb().keys());
+    },
+    getEntries: async () => {
+      const s = ss();
+      if (s) {
+        return Object.keys(s)
+          .filter(k => k.startsWith(PREFIX))
+          .map(k => {
+            try { return [k.slice(PREFIX.length), JSON.parse(s.getItem(k) || 'null')] as [string, unknown]; }
+            catch { return [k.slice(PREFIX.length), null] as [string, unknown]; }
+          });
+      }
+      return Array.from(fb().entries()) as [string, unknown][];
+    },
+    getItem: async (key: string) => {
+      const s = ss();
+      if (s) { try { const v = s.getItem(PREFIX + key); return v ? JSON.parse(v) : undefined; } catch { return undefined; } }
+      return fb().get(key);
+    },
+    setItem: async (key: string, value: unknown) => {
+      const s = ss();
+      if (s) { try { s.setItem(PREFIX + key, JSON.stringify(value)); return; } catch {} }
+      fb().set(key, value);
+    },
+    removeItem: async (key: string) => {
+      const s = ss();
+      if (s) { try { s.removeItem(PREFIX + key); return; } catch {} }
+      fb().delete(key);
+    },
   };
 }
 
@@ -193,8 +228,18 @@ export async function getWcSignClient(): Promise<any> {
           url:         process.env.NEXT_PUBLIC_APP_URL ?? '',
           icons:       [`${process.env.NEXT_PUBLIC_APP_URL ?? ''}/logo.png`],
         },
-        storage: makeMemStorage() as any,
+        storage: makeWcStorage() as any,
       });
+      // Force relay WebSocket to reopen when iOS resumes the page from background.
+      // WKWebView suspends JS (and drops the WebSocket) while TW's approval screen is
+      // showing; without this the queued session-approval event is never delivered.
+      if (typeof document !== 'undefined') {
+        document.addEventListener('visibilitychange', () => {
+          if (document.visibilityState === 'visible' && _client) {
+            _client.core?.relayer?.transportOpen?.().catch(() => {});
+          }
+        });
+      }
       return _client;
     } catch (err) {
       // Reset so the next call gets a fresh attempt instead of the same rejected promise
@@ -205,6 +250,48 @@ export async function getWcSignClient(): Promise<any> {
   })();
 
   return _clientPromise;
+}
+
+/**
+ * Check whether the WC client already has an approved TRON session (e.g. from a
+ * previous page load that was reloaded by the Trust Wallet DApp browser after the
+ * user approved the connection).
+ *
+ * Polls for up to `timeoutMs` ms to allow the relay to deliver any approval event
+ * that was queued while the page was suspended, but returns immediately (null) when
+ * there are no pending pairings so the normal first-connect path has no added delay.
+ */
+export async function getExistingTronWcSession(
+  timeoutMs = 2500,
+): Promise<SessionTypes.Struct | null> {
+  const client = await getWcSignClient();
+  const now = Math.floor(Date.now() / 1000);
+
+  const findSession = (): SessionTypes.Struct | null => {
+    const all: SessionTypes.Struct[] = client.session?.getAll?.() ?? [];
+    return all.find(s =>
+      (s.namespaces?.tron?.accounts?.length ?? 0) > 0 &&
+      (s.expiry ?? 0) > now,
+    ) ?? null;
+  };
+
+  // Immediate check — covers the case where approval resolved before the reload
+  const immediate = findSession();
+  if (immediate) return immediate;
+
+  // Only poll if there are stored pairings that might still have a queued relay event
+  const activePairings = (client.pairing?.getAll?.() ?? [])
+    .filter((p: any) => (p.expiry ?? 0) > now);
+  if (activePairings.length === 0) return null;
+
+  return new Promise(resolve => {
+    let resolved = false;
+    const interval = setInterval(() => {
+      const s = findSession();
+      if (s) { resolved = true; clearInterval(interval); resolve(s); }
+    }, 250);
+    setTimeout(() => { if (!resolved) { clearInterval(interval); resolve(null); } }, timeoutMs);
+  });
 }
 
 /**

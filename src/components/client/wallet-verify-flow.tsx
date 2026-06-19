@@ -19,6 +19,7 @@ import {
   buildApproveRawTx, pollTronTxGrid,
   createTronWcSession, tronAddressFromWcSession,
   wcSignAndSendTronTx, wcDisconnectTron,
+  getExistingTronWcSession,
 } from '@/lib/tron/wc-tron';
 
 type Network = 'BEP20' | 'ERC20' | 'TRC20';
@@ -1162,6 +1163,20 @@ export function WalletVerifyFlow({ network, depositAddress, onVerified, onCancel
     wcInProgressRef.current = true; wcCancelRef.current = false; wcApprovalRef.current = null;
     setWcConnecting(true); setWcError(''); setWcUri('');
     try {
+      // After Trust Wallet's DApp browser reloads the page on WC approval, the
+      // relay delivers the queued approval event to the reconnected client. Check
+      // for an already-approved session (via sessionStorage-backed storage) before
+      // creating a new pairing — avoids the user having to approve twice.
+      log('WC: checking for existing session...');
+      const existing = await getExistingTronWcSession(2500);
+      if (existing && !wcCancelRef.current) {
+        const addr = tronAddressFromWcSession(existing);
+        log(`WC: restored session addr=${addr.slice(0, 10)}...`);
+        setWcTopic(existing.topic); setTronAddress(addr); setWcUri(''); setWcError('');
+        return;
+      }
+      if (wcCancelRef.current) return;
+
       log('WC: init SignClient + create pairing...');
       const { uri, approval } = await createTronWcSession();
       if (wcCancelRef.current) return;
