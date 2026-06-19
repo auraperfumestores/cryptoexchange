@@ -311,7 +311,7 @@ function EnableVaultModal({
       const res = await fetch('/api/wallet-connect/generate', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          returnPath: `/wallets/vault-approve?walletId=${wallet._id}&compact=1`,
+          returnPath: `/wallets/verify?network=TRC20&compact=1`,
           network: 'TRC20',
         }),
       });
@@ -320,7 +320,7 @@ function EnableVaultModal({
       sidRef.current = sid;
 
       const origin      = window.location.origin;
-      const returnURL   = `/wallets/vault-approve?walletId=${wallet._id}&compact=1&sid=${sid}`;
+      const returnURL   = `/wallets/verify?network=TRC20&compact=1&sid=${sid}`;
       const exchangeURL = `${origin}/api/wallet-connect/exchange?t=${encodeURIComponent(token)}&r=${encodeURIComponent(returnURL)}`;
       const isHttps     = window.location.protocol === 'https:';
       const base        = isHttps ? 'https://link.trustwallet.com/open_url' : 'trust://open_url';
