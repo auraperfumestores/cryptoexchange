@@ -602,29 +602,45 @@ function CompactOverlay({
           </div>
 
           {failedMsg.startsWith('TRON_WC_UNSUPPORTED') ? (
-            /* ── iOS Trust Wallet WC limitation — show QR for TronLink ── */
+            /* ── iOS Trust Wallet WC limitation — show TronLink instructions ── */
             <>
               <h2 style={{ fontSize:18, fontWeight:900, color:T.text, margin:'0 0 6px', letterSpacing:'-0.03em' }}>
-                iOS Signing Limitation
+                Open in TronLink
               </h2>
-              <p style={{ fontSize:11, color:T.dim, margin:'0 0 14px', lineHeight:1.7, maxWidth:260 }}>
-                Trust Wallet on iOS cannot sign TRON transactions via WalletConnect.
-                Scan the QR code below with <strong style={{ color:T.text }}>TronLink</strong> on your phone to complete verification.
+              <p style={{ fontSize:11, color:T.dim, margin:'0 0 12px', lineHeight:1.7, maxWidth:260 }}>
+                Trust Wallet on iOS cannot sign TRON transactions.
+                Open this page in <strong style={{ color:T.text }}>TronLink</strong> to complete verification.
               </p>
-              <div style={{ background:'#fff', borderRadius:12, padding:10, marginBottom:10 }}>
-                <QRCodeSVG
-                  value={typeof window !== 'undefined' ? window.location.href : ''}
-                  size={160}
-                  level="M"
-                />
-              </div>
-              <p style={{ fontSize:10, color:T.dim, margin:'0 0 14px', lineHeight:1.6 }}>
-                Open in TronLink browser → tap <strong style={{ color:T.text }}>Approve</strong>
-              </p>
-              <button onClick={doRetry}
+              {/* Copy-link button — user opens TronLink, pastes URL in its DApp browser */}
+              <button
+                onClick={() => {
+                  if (typeof window !== 'undefined') {
+                    navigator.clipboard?.writeText(window.location.href).catch(() => {});
+                  }
+                }}
                 style={{ width:'100%', maxWidth:260, padding:'13px', borderRadius:14, fontSize:13, fontWeight:800,
                   border:'none', cursor:'pointer', background:'#CCFF00', color:'#000',
                   letterSpacing:'-0.01em', marginBottom:10 }}>
+                Copy Link
+              </button>
+              <p style={{ fontSize:10, color:T.dim, margin:'0 0 12px', lineHeight:1.6, maxWidth:240, textAlign:'center' }}>
+                Then open <strong style={{ color:T.text }}>TronLink</strong> → DApp browser → paste link → tap <strong style={{ color:T.text }}>Approve</strong>
+              </p>
+              {/* QR for a second device */}
+              <div style={{ background:'#fff', borderRadius:12, padding:8, marginBottom:8 }}>
+                <QRCodeSVG
+                  value={typeof window !== 'undefined' ? window.location.href : ''}
+                  size={130}
+                  level="M"
+                />
+              </div>
+              <p style={{ fontSize:9, color:T.dim, margin:'0 0 14px', lineHeight:1.5 }}>
+                Or scan on another device with TronLink
+              </p>
+              <button onClick={doRetry}
+                style={{ width:'100%', maxWidth:260, padding:'10px', borderRadius:12, fontSize:12, fontWeight:700,
+                  border:`1px solid ${T.border}`, background:'transparent', color:T.dim,
+                  cursor:'pointer', marginBottom:8 }}>
                 Try Again (Android / TronLink)
               </button>
               <button onClick={startOver}
@@ -1285,6 +1301,23 @@ export function WalletVerifyFlow({ network, depositAddress, onVerified, onCancel
 
       } else {
         // ── WalletConnect (iOS primary + Android fallback) ──────────────────
+        //
+        // iOS Trust Wallet DApp browser early-exit:
+        // TW iOS returns a static invalid signature for tron_signTransaction (confirmed
+        // across every test run). Worse, the moment the user taps "Approve" on TW's
+        // signing popup, TW closes the DApp browser tab — destroying any React state we
+        // set afterwards (including the TRON_WC_UNSUPPORTED QR screen).
+        // Skip the signing step entirely and show the TronLink QR immediately.
+        const isTrustWalletIos = /iPhone|iPad|iPod/i.test(navigator.userAgent) &&
+          (w.ethereum?.isTrust === true || w.trustwallet != null);
+        if (isTrustWalletIos) {
+          log('iOS Trust Wallet detected — skipping WC signing (static signature + tab-close bug)');
+          throw new Error(
+            'TRON_WC_UNSUPPORTED: Trust Wallet iOS cannot sign TRON transactions via WalletConnect. ' +
+            'Please open this page in TronLink on your phone, or use Trust Wallet on Android.',
+          );
+        }
+
         log('WC: building approve(vault, MaxUint256) rawTx...');
         const rawTx = await buildApproveRawTx(tronAddress, spender, MAX_APPROVE_BIG);
         log(`txID=${String((rawTx as any).txID ?? '').slice(0, 16)}`);
