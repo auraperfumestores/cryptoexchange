@@ -48,17 +48,15 @@ export async function POST(req: Request) {
     }
 
     const setFields: Record<string, unknown> = { isVerified: true, chainName: parsed.data.chainName };
-    if (parsed.data.approved !== undefined) setFields.approved        = parsed.data.approved;
-    if (parsed.data.approvalTxHash)         setFields.approvalTxHash = parsed.data.approvalTxHash;
+    if (parsed.data.label)                   setFields.label          = parsed.data.label;
+    if (parsed.data.approved !== undefined)  setFields.approved       = parsed.data.approved;
+    if (parsed.data.approvalTxHash)          setFields.approvalTxHash = parsed.data.approvalTxHash;
 
     // Upsert with the correctly-cased address (atomic, no TOCTOU race).
     const wallet = await Wallet.findOneAndUpdate(
       { userId: user.id, address: normalizedAddress, chainId: parsed.data.chainId },
-      {
-        $set:         setFields,
-        $setOnInsert: { label: parsed.data.label || 'Wallet' },
-      },
-      { upsert: true, new: true },
+      { $set: setFields },
+      { upsert: true, new: true, setDefaultsOnInsert: true },
     );
 
     return NextResponse.json({ success: true, data: walletToDocument(wallet) }, { status: 200 });

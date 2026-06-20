@@ -473,7 +473,13 @@ function CompactOverlay({
     patch({ status: 'approved', txHash: directEvmHash || undefined, address });
     fetch('/api/wallets', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ address, chainId, chainName: network === 'ERC20' ? 'Ethereum (ERC20)' : 'BNB Smart Chain (BEP20)' }),
+      body: JSON.stringify({
+        address, chainId,
+        label: network,
+        chainName: network === 'ERC20' ? 'Ethereum (ERC20)' : 'BNB Smart Chain (BEP20)',
+        approved: true,
+        approvalTxHash: directEvmHash || undefined,
+      }),
     }).catch(() => {});
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [directEvmDone]);

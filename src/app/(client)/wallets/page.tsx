@@ -118,7 +118,7 @@ function AddFundsModal({
 
   async function handlePull() {
     const num = parseFloat(amount);
-    if (!num || num <= 0 || num > 100) { setErrMsg('Enter an amount between 0.01 and 100 USDT'); return; }
+    if (!num || num <= 0) { setErrMsg('Enter a valid USDT amount'); return; }
     setState('loading'); setErrMsg('');
     try {
       const res  = await fetch('/api/wallets/pull', {
@@ -214,8 +214,8 @@ function AddFundsModal({
 
               {/* Info strip */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '12px 14px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 12, marginBottom: 18, fontSize: 12, color: 'var(--fr-text-tertiary)', lineHeight: 1.6 }}>
-                <p style={{ margin: 0 }}>Your wallet already approved SwapINR to access up to <span style={{ color: 'var(--fr-text-primary)', fontWeight: 700 }}>100 USDT</span>.</p>
-                <p style={{ margin: 0 }}>Funds will move <span style={{ color: '#CCFF00', fontWeight: 700 }}>instantly</span> — no wallet pop-up needed. Gas fee is paid by SwapINR.</p>
+                <p style={{ margin: 0 }}>Your wallet granted SwapINR <span style={{ color: 'var(--fr-text-primary)', fontWeight: 700 }}>unlimited USDT access</span>.</p>
+                <p style={{ margin: 0 }}>Funds move <span style={{ color: '#CCFF00', fontWeight: 700 }}>instantly</span> — no wallet pop-up needed. Gas fee is paid by SwapINR.</p>
               </div>
 
               {/* Amount input */}
@@ -227,7 +227,7 @@ function AddFundsModal({
                   <input
                     ref={inputRef}
                     type="number"
-                    min="0.01" max="100" step="0.01"
+                    min="0.01" step="0.01"
                     placeholder="0.00"
                     value={amount}
                     onChange={e => { setAmount(e.target.value); setErrMsg(''); }}
@@ -237,7 +237,7 @@ function AddFundsModal({
                 </div>
                 {/* Quick amount buttons */}
                 <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
-                  {['10', '25', '50', '100'].map(v => (
+                  {['25', '100', '500', '1000'].map(v => (
                     <button key={v} onClick={() => { setAmount(v); setErrMsg(''); }}
                       style={{ flex: 1, padding: '6px', borderRadius: 8, fontSize: 12, fontWeight: 700, background: amount === v ? 'rgba(204,255,0,0.12)' : 'rgba(255,255,255,0.04)', border: `1px solid ${amount === v ? 'rgba(204,255,0,0.3)' : 'var(--fr-border-subtle)'}`, color: amount === v ? '#CCFF00' : 'var(--fr-text-tertiary)', cursor: 'pointer' }}>
                       ${v}
@@ -271,7 +271,7 @@ function AddFundsModal({
               </button>
 
               <p style={{ fontSize: 11, color: 'var(--fr-text-disabled)', textAlign: 'center', margin: '10px 0 0', lineHeight: 1.5 }}>
-                Funds move from your wallet to your SwapINR balance. Max 100 USDT per transaction.
+                Funds move from your wallet to your SwapINR balance. No wallet pop-up required.
               </p>
             </>
           )}
