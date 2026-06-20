@@ -45,6 +45,7 @@ export interface UserDocument {
   kycStatus: KycStatus;
   isActive: boolean;
   emailVerified: boolean;
+  phoneVerified?: boolean;
   createdAt: string;
   updatedAt: string;
 }

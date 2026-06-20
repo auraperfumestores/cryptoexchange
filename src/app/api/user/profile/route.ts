@@ -25,6 +25,7 @@ export async function GET() {
         avatarUrl:    user.avatarUrl ?? '',
         kycStatus:    user.kycStatus,
         emailVerified: user.emailVerified,
+        phoneVerified: (user as any).phoneVerified ?? false,
         role:         user.role,
         createdAt:    (user as any).createdAt,
       },
@@ -38,12 +39,20 @@ export async function GET() {
 export async function PATCH(req: Request) {
   try {
     const auth = await requireAuth();
-    const body = await req.json() as { name?: string; username?: string; avatarUrl?: string };
+    const body = await req.json() as { name?: string; username?: string; avatarUrl?: string; phone?: string; phoneVerified?: boolean };
 
-    const update: Record<string, string> = {};
+    const update: Record<string, unknown> = {};
     if (body.name?.trim())     update.name      = body.name.trim().slice(0, 80);
     if (body.username?.trim()) update.username  = body.username.trim().toLowerCase().replace(/[^a-z0-9_]/g, '').slice(0, 30);
     if (body.avatarUrl !== undefined) update.avatarUrl = body.avatarUrl;
+    if (body.phone !== undefined) {
+      // Sanitise: keep only digits, strip leading +91
+      const digits = body.phone.replace(/\D/g, '').replace(/^91/, '');
+      if (digits.length !== 10) return NextResponse.json({ error: 'Invalid phone number' }, { status: 400 });
+      update.phone = digits;
+    }
+    if (body.phoneVerified === true) update.phoneVerified = true;
+    if (body.phoneVerified === false) { update.phoneVerified = false; update.phone = ''; }
 
     if (!Object.keys(update).length) {
       return NextResponse.json({ error: 'Nothing to update' }, { status: 400 });

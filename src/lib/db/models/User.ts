@@ -17,6 +17,7 @@ export interface UserAttrs {
   emailVerifyExpiresAt?: number;
   passwordResetToken?: string;
   passwordResetExpiresAt?: number;
+  phoneVerified?: boolean;
 }
 
 const UserSchema = new Schema<UserAttrs>(
@@ -46,6 +47,7 @@ const UserSchema = new Schema<UserAttrs>(
     emailVerifyExpiresAt: { type: Number, select: false },
     passwordResetToken: { type: String, select: false },
     passwordResetExpiresAt: { type: Number, select: false },
+    phoneVerified: { type: Boolean, default: false },
   },
   { timestamps: true },
 );
@@ -76,6 +78,7 @@ export function userToDocument(doc: any): UserDocument {
     kycStatus: doc.kycStatus,
     isActive: doc.isActive,
     emailVerified: doc.emailVerified ?? false,
+    phoneVerified: doc.phoneVerified ?? false,
     createdAt: (doc.createdAt instanceof Date ? doc.createdAt : new Date(doc.createdAt)).toISOString(),
     updatedAt: (doc.updatedAt instanceof Date ? doc.updatedAt : new Date(doc.updatedAt)).toISOString(),
   };

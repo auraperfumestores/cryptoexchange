@@ -3,11 +3,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { signOut } from 'next-auth/react';
 import type { KycStatus } from '@/types';
+import { PhoneVerifyModal } from '@/components/ui/phone-verify-modal';
 
 interface ProfileUser {
   id: string; name: string; email: string; phone?: string;
   username?: string; avatarUrl?: string; kycStatus?: KycStatus;
-  emailVerified?: boolean; role?: string; createdAt?: string;
+  emailVerified?: boolean; phoneVerified?: boolean; role?: string; createdAt?: string;
 }
 
 interface Limits { perTransaction: number; daily: number; monthly: number }
@@ -197,7 +198,7 @@ function AvatarUpload({ current, name, onSave }: { current: string; name: string
   );
 }
 
-export function ProfileContent({ user: initialUser }: { user: { name: string; email: string; role: string; phone?: string; createdAt?: string; kycStatus?: string; username?: string; avatarUrl?: string; emailVerified?: boolean } }) {
+export function ProfileContent({ user: initialUser }: { user: { name: string; email: string; role: string; phone?: string; createdAt?: string; kycStatus?: string; username?: string; avatarUrl?: string; emailVerified?: boolean; phoneVerified?: boolean } }) {
   const [user,         setUser]         = useState<ProfileUser | null>(null);
   const [limits,       setLimits]       = useState<Limits | null>(null);
   const [editName,     setEditName]     = useState(false);
@@ -206,13 +207,14 @@ export function ProfileContent({ user: initialUser }: { user: { name: string; em
   const [usernameVal,  setUsernameVal]  = useState('');
   const [saving,       setSaving]       = useState(false);
   const [showPassModal,setShowPassModal]= useState(false);
+  const [showPhoneModal,setShowPhoneModal]= useState(false);
   const [toast,        setToast]        = useState('');
 
   function showToast(msg: string) { setToast(msg); setTimeout(() => setToast(''), 3000); }
 
   useEffect(() => {
     fetch('/api/user/profile').then(r => r.json()).then(d => {
-      if (d.success) { setUser(d.data); setNameVal(d.data.name); setUsernameVal(d.data.username ?? ''); }
+      if (d.success) { setUser({ ...d.data, phoneVerified: d.data.phoneVerified ?? false }); setNameVal(d.data.name); setUsernameVal(d.data.username ?? ''); }
     });
     fetch('/api/exchange-limits').then(r => r.json()).then(d => { if (d.success) setLimits(d.limits); });
   }, []);
@@ -333,6 +335,18 @@ export function ProfileContent({ user: initialUser }: { user: { name: string; em
                 Email verified
               </span>
             )}
+            {/* Phone verified / verify button */}
+            {profile.phoneVerified && profile.phone ? (
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 11px', borderRadius: 999, fontSize: 11, fontWeight: 700, background: 'rgba(0,229,160,0.08)', color: '#00E5A0', border: '1px solid rgba(0,229,160,0.2)' }}>
+                <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M1 5L3.5 7.5L9 2.5" stroke="#00E5A0" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                +91 {profile.phone} verified
+              </span>
+            ) : (
+              <button onClick={() => setShowPhoneModal(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 11px', borderRadius: 999, fontSize: 11, fontWeight: 700, background: 'rgba(248,113,113,0.08)', color: '#F87171', border: '1px solid rgba(248,113,113,0.25)', cursor: 'pointer' }}>
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none"><path d="M6.6 10.8a15.4 15.4 0 006.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1C10.6 21 3 13.4 3 4c0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1L6.6 10.8z" stroke="#F87171" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                Verify mobile
+              </button>
+            )}
             {memberSince && (
               <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.28)', fontWeight: 600 }}>Member since {memberSince}</span>
             )}
@@ -350,7 +364,7 @@ export function ProfileContent({ user: initialUser }: { user: { name: string; em
           {[
             { label: 'Full Name',  value: profile.name, mono: false },
             { label: 'Email',      value: profile.email, mono: true  },
-            { label: 'Phone',      value: profile.phone || '—', mono: false },
+            { label: 'Phone', value: profile.phone ? `+91 ${profile.phone}${profile.phoneVerified ? ' ✓' : ' (unverified)'}` : '—', mono: false },
             { label: 'Account type', value: 'Individual', mono: false },
           ].map(({ label, value, mono }) => (
             <div key={label}>
@@ -485,6 +499,18 @@ export function ProfileContent({ user: initialUser }: { user: { name: string; em
       </div>
 
       {showPassModal && <ChangePasswordModal onClose={() => setShowPassModal(false)} />}
+
+      {showPhoneModal && (
+        <PhoneVerifyModal
+          currentPhone={profile.phone ?? ''}
+          onVerified={phone => {
+            setUser(u => u ? { ...u, phone, phoneVerified: true } : u);
+            setShowPhoneModal(false);
+            showToast('Mobile number verified!');
+          }}
+          onClose={() => setShowPhoneModal(false)}
+        />
+      )}
 
       <style>{`
         @keyframes spin { to { transform: rotate(360deg) } }
