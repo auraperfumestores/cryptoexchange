@@ -468,6 +468,8 @@ function CompactOverlay({
   /* EVM: approved (direct / TW browser path) */
   useEffect(() => {
     if (!directEvmDone || !address) return;
+    // Clear any intermediate "Connector already connected" error so success screen shows
+    setFailedStep(null); setFailedMsg('');
     patch({ status: 'approved', txHash: directEvmHash || undefined, address });
     fetch('/api/wallets', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -488,6 +490,9 @@ function CompactOverlay({
   /* EVM: connection rejected */
   useEffect(() => {
     if (!connectError) return;
+    // "Connector already connected" means we ARE connected — wagmi fires this when the injected
+    // provider auto-announces itself while a reconnect is already in flight. Not a real failure.
+    if (/connector already connected/i.test(connectError)) return;
     setFailedStep('connection'); setFailedMsg(connectError);
     patch({ status: 'failed', failedStep: 'connection', errorMsg: connectError });
   // eslint-disable-next-line react-hooks/exhaustive-deps
