@@ -358,7 +358,14 @@ function MobileVerifyModal({
       const exchangeURL = `${origin}/api/wallet-connect/exchange?t=${encodeURIComponent(token)}&r=${encodeURIComponent(returnURL)}`;
       const deepLink    = `https://link.trustwallet.com/open_url?coin_id=${TRUST_COIN[network]}&url=${encodeURIComponent(exchangeURL)}`;
 
-      setQrUrl(deepLink);
+      /* Store deepLink in session so /api/qr/:sid can redirect to it */
+      await fetch(`/api/wallet-sessions/${sid}`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ deepLink }),
+      });
+
+      /* QR encodes a short ~50-char redirect URL instead of the 500-char deep link */
+      setQrUrl(`${origin}/api/qr/${sid}`);
       /* Start polling immediately so we detect scan the moment it happens */
       startPolling(sid);
     } catch {
@@ -555,15 +562,11 @@ function MobileVerifyModal({
             ) : qrUrl ? (
               <div style={{ position: 'relative', display: 'inline-flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
                 {/* QR card */}
-                <div style={{ position: 'relative', padding: 16, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.10)', borderRadius: 18, backdropFilter: 'blur(8px)' }}>
+                <div style={{ position: 'relative', padding: 12, background: '#fff', borderRadius: 14, boxShadow: '0 4px 32px rgba(0,0,0,0.5)' }}>
                   <QRCodeSVG
-                    value={qrUrl} size={148}
-                    bgColor="transparent" fgColor="rgba(255,255,255,0.88)"
-                    level="H"
-                    imageSettings={{
-                      src: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' rx='10' fill='%230d1327'/%3E%3Crect width='40' height='40' rx='10' fill='%233375BB'/%3E%3Cpath d='M20 7L10 11V19C10 24.5 14.4 29.6 20 31C25.6 29.6 30 24.5 30 19V11L20 7Z' fill='white'/%3E%3Cpath d='M16.5 19.5L19 22L23.5 17' stroke='%233375BB' strokeWidth='2.2' strokeLinecap='round' strokeLinejoin='round'/%3E%3C/svg%3E",
-                      height: 28, width: 28, excavate: true,
-                    }}
+                    value={qrUrl} size={160}
+                    bgColor="white" fgColor="#111"
+                    level="M"
                   />
                 </div>
                 {/* Label */}

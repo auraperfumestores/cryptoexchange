@@ -22,6 +22,7 @@ interface WalletSessionAttrs {
   usdtBalance?: number;
   trxBalance?:  number;
   errorMsg?:    string;
+  deepLink?:    string;
   expiresAt:    Date;
 }
 
@@ -37,6 +38,7 @@ const WalletSessionSchema = new Schema<WalletSessionAttrs>(
     usdtBalance: { type: Number },
     trxBalance:  { type: Number },
     errorMsg:    { type: String },
+    deepLink:    { type: String },
     expiresAt:   { type: Date, required: true },
   },
   { timestamps: { createdAt: 'createdAt', updatedAt: false } },

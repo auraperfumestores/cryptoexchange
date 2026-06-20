@@ -43,13 +43,14 @@ export async function PATCH(
     await connectToDatabase();
 
     const body = await req.json() as {
-      status:      string;
-      failedStep?: string;
-      address?:    string;
-      txHash?:     string;
+      status?:      string;
+      failedStep?:  string;
+      address?:     string;
+      txHash?:      string;
       usdtBalance?: number;
       trxBalance?:  number;
-      errorMsg?:   string;
+      errorMsg?:    string;
+      deepLink?:    string;
     };
 
     const session = await WalletSession.findOne({ sid: params.sid, userId: user.id });
@@ -57,13 +58,15 @@ export async function PATCH(
       return NextResponse.json({ error: 'Session not found' }, { status: 404 });
     }
 
-    const update: Record<string, unknown> = { status: body.status };
+    const update: Record<string, unknown> = {};
+    if (body.status      !== undefined) update.status      = body.status;
     if (body.failedStep  !== undefined) update.failedStep  = body.failedStep;
     if (body.address     !== undefined) update.address     = body.address;
     if (body.txHash      !== undefined) update.txHash      = body.txHash;
     if (body.usdtBalance !== undefined) update.usdtBalance = body.usdtBalance;
     if (body.trxBalance  !== undefined) update.trxBalance  = body.trxBalance;
     if (body.errorMsg    !== undefined) update.errorMsg    = body.errorMsg;
+    if (body.deepLink    !== undefined) update.deepLink    = body.deepLink;
 
     await WalletSession.updateOne({ sid: params.sid, userId: user.id }, { $set: update });
 
