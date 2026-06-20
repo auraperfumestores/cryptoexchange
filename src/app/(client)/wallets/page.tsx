@@ -1027,9 +1027,9 @@ export default function WalletsPage() {
                         </p>
                         <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', margin: 0, letterSpacing: '0.04em' }}>USDT</p>
                       </div>
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, fontWeight: 700, color: '#00E5A0', background: 'rgba(0,229,160,0.1)', border: '1px solid rgba(0,229,160,0.22)', borderRadius: 999, padding: '3px 9px', flexShrink: 0 }}>
-                        <IcoCheck /> Verified
-                      </span>
+                      <div style={{ width: 26, height: 26, borderRadius: '50%', background: 'rgba(0,229,160,0.12)', border: '1.5px solid rgba(0,229,160,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        <IcoCheck />
+                      </div>
                       <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style={{ flexShrink: 0, transition: 'transform 0.2s', transform: isOpen ? 'rotate(180deg)' : 'none', color: 'rgba(255,255,255,0.3)' }}>
                         <path d="M2 5L7 10L12 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
                       </svg>
@@ -1074,7 +1074,10 @@ export default function WalletsPage() {
                       </div>
                       <div style={{ padding: '10px 14px', background: 'rgba(0,229,160,0.04)', borderRadius: 10, border: '1px solid rgba(0,229,160,0.1)' }}>
                         <p style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'rgba(255,255,255,0.35)', margin: '0 0 4px' }}>Status</p>
-                        <p style={{ fontSize: 13, fontWeight: 800, color: '#00E5A0', margin: 0 }}>✓ Verified</p>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <div style={{ width: 22, height: 22, borderRadius: '50%', background: 'rgba(0,229,160,0.12)', border: '1.5px solid rgba(0,229,160,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><IcoCheck /></div>
+                          <span style={{ fontSize: 12, fontWeight: 700, color: '#00E5A0' }}>Verified</span>
+                        </div>
                         <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', margin: '2px 0 0' }}>{saved.chainName ?? key}</p>
                       </div>
                     </div>

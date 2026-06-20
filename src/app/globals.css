@@ -362,18 +362,28 @@
     transition: color var(--fr-ease-fast), background var(--fr-ease-fast);
   }
   .fr-nav__login:hover { color: var(--fr-text-primary); background: rgba(255,255,255,0.05); opacity: 1; }
-  .fr-nav__pro-badge {
-    display: inline-flex; align-items: center; gap: 5px;
-    padding: 4px 12px;
-    border-radius: var(--fr-radius-pill);
-    background: linear-gradient(135deg, rgba(204,255,0,0.12) 0%, rgba(0,212,200,0.12) 100%);
-    border: 1px solid rgba(204,255,0,0.25);
-    font-size: 12px; font-weight: 700; letter-spacing: 0.06em;
-    color: var(--fr-lime);
-    text-decoration: none;
-    transition: all var(--fr-ease-fast);
+  @keyframes pro-shimmer {
+    0%   { background-position: -200% center; }
+    100% { background-position:  200% center; }
   }
-  .fr-nav__pro-badge:hover { background: rgba(204,255,0,0.18); border-color: var(--fr-lime); opacity: 1; }
+  @keyframes pro-pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(255,204,0,0), 0 0 7px rgba(255,200,0,0.3); }
+    50%       { box-shadow: 0 0 0 4px rgba(255,204,0,0.1), 0 0 18px rgba(255,200,0,0.55); }
+  }
+  .fr-nav__pro-badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 5px 13px;
+    border-radius: var(--fr-radius-pill);
+    background: linear-gradient(270deg, #FFD700 0%, #FFF176 45%, #FFB800 75%, #FFD700 100%);
+    background-size: 300% 100%;
+    border: 1px solid rgba(255,210,0,0.6);
+    font-size: 11px; font-weight: 900; letter-spacing: 0.1em;
+    color: #000;
+    text-decoration: none;
+    animation: pro-shimmer 6s linear infinite, pro-pulse 5s ease-in-out infinite;
+    transition: transform 0.15s, filter 0.15s;
+  }
+  .fr-nav__pro-badge:hover { filter: brightness(1.1); transform: scale(1.05); opacity: 1; }
   @media (max-width: 1024px) { .fr-nav__links { display: none; } }
 
   /* ── Buttons ── */
@@ -1261,6 +1271,12 @@
     backdrop-filter: blur(32px) saturate(180%);
     -webkit-backdrop-filter: blur(32px) saturate(180%);
     white-space: nowrap;
+    transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease;
+  }
+  body.sell-modal-open .ubn {
+    transform: translateX(-50%) translateY(calc(100% + 32px));
+    opacity: 0;
+    pointer-events: none;
   }
 
   /* ── Each tab ── */

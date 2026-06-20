@@ -71,8 +71,8 @@ const PAY_METHODS: { id: PayMethod; label: string; desc: string; icon: string; g
   { id: 'IMPS', label: 'IMPS', desc: 'Instant · 24×7',        icon: 'bank' },
   { id: 'RTGS', label: 'RTGS', desc: '₹2 L+ · Business hrs',  icon: 'bank' },
   { id: 'NEFT', label: 'NEFT', desc: 'Up to 2 hrs · 24×7',    icon: 'bank' },
-  { id: 'CDM',  label: 'CDM',  desc: 'Cash Deposit Machine',   icon: 'cdm',  gold: true },
-  { id: 'CASH', label: 'CASH', desc: 'Physical cash handover', icon: 'cash', gold: true },
+  { id: 'CDM',  label: 'CDM',  desc: 'Cash Deposit Machine',   icon: 'cdm',  gold: true  },
+  { id: 'CASH', label: 'CASH', desc: 'Physical cash handover', icon: 'cash', gold: true  },
 ];
 
 /* ─── Inline SVG icons ───────────────────────────────────────────────────── */
@@ -294,6 +294,12 @@ export function SellFlowModal({ network, usdtAmount, inrAmount, rate, onClose, o
     return () => clearTimeout(t);
   }, [otpCountdown]);
 
+  /* ── hide bottom nav while modal is open ── */
+  useEffect(() => {
+    document.body.classList.add('sell-modal-open');
+    return () => { document.body.classList.remove('sell-modal-open'); };
+  }, []);
+
   /* ── initial check ── */
   useEffect(() => {
     void runInitialCheck();
@@ -308,7 +314,8 @@ export function SellFlowModal({ network, usdtAmount, inrAmount, rate, onClose, o
       ]);
 
       if (profileRes.status === 401) { setStep('notLoggedIn'); return; }
-      const profile = await profileRes.json();
+      const profileJson = await profileRes.json();
+      const profile = profileJson?.data ?? profileJson;
       const wallets = walletRes.ok ? (await walletRes.json()).data ?? [] : [];
 
       const phoneVerified = profile?.phoneVerified ?? false;
@@ -328,11 +335,21 @@ export function SellFlowModal({ network, usdtAmount, inrAmount, rate, onClose, o
   function resetRecaptcha() {
     try { recaptchaRef.current?.clear(); } catch {}
     recaptchaRef.current = null;
+    /* Remove and recreate the anchor so Firebase gets a fresh DOM node */
+    const old = document.getElementById('sf-recaptcha');
+    if (old) {
+      const fresh = document.createElement('div');
+      fresh.id = 'sf-recaptcha';
+      old.parentNode?.replaceChild(fresh, old);
+    }
   }
 
-  function initRecaptcha() {
-    resetRecaptcha();
-    recaptchaRef.current = new RecaptchaVerifier(firebaseAuth, 'sf-recaptcha', { size: 'invisible' });
+  async function getVerifier(): Promise<RecaptchaVerifier> {
+    if (!recaptchaRef.current) {
+      recaptchaRef.current = new RecaptchaVerifier(firebaseAuth, 'sf-recaptcha', { size: 'invisible' });
+      await recaptchaRef.current.render();
+    }
+    return recaptchaRef.current;
   }
 
   async function sendOtp() {
@@ -340,17 +357,26 @@ export function SellFlowModal({ network, usdtAmount, inrAmount, rate, onClose, o
     if (digits.length !== 10) { setError('Enter a valid 10-digit Indian mobile number'); return; }
     setError(''); setLoading(true);
     try {
-      initRecaptcha();
-      const res = await signInWithPhoneNumber(firebaseAuth, `+91${digits}`, recaptchaRef.current!);
+      const verifier = await getVerifier();
+      const res = await signInWithPhoneNumber(firebaseAuth, `+91${digits}`, verifier);
       confirmRef.current = res;
       setStep('phoneOtp');
       setOtpCountdown(30);
     } catch (e: any) {
-      resetRecaptcha();
+      resetRecaptcha(); /* clear so next attempt gets a fresh verifier */
+      /* ── DEBUG: open browser console (F12) to see full error ── */
+      console.error('[SwapINR OTP] sendOtp failed:', {
+        code:    e?.code,
+        message: e?.message,
+        full:    e,
+        firebaseApp: firebaseAuth?.app?.options,
+      });
       const code: string = e?.code ?? '';
       const msg: string  = e?.message ?? '';
       if (code === 'auth/unauthorized-domain' || msg.includes('unauthorized-domain')) {
-        setError('This domain is not authorised for Firebase phone auth. Add it in Firebase Console → Authentication → Authorized domains.');
+        setError('Domain not authorised. Add this site in Firebase Console → Authentication → Authorized domains.');
+      } else if (code === 'auth/operation-not-allowed' || msg.includes('operation-not-allowed')) {
+        setError(`[auth/operation-not-allowed] Phone provider not fully enabled. Open browser console (F12) for full details.`);
       } else if (code === 'auth/too-many-requests' || msg.includes('too-many-requests')) {
         setError('Too many attempts. Please wait a few minutes and try again.');
       } else if (code === 'auth/invalid-phone-number' || msg.includes('invalid-phone-number')) {
@@ -358,7 +384,7 @@ export function SellFlowModal({ network, usdtAmount, inrAmount, rate, onClose, o
       } else if (code === 'auth/captcha-check-failed' || msg.includes('reCAPTCHA')) {
         setError('reCAPTCHA check failed. Please refresh the page and try again.');
       } else {
-        setError(`Failed to send OTP (${code || 'unknown error'}). Try again or contact support.`);
+        setError(`Failed to send OTP [${code || 'unknown'}] — see browser console (F12) for details.`);
       }
     } finally { setLoading(false); }
   }
@@ -421,6 +447,8 @@ export function SellFlowModal({ network, usdtAmount, inrAmount, rate, onClose, o
     if (payMethod === 'IMPS' && bankPhone.replace(/\D/g,'').length !== 10) return 'Enter registered mobile number for IMPS';
     return null;
   }
+
+  const inrValue = parseFloat(inrAmount.replace(/,/g, '')) || 0;
 
   function handlePayMethodSelect(m: PayMethod) {
     setPayMethod(m);
@@ -685,44 +713,67 @@ export function SellFlowModal({ network, usdtAmount, inrAmount, rate, onClose, o
         {orderStrip()}
         {errorBanner()}
 
+        {/* UPI limit warning */}
+        {inrValue > 95000 && (
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '10px 14px', background: 'rgba(251,191,36,0.07)', border: '1px solid rgba(251,191,36,0.22)', borderRadius: 10, marginBottom: 10 }}>
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style={{ flexShrink: 0, marginTop: 1 }}><path d="M8 3V8M8 10.5V11" stroke="#FBBF24" strokeWidth="1.6" strokeLinecap="round"/><circle cx="8" cy="8" r="6.5" stroke="#FBBF24" strokeWidth="1.3"/></svg>
+            <p style={{ fontSize: 12, color: '#FBBF24', margin: 0, lineHeight: 1.55 }}>
+              UPI is not available for amounts above ₹95,000. Please use IMPS, RTGS, or NEFT for this transaction.
+            </p>
+          </div>
+        )}
+
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {PAY_METHODS.map(m => (
-            <button
-              key={m.id}
-              onClick={() => handlePayMethodSelect(m.id)}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 14, padding: '14px 16px',
-                background: payMethod === m.id ? 'rgba(204,255,0,0.06)' : C.faint,
-                border: `1px solid ${payMethod === m.id ? 'rgba(204,255,0,0.25)' : C.border}`,
-                borderRadius: 12, cursor: 'pointer', textAlign: 'left', transition: 'all 0.15s',
-              }}
-            >
-              <div style={{
-                width: 38, height: 38, borderRadius: 10, flexShrink: 0,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                background: m.gold ? 'rgba(251,191,36,0.1)' : payMethod === m.id ? 'rgba(204,255,0,0.1)' : 'rgba(255,255,255,0.06)',
-                border: `1px solid ${m.gold ? 'rgba(251,191,36,0.2)' : payMethod === m.id ? 'rgba(204,255,0,0.2)' : C.border}`,
-                color: m.gold ? C.gold : payMethod === m.id ? C.lime : C.sub,
-              }}>
-                {m.icon === 'upi'  ? <IcoUpi />  : m.icon === 'bank' ? <IcoBank /> :
-                 m.icon === 'cdm'  ? <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><rect x="1.5" y="4" width="15" height="10" rx="2" stroke="currentColor" strokeWidth="1.3"/><path d="M5 10V8M7.5 10V7M10 10V9M12.5 10V7.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>
-                 : <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><rect x="2" y="5" width="14" height="10" rx="2" stroke="currentColor" strokeWidth="1.3"/><path d="M5 9H13M5 12H9" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/><path d="M6 5V3.5C6 2.7 6.7 2 7.5 2H10.5C11.3 2 12 2.7 12 3.5V5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/></svg>}
-              </div>
-              <div style={{ flex: 1 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span style={{ fontSize: 14, fontWeight: 800, color: C.text }}>{m.label}</span>
-                  {m.gold && (
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 9, fontWeight: 800, color: C.gold, background: 'rgba(251,191,36,0.1)', border: '1px solid rgba(251,191,36,0.25)', borderRadius: 99, padding: '2px 7px', letterSpacing: '0.05em' }}>
-                      ★ GOLD
-                    </span>
-                  )}
+          {PAY_METHODS.map(m => {
+            const upiLimited = m.id === 'UPI' && inrValue > 95000;
+            const disabled   = upiLimited;
+            return (
+              <button
+                key={m.id}
+                onClick={() => !disabled && handlePayMethodSelect(m.id)}
+                disabled={disabled}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 14, padding: '14px 16px',
+                  background: disabled ? 'rgba(255,255,255,0.02)' : payMethod === m.id ? 'rgba(204,255,0,0.06)' : C.faint,
+                  border: `1px solid ${disabled ? 'rgba(255,255,255,0.04)' : payMethod === m.id ? 'rgba(204,255,0,0.25)' : C.border}`,
+                  borderRadius: 12, cursor: disabled ? 'not-allowed' : 'pointer', textAlign: 'left', transition: 'all 0.15s',
+                  opacity: disabled ? 0.45 : 1,
+                }}
+              >
+                <div style={{
+                  width: 38, height: 38, borderRadius: 10, flexShrink: 0,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  background: m.gold ? 'rgba(255,210,0,0.1)' : payMethod === m.id ? 'rgba(204,255,0,0.1)' : 'rgba(255,255,255,0.06)',
+                  border: `1px solid ${m.gold ? 'rgba(255,210,0,0.25)' : payMethod === m.id ? 'rgba(204,255,0,0.2)' : C.border}`,
+                  color: m.gold ? '#FFD700' : payMethod === m.id ? C.lime : C.sub,
+                }}>
+                  {m.icon === 'upi'  ? <IcoUpi />  : m.icon === 'bank' ? <IcoBank /> :
+                   m.icon === 'cdm'  ? <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><rect x="1.5" y="4" width="15" height="10" rx="2" stroke="currentColor" strokeWidth="1.3"/><path d="M5 10V8M7.5 10V7M10 10V9M12.5 10V7.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>
+                   : <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><rect x="2" y="5" width="14" height="10" rx="2" stroke="currentColor" strokeWidth="1.3"/><path d="M5 9H13M5 12H9" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/><path d="M6 5V3.5C6 2.7 6.7 2 7.5 2H10.5C11.3 2 12 2.7 12 3.5V5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/></svg>}
                 </div>
-                <span style={{ fontSize: 11, color: C.dim }}>{m.desc}</span>
-              </div>
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M4 7H10M7 4L10 7L7 10" stroke={C.dim} strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/></svg>
-            </button>
-          ))}
+                <div style={{ flex: 1 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ fontSize: 14, fontWeight: 800, color: disabled ? C.dim : C.text }}>{m.label}</span>
+                    {m.gold && (
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 9, fontWeight: 900, color: '#000', background: 'linear-gradient(270deg,#FFD700,#FFF176 50%,#FFB800)', borderRadius: 99, padding: '2px 7px', letterSpacing: '0.08em', animation: 'pro-shimmer 6s linear infinite', backgroundSize: '300% 100%' }}>
+                        ★ PRO
+                      </span>
+                    )}
+                    {upiLimited && (
+                      <span style={{ fontSize: 9, fontWeight: 700, color: '#FBBF24', background: 'rgba(251,191,36,0.1)', border: '1px solid rgba(251,191,36,0.25)', borderRadius: 99, padding: '2px 7px' }}>
+                        ₹95K limit
+                      </span>
+                    )}
+                  </div>
+                  <span style={{ fontSize: 11, color: C.dim }}>{m.desc}</span>
+                </div>
+                {!disabled && <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M4 7H10M7 4L10 7L7 10" stroke={C.dim} strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                {disabled && <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="4" y="7" width="8" height="7" rx="1.5" stroke={C.dim} strokeWidth="1.3"/><path d="M5.5 7V5.5C5.5 3.6 10.5 3.6 10.5 5.5V7" stroke={C.dim} strokeWidth="1.3" strokeLinecap="round"/></svg>}
+              </button>
+            );
+          })}
         </div>
+        <style>{`@keyframes pro-shimmer{0%{background-position:-200% center}100%{background-position:200% center}}`}</style>
       </>
     );
   }
@@ -832,7 +883,7 @@ export function SellFlowModal({ network, usdtAmount, inrAmount, rate, onClose, o
   function renderGoldOnly() {
     return (
       <>
-        {header('Gold Members Only', undefined, () => { setStep('payMethod'); setError(''); }, 2)}
+        {header('PRO Members Only', undefined, () => { setStep('payMethod'); setError(''); }, 2)}
         {orderStrip()}
 
         <div style={{ textAlign: 'center', padding: '10px 0 24px' }}>
@@ -840,19 +891,19 @@ export function SellFlowModal({ network, usdtAmount, inrAmount, rate, onClose, o
             <IcoCrown />
           </div>
           <p style={{ fontSize: 15, fontWeight: 900, color: C.text, margin: '0 0 10px' }}>
-            {payMethod === 'CDM' ? 'Cash Deposit Machine' : 'Physical Cash'} is a Gold Feature
+            {payMethod === 'CDM' ? 'Cash Deposit Machine' : 'Physical Cash'} is a PRO Feature
           </p>
           <p style={{ fontSize: 13, color: C.sub, margin: '0 0 20px', lineHeight: 1.7 }}>
             {payMethod === 'CDM'
-              ? 'CDM deposits are available for Gold members who have completed enhanced KYC and maintain higher trading volumes.'
-              : 'Physical cash handovers are managed by our Gold relationship team and require an in-person appointment.'}
+              ? 'CDM deposits are available for PRO members who have completed enhanced KYC and maintain higher trading volumes.'
+              : 'Physical cash handovers are managed by our PRO relationship team and require an in-person appointment.'}
           </p>
 
-          <div style={{ background: 'rgba(251,191,36,0.06)', border: '1px solid rgba(251,191,36,0.18)', borderRadius: 12, padding: '14px 16px', marginBottom: 20, textAlign: 'left' }}>
-            <p style={{ fontSize: 12, fontWeight: 800, color: C.gold, margin: '0 0 8px' }}>✦ Gold membership includes</p>
-            {['CDM & Cash deposit options', 'Priority settlement (under 5 min)', 'Dedicated relationship manager', 'Higher trading limits'].map(f => (
+          <div style={{ background: 'rgba(255,210,0,0.06)', border: '1px solid rgba(255,210,0,0.2)', borderRadius: 12, padding: '14px 16px', marginBottom: 20, textAlign: 'left' }}>
+            <p style={{ fontSize: 12, fontWeight: 800, color: '#FFD700', margin: '0 0 8px' }}>✦ PRO membership includes</p>
+            {['CDM & Cash deposit options', 'Priority settlement (under 5 min)', 'Dedicated relationship manager', 'Higher trading limits & better rates'].map(f => (
               <div key={f} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 5 }}>
-                <IcoCheck size={12} color={C.gold} />
+                <IcoCheck size={12} color="#FFD700" />
                 <span style={{ fontSize: 12, color: C.sub }}>{f}</span>
               </div>
             ))}
@@ -862,14 +913,14 @@ export function SellFlowModal({ network, usdtAmount, inrAmount, rate, onClose, o
             href={SUPPORT_URL}
             target="_blank"
             rel="noopener noreferrer"
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '11px 22px', borderRadius: 11, background: C.gold, color: '#000', fontSize: 14, fontWeight: 800, textDecoration: 'none', marginBottom: 12 }}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '11px 22px', borderRadius: 11, background: 'linear-gradient(135deg,#FFD700,#FFB800)', color: '#000', fontSize: 14, fontWeight: 800, textDecoration: 'none', marginBottom: 12, boxShadow: '0 4px 20px rgba(255,200,0,0.3)' }}
           >
-            <IcoSupport /> Upgrade to Gold
+            <IcoSupport /> Upgrade to PRO
           </a>
 
           <br />
           <button onClick={() => setStep('payMethod')} style={{ fontSize: 13, color: C.sub, background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600 }}>
-            ← Choose another payment method
+            ← Choose a different payment method
           </button>
         </div>
       </>

@@ -257,8 +257,10 @@ export function ProfileContent({ user: initialUser }: { user: { name: string; em
 
       {/* Toast */}
       {toast && (
-        <div style={{ position: 'fixed', bottom: 80, left: '50%', transform: 'translateX(-50%)', zIndex: 9999, background: '#00E5A0', color: '#000', fontSize: 13, fontWeight: 700, padding: '10px 20px', borderRadius: 10, boxShadow: '0 8px 24px rgba(0,229,160,0.3)', animation: 'fadein 0.2s ease' }}>
-          ✓ {toast}
+        <div style={{ position: 'fixed', bottom: 80, left: '50%', transform: 'translateX(-50%)', zIndex: 9999, display: 'flex', alignItems: 'center', gap: 10, background: 'rgba(10,14,10,0.97)', border: '1px solid rgba(0,229,160,0.28)', color: '#fff', fontSize: 13, fontWeight: 600, padding: '11px 16px', borderRadius: 12, boxShadow: '0 8px 32px rgba(0,0,0,0.6), 0 0 0 1px rgba(0,229,160,0.1)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', whiteSpace: 'nowrap', animation: 'fadein 0.2s ease' }}>
+          <div style={{ width: 3, height: 28, borderRadius: 99, background: '#00E5A0', flexShrink: 0 }} />
+          <svg width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M2 7.5L6 11.5L13 4" stroke="#00E5A0" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+          {toast}
         </div>
       )}
 

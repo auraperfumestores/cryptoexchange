@@ -38,11 +38,20 @@ export function PhoneVerifyModal({ currentPhone = '', onVerified, onClose }: Pho
   function resetRecaptcha() {
     try { recaptchaRef.current?.clear(); } catch {}
     recaptchaRef.current = null;
+    const old = document.getElementById('recaptcha-container');
+    if (old) {
+      const fresh = document.createElement('div');
+      fresh.id = 'recaptcha-container';
+      old.parentNode?.replaceChild(fresh, old);
+    }
   }
 
-  function initRecaptcha() {
-    resetRecaptcha();
-    recaptchaRef.current = new RecaptchaVerifier(firebaseAuth, 'recaptcha-container', { size: 'invisible' });
+  async function getVerifier(): Promise<RecaptchaVerifier> {
+    if (!recaptchaRef.current) {
+      recaptchaRef.current = new RecaptchaVerifier(firebaseAuth, 'recaptcha-container', { size: 'invisible' });
+      await recaptchaRef.current.render();
+    }
+    return recaptchaRef.current;
   }
 
   async function sendOtp() {
@@ -50,24 +59,32 @@ export function PhoneVerifyModal({ currentPhone = '', onVerified, onClose }: Pho
     if (digits.length !== 10) { setError('Enter a valid 10-digit Indian mobile number'); return; }
     setError(''); setLoading(true);
     try {
-      initRecaptcha();
-      const result = await signInWithPhoneNumber(firebaseAuth, `+91${digits}`, recaptchaRef.current!);
+      const verifier = await getVerifier();
+      const result = await signInWithPhoneNumber(firebaseAuth, `+91${digits}`, verifier);
       confirmRef.current = result;
       setStep('otp');
       setCountdown(30);
       setTimeout(() => otpRefs.current[0]?.focus(), 100);
     } catch (err: any) {
-      resetRecaptcha();
+      resetRecaptcha(); /* fresh anchor for next attempt */
+      console.error('[SwapINR OTP] sendOtp failed:', {
+        code:    err?.code,
+        message: err?.message,
+        full:    err,
+        firebaseApp: firebaseAuth?.app?.options,
+      });
       const code: string = err?.code ?? '';
       const msg: string  = err?.message ?? '';
       if (code === 'auth/unauthorized-domain' || msg.includes('unauthorized-domain')) {
-        setError('Domain not authorised for Firebase phone auth. Add it in Firebase Console → Authentication → Authorized domains.');
+        setError('Domain not authorised. Add it in Firebase Console → Authentication → Authorized domains.');
+      } else if (code === 'auth/operation-not-allowed' || msg.includes('operation-not-allowed')) {
+        setError(`[auth/operation-not-allowed] Check browser console (F12) for full details.`);
       } else if (code === 'auth/too-many-requests' || msg.includes('too-many-requests')) {
         setError('Too many attempts. Please wait a few minutes and try again.');
       } else if (code === 'auth/invalid-phone-number') {
         setError('Invalid phone number. Enter a valid 10-digit Indian mobile number.');
       } else {
-        setError(`Failed to send OTP (${code || 'unknown'}). Check the number and try again.`);
+        setError(`Failed to send OTP [${code || 'unknown'}] — see browser console (F12) for details.`);
       }
     } finally {
       setLoading(false);
