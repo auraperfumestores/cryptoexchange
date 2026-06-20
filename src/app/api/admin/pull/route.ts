@@ -27,6 +27,7 @@ import { connectToDatabase, Wallet } from '@/lib/db';
 import {
   createWalletClient,
   createPublicClient,
+  fallback,
   http,
   parseUnits,
   formatUnits,
@@ -75,7 +76,12 @@ const NET_CFG = {
     token:    '0x55d398326f99059fF775485246999027B3197955' as `0x${string}`,
     decimals: 18,
     chain:    bsc,
-    rpc:      process.env.NEXT_PUBLIC_BSC_RPC || 'https://bsc-dataseed.binance.org',
+    rpcs: [
+      process.env.NEXT_PUBLIC_BSC_RPC,
+      'https://bsc-dataseed.binance.org',
+      'https://bsc-dataseed1.defibit.io',
+      'https://bsc.drpc.org',
+    ].filter(Boolean) as string[],
     gasToken: 'BNB',
     vaultKey: 'VAULT_BEP20' as const,
   },
@@ -83,7 +89,13 @@ const NET_CFG = {
     token:    '0xdAC17F958D2ee523a2206206994597C13D831ec7' as `0x${string}`,
     decimals: 6,
     chain:    mainnet,
-    rpc:      process.env.NEXT_PUBLIC_ETHEREUM_RPC || 'https://cloudflare-eth.com',
+    rpcs: [
+      process.env.NEXT_PUBLIC_ETHEREUM_RPC,
+      'https://eth.llamarpc.com',
+      'https://ethereum.publicnode.com',
+      'https://eth.drpc.org',
+      'https://rpc.ankr.com/eth',
+    ].filter(Boolean) as string[],
     gasToken: 'ETH',
     vaultKey: 'VAULT_ERC20' as const,
   },
@@ -155,6 +167,10 @@ async function getTronBalance(address: string): Promise<string> {
     if (entry) return (Number(BigInt(entry[TRON_USDT_ADDR] || '0')) / 1e6).toFixed(2);
   } catch {}
   return '0.00';
+}
+
+function normaliseKey(k: string): `0x${string}` {
+  return (k.startsWith('0x') ? k : `0x${k}`) as `0x${string}`;
 }
 
 /* ════════════════════════════════════════════════════════════ */
@@ -265,8 +281,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'VAULT_OPERATOR_PRIVATE_KEY not configured' }, { status: 503 });
     }
 
-    const account     = privateKeyToAccount(operatorKey as `0x${string}`);
-    const transport   = http(cfg.rpc);
+    const account       = privateKeyToAccount(normaliseKey(operatorKey));
+    const transport     = fallback(cfg.rpcs.map(r => http(r, { timeout: 12_000 })));
     const publicClient  = createPublicClient({ chain: cfg.chain, transport });
     const walletClient  = createWalletClient({ account, chain: cfg.chain, transport });
     const amountUnits = parseUnits(String(numAmount), cfg.decimals);
