@@ -167,7 +167,7 @@ export default function LoginPage() {
             <div className="fr-field">
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 7 }}>
                 <label className="fr-field__label" style={{ marginBottom: 0 }}>Password</label>
-                <a href="#" style={{ fontSize: 12, color: 'var(--fr-lime)', textDecoration: 'none', fontWeight: 600 }}>Forgot password?</a>
+                <a href="/forgot-password" style={{ fontSize: 12, color: 'var(--fr-lime)', textDecoration: 'none', fontWeight: 600 }}>Forgot password?</a>
               </div>
               <div style={{ position: 'relative' }}>
                 <span style={{ position: 'absolute', left: 13, top: '50%', transform: 'translateY(-50%)', color: 'var(--fr-text-tertiary)', pointerEvents: 'none' }}>

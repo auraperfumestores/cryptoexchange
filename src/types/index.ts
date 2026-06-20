@@ -39,6 +39,8 @@ export interface UserDocument {
   name: string;
   email: string;
   phone?: string;
+  username?: string;
+  avatarUrl?: string;
   role: UserRole;
   kycStatus: KycStatus;
   isActive: boolean;
@@ -201,6 +203,9 @@ export interface SessionUser {
   email: string;
   name: string;
   role: UserRole;
+  kycStatus?: KycStatus;
+  username?: string;
+  avatarUrl?: string;
 }
 
 export interface RateDisplay {

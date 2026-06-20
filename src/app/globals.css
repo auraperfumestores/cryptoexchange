@@ -1363,6 +1363,12 @@
   /* spin keyframe for loading spinner */
   @keyframes spin { to { transform: rotate(360deg); } }
 
+  /* floating support button pulse */
+  @keyframes supportPulse {
+    0%, 100% { box-shadow: 0 4px 20px rgba(37,211,102,0.45); }
+    50%       { box-shadow: 0 4px 30px rgba(37,211,102,0.7), 0 0 0 8px rgba(37,211,102,0.1); }
+  }
+
   /* ── Stars (reviews) ── */
   .fr-stars { display: flex; gap: 2px; color: #F59E0B; font-size: 14px; margin-bottom: 10px; }
 

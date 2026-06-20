@@ -8,9 +8,19 @@ export default async function SettingsPage() {
   const session = await getServerSession(authOptions);
   if (!session?.user) redirect('/login');
 
+  const u = session.user as any;
+
   return (
-    <ClientShell user={session.user as any} rates={[]}>
-      <ProfileContent user={session.user as any} />
+    <ClientShell user={u} rates={[]}>
+      <ProfileContent user={{
+        name:          u.name,
+        email:         u.email,
+        role:          u.role,
+        kycStatus:     u.kycStatus ?? 'unverified',
+        username:      u.username ?? '',
+        avatarUrl:     u.avatarUrl ?? '',
+        createdAt:     u.createdAt,
+      }} />
     </ClientShell>
   );
 }

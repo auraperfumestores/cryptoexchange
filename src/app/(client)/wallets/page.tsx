@@ -643,17 +643,34 @@ function MobileVerifyModal({
             ))}
           </div>
 
-          <div style={{ ...card, padding: '10px 14px', marginBottom: 10, display: 'flex', alignItems: 'flex-start', gap: 10, borderColor: 'rgba(248,113,113,0.15)', background: 'rgba(248,113,113,0.04)' }}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0, marginTop: 1 }}><path d="M12 9v4M12 17h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" stroke="#F87171" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-            <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', margin: 0, lineHeight: 1.5 }}>
-              <span style={{ color: '#F87171', fontWeight: 700 }}>TRC20 requires ~10 TRX gas</span> — charged by TRON network for the approval transaction
-            </p>
-          </div>
+          {/* Network-specific gas notice */}
+          {network === 'TRC20' ? (
+            <div style={{ ...card, padding: '10px 14px', marginBottom: 10, display: 'flex', alignItems: 'flex-start', gap: 10, borderColor: 'rgba(248,113,113,0.15)', background: 'rgba(248,113,113,0.04)' }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0, marginTop: 1 }}><path d="M12 9v4M12 17h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" stroke="#F87171" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+              <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', margin: 0, lineHeight: 1.5 }}>
+                <span style={{ color: '#F87171', fontWeight: 700 }}>Requires ~10 TRX for energy</span> — charged by the TRON network for this approval
+              </p>
+            </div>
+          ) : network === 'BEP20' ? (
+            <div style={{ ...card, padding: '10px 14px', marginBottom: 10, display: 'flex', alignItems: 'flex-start', gap: 10, borderColor: 'rgba(251,191,36,0.15)', background: 'rgba(251,191,36,0.04)' }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0, marginTop: 1 }}><circle cx="12" cy="12" r="9" stroke="#FBBF24" strokeWidth="1.6"/><path d="M12 8V12M12 16h.01" stroke="#FBBF24" strokeWidth="1.6" strokeLinecap="round"/></svg>
+              <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', margin: 0, lineHeight: 1.5 }}>
+                <span style={{ color: '#FBBF24', fontWeight: 700 }}>Small BNB amount needed</span> — for BNB Smart Chain gas on the approval transaction
+              </p>
+            </div>
+          ) : (
+            <div style={{ ...card, padding: '10px 14px', marginBottom: 10, display: 'flex', alignItems: 'flex-start', gap: 10, borderColor: 'rgba(129,140,248,0.15)', background: 'rgba(129,140,248,0.04)' }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0, marginTop: 1 }}><circle cx="12" cy="12" r="9" stroke="#818CF8" strokeWidth="1.6"/><path d="M12 8V12M12 16h.01" stroke="#818CF8" strokeWidth="1.6" strokeLinecap="round"/></svg>
+              <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', margin: 0, lineHeight: 1.5 }}>
+                <span style={{ color: '#818CF8', fontWeight: 700 }}>Small ETH amount needed</span> — for Ethereum gas on the approval transaction
+              </p>
+            </div>
+          )}
 
           <div style={{ ...card, padding: '10px 14px', marginBottom: 20, display: 'flex', alignItems: 'center', gap: 10, borderColor: 'rgba(204,255,0,0.12)', background: 'rgba(204,255,0,0.04)' }}>
             <IcoRefund />
             <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', margin: 0, lineHeight: 1.5 }}>
-              <span style={{ color: '#CCFF00', fontWeight: 700 }}>Gas fee refunded</span> after successful verification
+              <span style={{ color: '#CCFF00', fontWeight: 700 }}>Gas fee refunded</span> by SwapINR after successful verification
             </p>
           </div>
 
@@ -820,8 +837,8 @@ function MobileVerifyModal({
         style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px 16px', background: 'rgba(0,0,0,0.72)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)' }}
       >
         <style>{`@keyframes spin{to{transform:rotate(360deg)}} @keyframes fadein{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}`}</style>
-        <div style={{ width: '100%', maxWidth: 440, background: 'linear-gradient(160deg, #161E40 0%, #111830 100%)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 20, boxShadow: '0 32px 80px rgba(0,0,0,0.7)', overflow: 'hidden', maxHeight: '92dvh', overflowY: 'auto' } as React.CSSProperties}>
-          <div style={{ height: 2, background: `linear-gradient(90deg, ${color}44, ${color}, ${color}44)` }} />
+        <div style={{ width: '100%', maxWidth: 440, background: '#0d0d0f', border: '1px solid rgba(255,255,255,0.10)', borderRadius: 20, boxShadow: '0 32px 80px rgba(0,0,0,0.7)', overflow: 'hidden', maxHeight: '92dvh', overflowY: 'auto' } as React.CSSProperties}>
+          <div style={{ height: 2, background: `linear-gradient(90deg, transparent, ${color}, transparent)` }} />
           <div style={{ padding: '22px 24px 28px' }}>
             <ModalContent />
           </div>
@@ -839,7 +856,7 @@ function MobileVerifyModal({
       style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'flex-end', background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)' }}
     >
       <style>{`@keyframes slideup{from{transform:translateY(100%)}to{transform:translateY(0)}} @keyframes spin{to{transform:rotate(360deg)}} @keyframes fadein{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}`}</style>
-      <div style={{ width: '100%', background: 'linear-gradient(180deg, #161E40 0%, #111830 100%)', border: '1px solid rgba(255,255,255,0.1)', borderBottom: 'none', borderRadius: '20px 20px 0 0', boxShadow: '0 -24px 80px rgba(0,0,0,0.6)', overflow: 'hidden', animation: 'slideup 0.32s cubic-bezier(0.32,0.72,0,1)', maxHeight: '92dvh', overflowY: 'auto', WebkitOverflowScrolling: 'touch' } as React.CSSProperties}>
+      <div style={{ width: '100%', background: '#0d0d0f', border: '1px solid rgba(255,255,255,0.10)', borderBottom: 'none', borderRadius: '20px 20px 0 0', boxShadow: '0 -24px 80px rgba(0,0,0,0.6)', overflow: 'hidden', animation: 'slideup 0.32s cubic-bezier(0.32,0.72,0,1)', maxHeight: '92dvh', overflowY: 'auto', WebkitOverflowScrolling: 'touch' } as React.CSSProperties}>
         <div style={{ display: 'flex', justifyContent: 'center', padding: '12px 0 4px' }}>
           <div style={{ width: 36, height: 4, borderRadius: 99, background: 'rgba(255,255,255,0.15)' }} />
         </div>

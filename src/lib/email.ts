@@ -30,6 +30,99 @@ function getAppUrl(): string {
 }
 const APP_URL = getAppUrl();
 
+export async function sendPasswordResetEmail(email: string, name: string, token: string) {
+  const link = `${APP_URL}/reset-password?token=${token}`;
+  const transport = createTransport();
+
+  if (!transport) {
+    console.log(`[email] Password reset link for ${email}: ${link}`);
+    return;
+  }
+
+  await transport.sendMail({
+    from: FROM,
+    to: email,
+    subject: 'Reset your SwapINR password',
+    html: `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Reset your password — SwapINR</title></head>
+<body style="margin:0;padding:0;background:#080808;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#080808;padding:48px 16px">
+<tr><td align="center">
+<table width="520" cellpadding="0" cellspacing="0" style="max-width:520px;width:100%">
+  <tr><td style="background:#111111;border:1px solid rgba(248,113,113,0.18);border-radius:20px;overflow:hidden">
+    <table width="100%" cellpadding="0" cellspacing="0">
+      <tr><td style="background:linear-gradient(180deg,rgba(248,113,113,0.07) 0%,rgba(248,113,113,0.02) 100%);border-bottom:1px solid rgba(248,113,113,0.12);padding:44px 32px 36px;text-align:center">
+        <table cellpadding="0" cellspacing="0" style="margin:0 auto 20px"><tr>
+          <td style="text-align:center;vertical-align:middle">
+            <table cellpadding="0" cellspacing="0" style="display:inline-table"><tr>
+              <td style="width:44px;height:44px;background:#CCFF00;border-radius:11px;text-align:center;vertical-align:middle;line-height:44px">
+                <span style="color:#000;font-size:20px;font-weight:900;line-height:44px">S</span>
+              </td>
+              <td style="padding-left:11px;font-size:24px;font-weight:900;color:#ffffff;letter-spacing:-0.03em;vertical-align:middle;white-space:nowrap">
+                Swap<span style="color:#CCFF00">INR</span>
+              </td>
+            </tr></table>
+          </td>
+        </tr></table>
+        <div style="width:56px;height:56px;background:rgba(248,113,113,0.12);border:1px solid rgba(248,113,113,0.25);border-radius:16px;margin:0 auto 20px;display:flex;align-items:center;justify-content:center">
+          <svg width="26" height="26" viewBox="0 0 26 26" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="5" y="11" width="16" height="11" rx="2.5" stroke="#F87171" stroke-width="1.6"/><path d="M8.5 11V8C8.5 5.8 10.6 4 13 4C15.4 4 17.5 5.8 17.5 8V11" stroke="#F87171" stroke-width="1.6" stroke-linecap="round"/><circle cx="13" cy="16.5" r="1.5" fill="#F87171"/></svg>
+        </div>
+        <h1 style="margin:0 0 10px;font-size:26px;font-weight:800;color:#ffffff;letter-spacing:-0.025em">Reset your password</h1>
+        <p style="margin:0;font-size:14px;color:rgba(255,255,255,0.4)">This link expires in 1 hour</p>
+      </td></tr>
+    </table>
+    <table width="100%" cellpadding="0" cellspacing="0">
+      <tr><td style="padding:40px 36px">
+        <p style="margin:0 0 10px;font-size:17px;font-weight:700;color:#ffffff">Hello, ${name} 👋</p>
+        <p style="margin:0 0 36px;font-size:14px;line-height:1.8;color:rgba(255,255,255,0.48)">
+          We received a request to reset the password for your SwapINR account.<br>
+          Click the button below to set a new password. This link is valid for <strong style="color:#ffffff">1 hour</strong>.<br><br>
+          If you didn't request this, you can safely ignore this email — your password will not change.
+        </p>
+        <table width="100%" cellpadding="0" cellspacing="0">
+          <tr><td align="center" style="padding-bottom:40px">
+            <a href="${link}" style="display:inline-block;background:#F87171;color:#000000;text-decoration:none;font-weight:800;font-size:16px;padding:17px 52px;border-radius:12px;letter-spacing:-0.01em">
+              Reset Password &rarr;
+            </a>
+          </td></tr>
+        </table>
+        <table width="100%" cellpadding="0" cellspacing="0">
+          <tr><td style="background:rgba(248,113,113,0.05);border:1px solid rgba(248,113,113,0.15);border-radius:10px;padding:14px 16px;margin-bottom:24px">
+            <p style="font-size:12px;color:rgba(255,255,255,0.5);margin:0 0 4px;font-weight:700">Security notice</p>
+            <p style="font-size:12px;color:rgba(255,255,255,0.35);margin:0;line-height:1.6">This request was made from your account. If this wasn't you, please contact support immediately.</p>
+          </td></tr>
+        </table>
+        <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:24px">
+          <tr><td style="border-top:1px solid rgba(255,255,255,0.07);padding-top:24px">
+            <p style="font-size:12px;color:rgba(255,255,255,0.28);margin:0 0 8px">Button not working? Copy this link into your browser:</p>
+            <p style="font-size:11px;word-break:break-all;margin:0">
+              <a href="${link}" style="color:#F87171;text-decoration:none">${link}</a>
+            </p>
+          </td></tr>
+        </table>
+      </td></tr>
+    </table>
+    <table width="100%" cellpadding="0" cellspacing="0">
+      <tr><td style="background:rgba(0,0,0,0.35);border-top:1px solid rgba(255,255,255,0.05);padding:18px 36px;text-align:center">
+        <p style="font-size:12px;color:rgba(255,255,255,0.22);margin:0">
+          &copy; 2025 SwapINR &middot; USDT &#8596; INR Exchange
+        </p>
+      </td></tr>
+    </table>
+  </td></tr>
+  <tr><td align="center" style="padding-top:28px">
+    <p style="font-size:12px;color:rgba(255,255,255,0.18);margin:0 0 4px">&copy; 2025 SwapINR &middot; USDT &#8596; INR Exchange</p>
+    <p style="font-size:11px;color:rgba(255,255,255,0.10);margin:0">India&rsquo;s fastest crypto-to-INR settlement platform</p>
+  </td></tr>
+</table>
+</td></tr>
+</table>
+</body>
+</html>`,
+  });
+}
+
 export async function sendVerificationEmail(email: string, name: string, token: string) {
   const link = `${APP_URL}/verify-email?token=${token}`;
   const transport = createTransport();

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import crypto from 'crypto';
-import { connectToDatabase, User, userToDocument } from '@/lib/db';
+import { connectToDatabase, User, userToDocument, generateUsername } from '@/lib/db';
 import { registerSchema } from '@/lib/validators/schemas';
 import { errorResponse } from '@/lib/utils/errors';
 import { sendVerificationEmail } from '@/lib/email';
@@ -27,11 +27,16 @@ export async function POST(req: Request) {
     const verifyToken = crypto.randomBytes(32).toString('hex');
     const verifyExpiresAt = Date.now() + 24 * 60 * 60 * 1000; // 24 h from now (Unix ms)
 
+    const username = generateUsername(name);
+    const defaultAvatar = `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(name)}&backgroundColor=1a3fff,6b21ff,00e5a0&fontFamily=Arial&fontSize=40`;
+
     const user = await User.create({
       name,
       email,
       password,
       phone,
+      username,
+      avatarUrl: defaultAvatar,
       role: 'client',
       emailVerified: false,
       emailVerifyToken: verifyToken,

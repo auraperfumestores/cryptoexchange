@@ -14,6 +14,9 @@ declare module 'next-auth' {
     name: string;
     email: string;
     role: 'client' | 'admin';
+    kycStatus?: string;
+    username?: string;
+    avatarUrl?: string;
   }
 }
 
@@ -21,6 +24,9 @@ declare module 'next-auth/jwt' {
   interface JWT {
     id: string;
     role: 'client' | 'admin';
+    kycStatus?: string;
+    username?: string;
+    avatarUrl?: string;
   }
 }
 
@@ -58,6 +64,9 @@ export const authOptions: NextAuthOptions = {
           name: user.name,
           email: user.email,
           role: user.role as 'client' | 'admin',
+          kycStatus: user.kycStatus,
+          username: user.username,
+          avatarUrl: user.avatarUrl,
         };
       },
     }),
@@ -65,15 +74,21 @@ export const authOptions: NextAuthOptions = {
   callbacks: {
     async jwt({ token, user }): Promise<JWT> {
       if (user) {
-        token.id = user.id;
+        token.id   = user.id;
         token.role = user.role;
+        token.kycStatus = user.kycStatus;
+        token.username  = user.username;
+        token.avatarUrl = user.avatarUrl;
       }
       return token;
     },
     async session({ session, token }): Promise<Session> {
       if (session.user) {
-        session.user.id = token.id;
-        session.user.role = token.role;
+        session.user.id        = token.id;
+        session.user.role      = token.role;
+        session.user.kycStatus = token.kycStatus as any;
+        session.user.username  = token.username;
+        session.user.avatarUrl = token.avatarUrl;
       }
       return session;
     },

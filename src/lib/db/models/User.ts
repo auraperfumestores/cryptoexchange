@@ -7,12 +7,16 @@ export interface UserAttrs {
   email: string;
   password?: string;
   phone?: string;
+  username?: string;
+  avatarUrl?: string;
   role?: UserRole;
   kycStatus?: KycStatus;
   isActive?: boolean;
   emailVerified?: boolean;
   emailVerifyToken?: string;
   emailVerifyExpiresAt?: number;
+  passwordResetToken?: string;
+  passwordResetExpiresAt?: number;
 }
 
 const UserSchema = new Schema<UserAttrs>(
@@ -28,6 +32,8 @@ const UserSchema = new Schema<UserAttrs>(
     },
     password: { type: String, required: true, select: false, minlength: 8 },
     phone: { type: String, trim: true, default: '' },
+    username: { type: String, trim: true, maxlength: 30, sparse: true },
+    avatarUrl: { type: String, default: '' },
     role: { type: String, enum: ['client', 'admin'], default: 'client', index: true },
     kycStatus: {
       type: String,
@@ -38,6 +44,8 @@ const UserSchema = new Schema<UserAttrs>(
     emailVerified: { type: Boolean, default: false },
     emailVerifyToken: { type: String, select: false },
     emailVerifyExpiresAt: { type: Number, select: false },
+    passwordResetToken: { type: String, select: false },
+    passwordResetExpiresAt: { type: Number, select: false },
   },
   { timestamps: true },
 );
@@ -62,6 +70,8 @@ export function userToDocument(doc: any): UserDocument {
     name: doc.name,
     email: doc.email,
     phone: doc.phone,
+    username: doc.username,
+    avatarUrl: doc.avatarUrl,
     role: doc.role,
     kycStatus: doc.kycStatus,
     isActive: doc.isActive,
@@ -69,4 +79,10 @@ export function userToDocument(doc: any): UserDocument {
     createdAt: (doc.createdAt instanceof Date ? doc.createdAt : new Date(doc.createdAt)).toISOString(),
     updatedAt: (doc.updatedAt instanceof Date ? doc.updatedAt : new Date(doc.updatedAt)).toISOString(),
   };
+}
+
+export function generateUsername(name: string): string {
+  const base = name.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 10) || 'trader';
+  const suffix = Math.random().toString(36).slice(2, 6);
+  return `${base}_${suffix}`;
 }

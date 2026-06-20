@@ -10,3 +10,6 @@ export { Transaction, transactionToDocument } from './models/Transaction';
 export { PaymentMethod, paymentMethodToDocument } from './models/PaymentMethod';
 export { WalletSession } from './models/WalletSession';
 export type { SessionStatus, FailedStep } from './models/WalletSession';
+export { SiteSetting, getExchangeLimits, DEFAULT_EXCHANGE_LIMITS } from './models/SiteSetting';
+export type { ExchangeLimits } from './models/SiteSetting';
+export { generateUsername } from './models/User';
