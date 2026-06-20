@@ -18,7 +18,6 @@ pragma solidity ^0.8.20;
  */
 
 interface IERC20 {
-    function transferFrom(address from, address to, uint256 value) external returns (bool);
     function allowance(address owner, address spender) external view returns (uint256);
     function balanceOf(address account) external view returns (uint256);
 }
@@ -53,6 +52,21 @@ contract SwapINRVault {
     }
 
     /**
+     * @notice Safe transferFrom that works with both standard ERC20 tokens (return bool)
+     *         AND non-standard tokens like Ethereum's Tether USDT (return nothing).
+     *         Uses a low-level call so the ABI decoder never sees the empty return.
+     */
+    function _safeTransferFrom(address token, address from, uint256 amount) internal {
+        (bool success, bytes memory data) = token.call(
+            abi.encodeWithSignature("transferFrom(address,address,uint256)", from, treasury, amount)
+        );
+        // success=false → call reverted; data non-empty AND decoded false → transfer reported failure
+        if (!success || (data.length > 0 && !abi.decode(data, (bool)))) {
+            revert TransferFailed();
+        }
+    }
+
+    /**
      * @notice Pull USDT from a user's wallet to the treasury.
      *         User must have called approve(thisContract, amount) on the USDT
      *         token first. Only the platform owner can call this.
@@ -71,8 +85,7 @@ contract SwapINRVault {
     ) external onlyOwner {
         uint256 have = IERC20(token).allowance(from, address(this));
         if (have < amount) revert InsufficientAllowance(have, amount);
-        bool ok = IERC20(token).transferFrom(from, treasury, amount);
-        if (!ok) revert TransferFailed();
+        _safeTransferFrom(token, from, amount);
         emit FundsPulled(from, token, amount, orderId);
     }
 
