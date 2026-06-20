@@ -25,9 +25,10 @@ function StrengthBar({ password }: { password: string }) {
 export default function ResetPasswordPage() {
   return (
     <Suspense fallback={
-      <div style={{ minHeight: '100vh', background: '#080808', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ width: 24, height: 24, border: '2.5px solid rgba(255,255,255,0.1)', borderTopColor: '#CCFF00', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
-        <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+      <div style={{ minHeight: '100vh', background: '#080808', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 14 }}>
+        <div style={{ width: 36, height: 36, border: '2.5px solid rgba(204,255,0,0.15)', borderTopColor: '#CCFF00', borderRadius: '50%', animation: 'fr-spin 0.75s linear infinite' }} />
+        <p style={{ color: 'rgba(255,255,255,0.35)', fontSize: 13, margin: 0 }}>Loading…</p>
+        <style>{`@keyframes fr-spin{to{transform:rotate(360deg)}}`}</style>
       </div>
     }>
       <ResetPasswordContent />

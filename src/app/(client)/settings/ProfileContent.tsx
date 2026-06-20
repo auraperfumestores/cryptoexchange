@@ -150,20 +150,33 @@ function AvatarUpload({ current, name, onSave }: { current: string; name: string
   function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 2 * 1024 * 1024) { alert('Image must be under 2 MB'); return; }
     const reader = new FileReader();
-    reader.onload = async ev => {
-      const url = ev.target?.result as string;
-      setPreview(url);
-      setLoading(true);
-      try {
-        await fetch('/api/user/profile', {
-          method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ avatarUrl: url }),
-        });
-        onSave(url);
-      } catch {}
-      finally { setLoading(false); }
+    reader.onload = ev => {
+      const raw = ev.target?.result as string;
+      // Compress to max 200×200 JPEG before saving (keeps payload under ~30KB)
+      const img = new Image();
+      img.onload = async () => {
+        const MAX = 200;
+        const scale = Math.min(1, MAX / Math.max(img.width, img.height));
+        const w = Math.round(img.width * scale);
+        const h = Math.round(img.height * scale);
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d')!.drawImage(img, 0, 0, w, h);
+        const url = canvas.toDataURL('image/jpeg', 0.82);
+        setPreview(url);
+        setLoading(true);
+        try {
+          const res = await fetch('/api/user/profile', {
+            method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ avatarUrl: url }),
+          });
+          if (!res.ok) throw new Error('Save failed');
+          onSave(url);
+        } catch { alert('Failed to save avatar. Please try again.'); setPreview(current); }
+        finally { setLoading(false); }
+      };
+      img.src = raw;
     };
     reader.readAsDataURL(file);
   }

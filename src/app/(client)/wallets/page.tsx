@@ -994,9 +994,7 @@ export default function WalletsPage() {
             return (
               <div key={key} style={{ ...card }}>
                 <div style={{ padding: '16px 20px', display: 'flex', alignItems: 'center', gap: 14 }}>
-                  <div style={{ width: 44, height: 44, borderRadius: 12, background: bg, border: `1px solid ${border}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                    <span style={{ fontSize: 13, fontWeight: 800, color, letterSpacing: '-0.01em' }}>{key}</span>
-                  </div>
+                  <TokenIcon network={key} size={44} />
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <p style={{ fontSize: 15, fontWeight: 800, color: 'var(--fr-text-primary)', margin: '0 0 2px', letterSpacing: '-0.02em' }}>{label}</p>
                     <p style={{ fontSize: 12, color: 'var(--fr-text-tertiary)', margin: 0 }}>{sublabel}</p>
