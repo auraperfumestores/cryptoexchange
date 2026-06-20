@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { TokenIcon, NetworkIcon } from '@/components/ui/token-icon';
 
 interface AdminRate {
   symbol: string;
@@ -53,19 +54,6 @@ function LiveDot() {
   );
 }
 
-/* ── USDT Icon ── */
-function UsdtIcon({ size=26 }:{ size?:number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 28 28" fill="none">
-      <circle cx="14" cy="14" r="14" fill="#26A17B"/>
-      <rect x="8" y="8" width="12" height="2" rx="1" fill="white"/>
-      <rect x="13" y="10" width="2" height="5" rx="1" fill="white"/>
-      <rect x="9.5" y="16" width="9" height="1.2" rx="0.6" fill="rgba(255,255,255,0.9)"/>
-      <rect x="10.5" y="18" width="7" height="1" rx="0.5" fill="rgba(255,255,255,0.55)"/>
-    </svg>
-  );
-}
-
 /* ── INR Icon ── */
 function InrIcon({ size=26 }:{ size?:number }) {
   return (
@@ -73,36 +61,6 @@ function InrIcon({ size=26 }:{ size?:number }) {
       <circle cx="14" cy="14" r="14" fill="#FF9933"/>
       <path d="M9 9H19M9 12H19M9 9C9 9 9 12 12 15L9 19" stroke="white" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
       <path d="M12 12C12 12 16 12 17.5 13.5C18.8 15 17.5 16.5 16 17L9 19" stroke="white" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
-    </svg>
-  );
-}
-
-/* ── Network Icon ── */
-function NetIcon({ network, size=16 }:{ network:Network; size?:number }) {
-  const col = NET_COLOR[network];
-  if (network === 'BEP20') return (
-    <svg width={size} height={size} viewBox="0 0 18 18" fill="none">
-      <circle cx="9" cy="9" r="9" fill={col}/>
-      <path d="M9 4L11.5 6.5L9 9L6.5 6.5L9 4Z" fill="white"/>
-      <path d="M4.5 9L7 6.5L9 8.5L7 11L4.5 9Z" fill="rgba(255,255,255,0.75)"/>
-      <path d="M13.5 9L11 6.5L9 8.5L11 11L13.5 9Z" fill="rgba(255,255,255,0.75)"/>
-      <path d="M9 14L11.5 11.5L9 9L6.5 11.5L9 14Z" fill="white"/>
-    </svg>
-  );
-  if (network === 'ERC20') return (
-    <svg width={size} height={size} viewBox="0 0 18 18" fill="none">
-      <circle cx="9" cy="9" r="9" fill={col}/>
-      <path d="M9 3.5L13 8.5L9 10.5L5 8.5L9 3.5Z" fill="rgba(255,255,255,0.8)"/>
-      <path d="M9 3.5L13 8.5L9 10.5V3.5Z" fill="rgba(255,255,255,0.2)"/>
-      <path d="M9 11.5L13 9L9 14.5L5 9L9 11.5Z" fill="rgba(255,255,255,0.65)"/>
-      <path d="M9 11.5L13 9L9 14.5V11.5Z" fill="rgba(255,255,255,0.8)"/>
-    </svg>
-  );
-  return (
-    <svg width={size} height={size} viewBox="0 0 18 18" fill="none">
-      <circle cx="9" cy="9" r="9" fill={col}/>
-      <path d="M5 6L14 9L9.5 13.5L5 6Z" fill="rgba(255,255,255,0.85)"/>
-      <path d="M5 6L14 9L12 6.5L5 6Z" fill="rgba(255,255,255,0.4)"/>
     </svg>
   );
 }
@@ -231,7 +189,7 @@ export default function ExchangeWidget() {
             background: FR.dark4, borderRadius:8, padding:'7px 12px', flexShrink:0,
             border:`1px solid ${FR.borderMed}`,
           }}>
-            {mode==='buy' ? <InrIcon size={22}/> : <UsdtIcon size={22}/>}
+            {mode==='buy' ? <InrIcon size={22}/> : <TokenIcon network={network} size={22}/>}
             <span style={{ fontSize:13, fontWeight:800, color:FR.textPri, letterSpacing:'-0.01em' }}>{payCurrency}</span>
             <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
               <path d="M2 3.5L5 6.5L8 3.5" stroke={FR.textTert} strokeWidth="1.4" strokeLinecap="round"/>
@@ -254,7 +212,7 @@ export default function ExchangeWidget() {
                   background: active ? `${col}15` : FR.dark3,
                   fontFamily: FR.sans,
                 }}>
-                  <NetIcon network={n} size={12}/>
+                  <NetworkIcon network={n} size={14}/>
                   <span style={{ fontSize:10, fontWeight:700, color: active ? col : FR.textTert, letterSpacing:'0.04em' }}>{n}</span>
                 </button>
               );
@@ -311,7 +269,7 @@ export default function ExchangeWidget() {
             background:`rgba(204,255,0,0.08)`, border:`1px solid rgba(204,255,0,0.18)`,
             borderRadius:8, padding:'7px 12px', flexShrink:0,
           }}>
-            {mode==='buy' ? <UsdtIcon size={22}/> : <InrIcon size={22}/>}
+            {mode==='buy' ? <TokenIcon network={network} size={22}/> : <InrIcon size={22}/>}
             <div>
               <div style={{ fontSize:13, fontWeight:800, color:FR.lime, lineHeight:1 }}>{recvCurrency}</div>
               {mode==='buy' && (
@@ -336,7 +294,7 @@ export default function ExchangeWidget() {
                   cursor:'pointer', fontFamily:FR.sans,
                 }}>
                   <div style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:4, marginBottom:4 }}>
-                    <NetIcon network={n} size={11}/>
+                    <NetworkIcon network={n} size={14}/>
                     <span style={{ fontSize:8, fontWeight:800, color: active ? col : FR.textTert, letterSpacing:'0.06em', textTransform:'uppercase' }}>{n}</span>
                   </div>
                   <div style={{ fontSize:12, fontWeight:700, color: active ? FR.textPri : FR.textSec, fontFamily:FR.mono, letterSpacing:'-0.02em' }}>

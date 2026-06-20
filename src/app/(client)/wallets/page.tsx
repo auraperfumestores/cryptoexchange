@@ -6,6 +6,7 @@ import { useSession } from 'next-auth/react';
 import { QRCodeSVG } from 'qrcode.react';
 import { toast } from '@/components/ui/toast';
 import { ClientShell } from '@/components/layout/client-shell';
+import { TokenIcon } from '@/components/ui/token-icon';
 import { PageLoading } from '@/components/ui/loading';
 import { shortenAddress } from '@/lib/utils';
 import type { WalletDocument } from '@/types';
@@ -56,38 +57,6 @@ function IcoRefund() {
   return <svg width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M2.5 7.5a5 5 0 1 0 5-5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/><path d="M2.5 5V7.5H5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/><path d="M7.5 5V7.5L9 9" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/></svg>;
 }
 
-function NetworkUsdtIcon({ network, size = 44 }: { network: Network; size?: number }) {
-  const bs = Math.round(size * 0.48);
-  return (
-    <div style={{ position: 'relative', width: size + 4, height: size + 4, flexShrink: 0 }}>
-      <svg width={size} height={size} viewBox="0 0 44 44" fill="none">
-        <circle cx="22" cy="22" r="22" fill="#26A17B"/>
-        <rect x="18" y="13" width="8" height="3" rx="1.5" fill="white"/>
-        <rect x="19.5" y="13" width="5" height="17" rx="1.5" fill="white"/>
-        <rect x="14" y="20" width="16" height="2.5" rx="1.25" fill="rgba(255,255,255,0.75)"/>
-      </svg>
-      <div style={{ position: 'absolute', bottom: 0, right: 0, width: bs, height: bs, borderRadius: '50%', border: '2px solid var(--fr-dark-2)', overflow: 'hidden' }}>
-        {network === 'BEP20' && <svg width={bs} height={bs} viewBox="0 0 22 22" fill="none">
-          <circle cx="11" cy="11" r="11" fill="#F0B90B"/>
-          <path d="M11 5.5L12.5 7L11 8.5L9.5 7Z M8 8L9.5 9.5L8 11L6.5 9.5Z M14 8L15.5 9.5L14 11L12.5 9.5Z M11 11L12.5 12.5L11 14L9.5 12.5Z M11 13.5L12.5 15L11 16.5L9.5 15Z" fill="white"/>
-        </svg>}
-        {network === 'ERC20' && <svg width={bs} height={bs} viewBox="0 0 22 22" fill="none">
-          <circle cx="11" cy="11" r="11" fill="#627EEA"/>
-          <path d="M11 5L7 11L11 13L15 11Z" fill="rgba(255,255,255,0.6)"/>
-          <path d="M11 5L7 11L11 9Z" fill="white"/>
-          <path d="M7 12L11 17L15 12L11 14Z" fill="rgba(255,255,255,0.6)"/>
-          <path d="M7 12L11 14V17Z" fill="white"/>
-        </svg>}
-        {network === 'TRC20' && <svg width={bs} height={bs} viewBox="0 0 22 22" fill="none">
-          <circle cx="11" cy="11" r="11" fill="#EF4444"/>
-          <path d="M11 5L17 9L11 18L5 9Z" fill="rgba(255,255,255,0.2)" stroke="white" strokeWidth="0.8" strokeLinejoin="round"/>
-          <path d="M11 5L17 9L11 18Z" fill="rgba(255,255,255,0.4)"/>
-          <line x1="5" y1="9" x2="17" y2="9" stroke="white" strokeWidth="0.8" opacity="0.6"/>
-        </svg>}
-      </div>
-    </div>
-  );
-}
 
 /* ── Add Funds modal ── */
 function AddFundsModal({
@@ -517,7 +486,7 @@ function MobileVerifyModal({
         <div style={{ animation: 'fadein 0.2s ease-out' }}>
           {/* Header */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 22 }}>
-            <NetworkUsdtIcon network={network} size={44} />
+            <TokenIcon network={network} size={44} />
             <div style={{ flex: 1 }}>
               <p style={{ fontSize: 17, fontWeight: 900, color: '#fff', margin: 0, letterSpacing: '-0.02em' }}>
                 Add {label} Wallet
@@ -613,7 +582,7 @@ function MobileVerifyModal({
         <div style={{ animation: 'fadein 0.2s ease-out' }}>
           {/* Title row */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
-            <NetworkUsdtIcon network={network} size={44} />
+            <TokenIcon network={network} size={44} />
             <div style={{ flex: 1 }}>
               <p style={{ fontSize: 17, fontWeight: 900, color: '#fff', margin: 0, letterSpacing: '-0.02em' }}>
                 Add {label} Wallet
