@@ -231,8 +231,10 @@ function PullPanel({ wallet, network, color }: { wallet: WalletDocument; network
                   <p style={{ fontSize: 13, fontWeight: 800, color: T.text, margin: 0, fontFamily: 'monospace' }}>{estimate.balance} USDT</p>
                 </div>
                 <div>
-                  <p style={{ fontSize: 10, color: T.dim, margin: '0 0 3px', textTransform: 'uppercase' as const, letterSpacing: '0.07em', fontWeight: 700 }}>Available Allowance</p>
-                  <p style={{ fontSize: 13, fontWeight: 800, color: T.green, margin: 0, fontFamily: 'monospace' }}>{estimate.allowance} USDT</p>
+                  <p style={{ fontSize: 10, color: T.dim, margin: '0 0 3px', textTransform: 'uppercase' as const, letterSpacing: '0.07em', fontWeight: 700 }}>Vault Allowance</p>
+                  <p style={{ fontSize: 13, fontWeight: 800, color: T.green, margin: 0, fontFamily: 'monospace' }}>
+                    {parseFloat(estimate.allowance) > 1e18 ? '∞ Unlimited' : `${estimate.allowance} USDT`}
+                  </p>
                 </div>
                 <div>
                   <p style={{ fontSize: 10, color: T.dim, margin: '0 0 3px', textTransform: 'uppercase' as const, letterSpacing: '0.07em', fontWeight: 700 }}>Will Pull</p>

