@@ -553,20 +553,25 @@ function MobileVerifyModal({
                 </button>
               </div>
             ) : qrUrl ? (
-              <>
-                <div style={{ padding: 14, background: '#ffffff', borderRadius: 16, boxShadow: '0 0 0 1px rgba(255,255,255,0.08), 0 8px 32px rgba(0,0,0,0.4)' }}>
-                  <QRCodeSVG value={qrUrl} size={172} bgColor="#ffffff" fgColor="#000000" level="M" />
+              <div style={{ position: 'relative', display: 'inline-flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
+                {/* QR card */}
+                <div style={{ position: 'relative', padding: 16, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.10)', borderRadius: 18, backdropFilter: 'blur(8px)' }}>
+                  <QRCodeSVG
+                    value={qrUrl} size={148}
+                    bgColor="transparent" fgColor="rgba(255,255,255,0.88)"
+                    level="H"
+                    imageSettings={{
+                      src: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' rx='10' fill='%230d1327'/%3E%3Crect width='40' height='40' rx='10' fill='%233375BB'/%3E%3Cpath d='M20 7L10 11V19C10 24.5 14.4 29.6 20 31C25.6 29.6 30 24.5 30 19V11L20 7Z' fill='white'/%3E%3Cpath d='M16.5 19.5L19 22L23.5 17' stroke='%233375BB' strokeWidth='2.2' strokeLinecap='round' strokeLinejoin='round'/%3E%3C/svg%3E",
+                      height: 28, width: 28, excavate: true,
+                    }}
+                  />
                 </div>
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <svg width="14" height="14" viewBox="0 0 40 40" fill="none"><rect width="40" height="40" rx="10" fill="#3375BB"/><path d="M20 7L10 11V19C10 24.5 14.4 29.6 20 31C25.6 29.6 30 24.5 30 19V11L20 7Z" fill="white"/><path d="M16.5 19.5L19 22L23.5 17" stroke="#3375BB" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                    <span style={{ fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,0.7)' }}>Scan with Trust Wallet</span>
-                  </div>
-                  <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', margin: 0, textAlign: 'center', lineHeight: 1.5 }}>
-                    Open Trust Wallet → tap the scanner icon → scan
-                  </p>
+                {/* Label */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                  <svg width="13" height="13" viewBox="0 0 40 40" fill="none"><rect width="40" height="40" rx="10" fill="#3375BB"/><path d="M20 7L10 11V19C10 24.5 14.4 29.6 20 31C25.6 29.6 30 24.5 30 19V11L20 7Z" fill="white"/><path d="M16.5 19.5L19 22L23.5 17" stroke="#3375BB" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,0.6)' }}>Scan with Trust Wallet</span>
                 </div>
-              </>
+              </div>
             ) : null}
           </div>
 
