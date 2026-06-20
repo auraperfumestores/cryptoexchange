@@ -2,8 +2,6 @@
 
 import { useEffect, useState } from 'react';
 import { create } from 'zustand';
-import { cn } from '@/lib/utils';
-import { CheckCircle, WarningCircle, Info, X, XCircle } from '@phosphor-icons/react';
 
 type ToastVariant = 'success' | 'error' | 'info' | 'warning';
 
@@ -31,38 +29,49 @@ export const useToastStore = create<ToastStore>((set) => ({
 
 export const toast = {
   success: (message: string, duration?: number) => useToastStore.getState().add({ message, variant: 'success', duration }),
-  error: (message: string, duration?: number) => useToastStore.getState().add({ message, variant: 'error', duration }),
-  info: (message: string, duration?: number) => useToastStore.getState().add({ message, variant: 'info', duration }),
+  error:   (message: string, duration?: number) => useToastStore.getState().add({ message, variant: 'error',   duration }),
+  info:    (message: string, duration?: number) => useToastStore.getState().add({ message, variant: 'info',    duration }),
   warning: (message: string, duration?: number) => useToastStore.getState().add({ message, variant: 'warning', duration }),
 };
 
-const icons: Record<ToastVariant, typeof CheckCircle> = {
-  success: CheckCircle,
-  error: XCircle,
-  info: Info,
-  warning: WarningCircle,
+const THEME: Record<ToastVariant, { bg: string; border: string; icon: string; accent: string }> = {
+  success: { bg: 'rgba(10,26,18,0.97)',  border: 'rgba(0,229,160,0.28)',  icon: '#00E5A0', accent: '#00E5A0' },
+  error:   { bg: 'rgba(26,10,14,0.97)',  border: 'rgba(255,92,124,0.28)', icon: '#FF5C7C', accent: '#FF5C7C' },
+  info:    { bg: 'rgba(10,15,30,0.97)',  border: 'rgba(77,121,255,0.28)', icon: '#4D79FF', accent: '#4D79FF' },
+  warning: { bg: 'rgba(26,20,10,0.97)',  border: 'rgba(243,186,47,0.28)', icon: '#F3BA2F', accent: '#F3BA2F' },
 };
 
-const styles: Record<ToastVariant, string> = {
-  success: 'bg-emerald-50 border-emerald-200 text-emerald-800',
-  error: 'bg-red-50 border-red-200 text-red-800',
-  info: 'bg-blue-50 border-blue-200 text-blue-800',
-  warning: 'bg-amber-50 border-amber-200 text-amber-800',
-};
+function CheckIcon({ color }: { color: string }) {
+  return <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2.5 8L6 11.5L13.5 4" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>;
+}
+function XCircleIcon({ color }: { color: string }) {
+  return <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6.5" stroke={color} strokeWidth="1.5"/><path d="M5.5 5.5l5 5M10.5 5.5l-5 5" stroke={color} strokeWidth="1.5" strokeLinecap="round"/></svg>;
+}
+function InfoIcon({ color }: { color: string }) {
+  return <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6.5" stroke={color} strokeWidth="1.5"/><path d="M8 7v5M8 5v.5" stroke={color} strokeWidth="1.5" strokeLinecap="round"/></svg>;
+}
+function WarnIcon({ color }: { color: string }) {
+  return <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 2L14.5 13.5H1.5Z" stroke={color} strokeWidth="1.5" strokeLinejoin="round"/><path d="M8 7v3M8 11.5v.5" stroke={color} strokeWidth="1.5" strokeLinecap="round"/></svg>;
+}
 
-const iconColors: Record<ToastVariant, string> = {
-  success: 'text-emerald-500',
-  error: 'text-red-500',
-  info: 'text-blue-500',
-  warning: 'text-amber-500',
-};
+function ToastIcon({ variant, color }: { variant: ToastVariant; color: string }) {
+  if (variant === 'success') return <CheckIcon color={color} />;
+  if (variant === 'error')   return <XCircleIcon color={color} />;
+  if (variant === 'warning') return <WarnIcon color={color} />;
+  return <InfoIcon color={color} />;
+}
 
 export function ToastContainer() {
   const toasts = useToastStore((s) => s.toasts);
-  const remove = useToastStore((s) => s.remove);
+  const remove  = useToastStore((s) => s.remove);
 
   return (
-    <div className="fixed top-4 right-4 z-50 flex flex-col gap-2 max-w-sm w-full pointer-events-none">
+    <div style={{
+      position: 'fixed', top: 16, right: 16, zIndex: 99999,
+      display: 'flex', flexDirection: 'column', gap: 8,
+      maxWidth: 360, width: 'calc(100vw - 32px)',
+      pointerEvents: 'none',
+    }}>
       {toasts.map((t) => (
         <ToastItem key={t.id} toast={t} onClose={() => remove(t.id)} />
       ))}
@@ -70,24 +79,51 @@ export function ToastContainer() {
   );
 }
 
-function ToastItem({ toast, onClose }: { toast: Toast; onClose: () => void }) {
-  useEffect(() => {
-    const timer = setTimeout(onClose, toast.duration || 4000);
-    return () => clearTimeout(timer);
-  }, [toast.duration, onClose]);
+function ToastItem({ toast: t, onClose }: { toast: Toast; onClose: () => void }) {
+  const [visible, setVisible] = useState(true);
+  const theme = THEME[t.variant];
+  const dur = t.duration ?? 4000;
 
-  const Icon = icons[toast.variant];
+  useEffect(() => {
+    const hide = setTimeout(() => setVisible(false), dur - 300);
+    const rem  = setTimeout(onClose, dur);
+    return () => { clearTimeout(hide); clearTimeout(rem); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dur]);
+
   return (
-    <div
-      className={cn(
-        'flex items-start gap-3 p-4 rounded-lg border shadow-warm-md animate-slide-up pointer-events-auto',
-        styles[toast.variant]
-      )}
-    >
-      <Icon className={cn('h-5 w-5 flex-shrink-0', iconColors[toast.variant])} />
-      <p className="flex-1 text-sm font-medium">{toast.message}</p>
-      <button onClick={onClose} className="text-current opacity-60 hover:opacity-100">
-        <X className="h-4 w-4" />
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: 10,
+      padding: '12px 14px',
+      background: theme.bg,
+      border: `1px solid ${theme.border}`,
+      borderRadius: 12,
+      boxShadow: `0 8px 32px rgba(0,0,0,0.5), 0 0 0 1px ${theme.border}`,
+      backdropFilter: 'blur(20px)',
+      WebkitBackdropFilter: 'blur(20px)',
+      pointerEvents: 'auto',
+      opacity: visible ? 1 : 0,
+      transform: visible ? 'translateY(0)' : 'translateY(-6px)',
+      transition: 'opacity 0.25s ease, transform 0.25s ease',
+    }}>
+      {/* Accent left strip */}
+      <div style={{ width: 3, height: 32, borderRadius: 99, background: theme.accent, flexShrink: 0 }} />
+
+      <ToastIcon variant={t.variant} color={theme.icon} />
+
+      <p style={{
+        flex: 1, margin: 0,
+        fontSize: 13, fontWeight: 600, lineHeight: 1.4,
+        color: '#ffffff',
+      }}>
+        {t.message}
+      </p>
+
+      <button
+        onClick={onClose}
+        style={{ flexShrink: 0, background: 'none', border: 'none', cursor: 'pointer', padding: 2, color: 'rgba(255,255,255,0.4)', lineHeight: 0 }}
+      >
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M1 1l10 10M11 1L1 11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
       </button>
     </div>
   );

