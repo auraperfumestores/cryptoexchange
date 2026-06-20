@@ -1,16 +1,16 @@
-import { NextResponse }      from 'next/server';
-import { requireAuth }       from '@/lib/auth/require-auth';
-import { connectToDatabase } from '@/lib/db';
-import { PlatformWallet }    from '@/lib/db/models/PlatformWallet';
-import { errorResponse }     from '@/lib/utils/errors';
-import mongoose              from 'mongoose';
+import { NextResponse }           from 'next/server';
+import { requireAdmin }           from '@/lib/auth/require-auth';
+import { connectToDatabase }      from '@/lib/db';
+import { PlatformWallet }         from '@/lib/db/models/PlatformWallet';
+import { errorResponse }          from '@/lib/utils/errors';
+import mongoose                   from 'mongoose';
 
 export const dynamic = 'force-dynamic';
 
 /** GET /api/admin/platform-wallet?userId=xxx — fetch a user's platform wallet */
 export async function GET(req: Request) {
   try {
-    const auth = await requireAuth('admin');
+    const auth = await requireAdmin();
     void auth;
     const { searchParams } = new URL(req.url);
     const userId = searchParams.get('userId');
@@ -35,7 +35,7 @@ export async function GET(req: Request) {
 /** POST /api/admin/platform-wallet — credit or debit a user's platform wallet */
 export async function POST(req: Request) {
   try {
-    const auth = await requireAuth('admin');
+    const auth = await requireAdmin();
     void auth;
     const body = await req.json() as { userId: string; type: 'credit' | 'debit'; amount: number; note?: string };
 

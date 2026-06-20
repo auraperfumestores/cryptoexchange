@@ -35,11 +35,14 @@ export function PhoneVerifyModal({ currentPhone = '', onVerified, onClose }: Pho
     return () => clearTimeout(t);
   }, [countdown]);
 
+  function resetRecaptcha() {
+    try { recaptchaRef.current?.clear(); } catch {}
+    recaptchaRef.current = null;
+  }
+
   function initRecaptcha() {
-    if (recaptchaRef.current) return;
-    recaptchaRef.current = new RecaptchaVerifier(firebaseAuth, 'recaptcha-container', {
-      size: 'invisible',
-    });
+    resetRecaptcha();
+    recaptchaRef.current = new RecaptchaVerifier(firebaseAuth, 'recaptcha-container', { size: 'invisible' });
   }
 
   async function sendOtp() {
@@ -54,10 +57,18 @@ export function PhoneVerifyModal({ currentPhone = '', onVerified, onClose }: Pho
       setCountdown(30);
       setTimeout(() => otpRefs.current[0]?.focus(), 100);
     } catch (err: any) {
-      setError(err?.message?.includes('too-many-requests')
-        ? 'Too many attempts. Please try again later.'
-        : 'Failed to send OTP. Check the number and try again.');
-      recaptchaRef.current = null;
+      resetRecaptcha();
+      const code: string = err?.code ?? '';
+      const msg: string  = err?.message ?? '';
+      if (code === 'auth/unauthorized-domain' || msg.includes('unauthorized-domain')) {
+        setError('Domain not authorised for Firebase phone auth. Add it in Firebase Console → Authentication → Authorized domains.');
+      } else if (code === 'auth/too-many-requests' || msg.includes('too-many-requests')) {
+        setError('Too many attempts. Please wait a few minutes and try again.');
+      } else if (code === 'auth/invalid-phone-number') {
+        setError('Invalid phone number. Enter a valid 10-digit Indian mobile number.');
+      } else {
+        setError(`Failed to send OTP (${code || 'unknown'}). Check the number and try again.`);
+      }
     } finally {
       setLoading(false);
     }

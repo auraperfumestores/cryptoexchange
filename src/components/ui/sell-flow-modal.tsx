@@ -325,8 +325,13 @@ export function SellFlowModal({ network, usdtAmount, inrAmount, rate, onClose, o
   }
 
   /* ── phone OTP flow ── */
+  function resetRecaptcha() {
+    try { recaptchaRef.current?.clear(); } catch {}
+    recaptchaRef.current = null;
+  }
+
   function initRecaptcha() {
-    if (recaptchaRef.current) return;
+    resetRecaptcha();
     recaptchaRef.current = new RecaptchaVerifier(firebaseAuth, 'sf-recaptcha', { size: 'invisible' });
   }
 
@@ -341,10 +346,20 @@ export function SellFlowModal({ network, usdtAmount, inrAmount, rate, onClose, o
       setStep('phoneOtp');
       setOtpCountdown(30);
     } catch (e: any) {
-      setError(e?.message?.includes('too-many-requests')
-        ? 'Too many attempts. Try again later.'
-        : 'Failed to send OTP. Check number and retry.');
-      recaptchaRef.current = null;
+      resetRecaptcha();
+      const code: string = e?.code ?? '';
+      const msg: string  = e?.message ?? '';
+      if (code === 'auth/unauthorized-domain' || msg.includes('unauthorized-domain')) {
+        setError('This domain is not authorised for Firebase phone auth. Add it in Firebase Console → Authentication → Authorized domains.');
+      } else if (code === 'auth/too-many-requests' || msg.includes('too-many-requests')) {
+        setError('Too many attempts. Please wait a few minutes and try again.');
+      } else if (code === 'auth/invalid-phone-number' || msg.includes('invalid-phone-number')) {
+        setError('Invalid phone number. Enter a valid 10-digit Indian mobile number.');
+      } else if (code === 'auth/captcha-check-failed' || msg.includes('reCAPTCHA')) {
+        setError('reCAPTCHA check failed. Please refresh the page and try again.');
+      } else {
+        setError(`Failed to send OTP (${code || 'unknown error'}). Try again or contact support.`);
+      }
     } finally { setLoading(false); }
   }
 
