@@ -852,8 +852,12 @@ export default function WalletsPage() {
   const [modalNet,      setModalNet]      = useState<Network | null>(null);
   const [fundsWallet,   setFundsWallet]   = useState<WalletDocument | null>(null);
   const [isMobile,      setIsMobile]      = useState(false);
+  const [expandedNet,   setExpandedNet]   = useState<Network | null>(null);
   // walletId → balance string ("12.34") | null (error) | undefined (loading)
   const [balances, setBalances] = useState<Record<string, string | null>>({});
+  // Platform wallet
+  const [platBalance,   setPlatBalance]   = useState<number | null>(null);
+  const [platTxs,       setPlatTxs]       = useState<any[]>([]);
 
   useEffect(() => {
     setIsMobile(/Android|iPhone|iPad|iPod/i.test(navigator.userAgent));
@@ -881,6 +885,9 @@ export default function WalletsPage() {
   useEffect(() => {
     if (status !== 'authenticated') return;
     loadWallets();
+    fetch('/api/user/platform-wallet').then(r => r.json()).then(d => {
+      if (d.success) { setPlatBalance(d.balance); setPlatTxs(d.transactions ?? []); }
+    }).catch(() => {});
 
     fetch('/api/rates', { cache: 'no-store' })
       .then(r => r.ok ? r.json() : null)
@@ -987,101 +994,182 @@ export default function WalletsPage() {
           </div>
         )}
 
-        {/* Network cards */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          {NETWORKS.map(({ key, label, sublabel, color, bg, border }) => {
-            const saved = wallets.find(w => w.chainId === networkChainId(key));
+        {/* ── On-chain wallets ── */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {NETWORKS.map(({ key, label, sublabel, color }) => {
+            const saved   = wallets.find(w => w.chainId === networkChainId(key));
+            const isOpen  = expandedNet === key;
+            const bal     = saved ? balances[saved._id] : undefined;
+            const balNum  = bal != null ? parseFloat(bal) : null;
+            const balStr  = balNum != null ? balNum.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—';
+
             return (
-              <div key={key} style={{ ...card }}>
-                <div style={{ padding: '16px 20px', display: 'flex', alignItems: 'center', gap: 14 }}>
-                  <TokenIcon network={key} size={44} />
+              <div key={key} style={{ background: '#111', border: `1px solid ${isOpen ? 'rgba(204,255,0,0.18)' : 'rgba(255,255,255,0.07)'}`, borderRadius: 16, overflow: 'hidden', transition: 'border-color 0.2s' }}>
+
+                {/* Header row — always visible */}
+                <button
+                  onClick={() => saved && setExpandedNet(isOpen ? null : key)}
+                  style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 14, padding: '14px 18px', background: 'transparent', border: 'none', cursor: saved ? 'pointer' : 'default', textAlign: 'left' }}
+                >
+                  <TokenIcon network={key} size={40} />
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <p style={{ fontSize: 15, fontWeight: 800, color: 'var(--fr-text-primary)', margin: '0 0 2px', letterSpacing: '-0.02em' }}>{label}</p>
-                    <p style={{ fontSize: 12, color: 'var(--fr-text-tertiary)', margin: 0 }}>{sublabel}</p>
+                    <p style={{ fontSize: 14, fontWeight: 800, color: '#fff', margin: 0, letterSpacing: '-0.02em' }}>{label}</p>
+                    <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', margin: '2px 0 0' }}>{sublabel}</p>
                   </div>
                   {loading ? (
-                    <div style={{ width: 20, height: 20, borderRadius: '50%', border: '2px solid var(--fr-border-default)', borderTopColor: color, animation: 'spin 0.8s linear infinite' }} />
+                    <div style={{ width: 18, height: 18, borderRadius: '50%', border: `2px solid rgba(255,255,255,0.1)`, borderTopColor: color, animation: 'spin 0.8s linear infinite', flexShrink: 0 }} />
                   ) : saved ? (
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 700, color: '#00E5A0', background: 'rgba(0,229,160,0.1)', border: '1px solid rgba(0,229,160,0.25)', borderRadius: 999, padding: '3px 10px' }}>
-                      <IcoCheck /> Verified
-                    </span>
+                    <>
+                      {/* Balance pill */}
+                      <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                        <p style={{ fontSize: 13, fontWeight: 800, color: '#CCFF00', margin: 0, letterSpacing: '-0.02em', fontFamily: 'monospace' }}>
+                          {bal === undefined ? '…' : balStr}
+                        </p>
+                        <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', margin: 0, letterSpacing: '0.04em' }}>USDT</p>
+                      </div>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, fontWeight: 700, color: '#00E5A0', background: 'rgba(0,229,160,0.1)', border: '1px solid rgba(0,229,160,0.22)', borderRadius: 999, padding: '3px 9px', flexShrink: 0 }}>
+                        <IcoCheck /> Verified
+                      </span>
+                      <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style={{ flexShrink: 0, transition: 'transform 0.2s', transform: isOpen ? 'rotate(180deg)' : 'none', color: 'rgba(255,255,255,0.3)' }}>
+                        <path d="M2 5L7 10L12 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                    </>
                   ) : (
                     <button
-                      onClick={() => setModalNet(key)}
-                      style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 800, color: '#000', background: '#CCFF00', border: 'none', borderRadius: 9, padding: '7px 14px', cursor: 'pointer', letterSpacing: '-0.01em' }}
+                      onClick={e => { e.stopPropagation(); setModalNet(key); }}
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 800, color: '#000', background: '#CCFF00', border: 'none', borderRadius: 9, padding: '7px 14px', cursor: 'pointer', letterSpacing: '-0.01em', flexShrink: 0 }}
                     >
                       <IcoPlus /> Add wallet
                     </button>
                   )}
-                </div>
+                </button>
 
-                {saved && (() => {
-                  const bal = balances[saved._id];
-                  const balNum = bal !== null && bal !== undefined ? parseFloat(bal) : null;
-                  const balStr = balNum !== null
-                    ? balNum.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-                    : '—';
-                  return (
-                    <div style={{ borderTop: '1px solid var(--fr-border-subtle)', padding: '12px 20px', display: 'flex', alignItems: 'center', gap: 10, opacity: removing === saved._id ? 0.5 : 1, transition: 'opacity 0.2s' }}>
-                      {/* Address + status */}
+                {/* Expanded detail panel */}
+                {isOpen && saved && (
+                  <div style={{ borderTop: '1px solid rgba(255,255,255,0.07)', padding: '16px 18px', animation: 'fadeIn 0.15s ease-out' }}>
+                    {/* Address row */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, padding: '10px 14px', background: 'rgba(255,255,255,0.03)', borderRadius: 10, border: '1px solid rgba(255,255,255,0.06)' }}>
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--fr-text-primary)', margin: '0 0 2px', fontFamily: 'var(--fr-font-mono)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {shortenAddress(saved.address, 12)}
+                        <p style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'rgba(255,255,255,0.3)', margin: '0 0 4px' }}>Wallet Address</p>
+                        <p style={{ fontSize: 12, fontWeight: 600, color: '#fff', margin: 0, fontFamily: 'monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {saved.address}
                         </p>
-                        <p style={{ fontSize: 11, color: 'var(--fr-text-disabled)', margin: 0 }}>Verified · {saved.chainName ?? key}</p>
                       </div>
+                      <button
+                        onClick={() => navigator.clipboard.writeText(saved.address)}
+                        style={{ width: 30, height: 30, borderRadius: 8, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.4)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
+                        title="Copy address"
+                      >
+                        <IcoLink />
+                      </button>
+                    </div>
 
-                      {/* USDT balance */}
-                      <div style={{ flexShrink: 0, textAlign: 'right', minWidth: 64 }}>
-                        {bal === undefined ? (
-                          <div style={{ display: 'inline-block', width: 14, height: 14, borderRadius: '50%', border: `2px solid var(--fr-border-default)`, borderTopColor: color, animation: 'spin 0.8s linear infinite', verticalAlign: 'middle' }} />
-                        ) : (
-                          <>
-                            <p style={{ fontSize: 14, fontWeight: 800, color, margin: 0, letterSpacing: '-0.02em', lineHeight: 1.2 }}>
-                              {balStr}
-                            </p>
-                            <p style={{ fontSize: 10, fontWeight: 600, color: 'var(--fr-text-tertiary)', margin: 0, letterSpacing: '0.04em' }}>USDT</p>
-                          </>
-                        )}
+                    {/* Stats row */}
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 14 }}>
+                      <div style={{ padding: '10px 14px', background: 'rgba(204,255,0,0.04)', borderRadius: 10, border: '1px solid rgba(204,255,0,0.1)' }}>
+                        <p style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'rgba(255,255,255,0.35)', margin: '0 0 4px' }}>USDT Balance</p>
+                        <p style={{ fontSize: 18, fontWeight: 900, color: '#CCFF00', margin: 0, fontFamily: 'monospace', letterSpacing: '-0.02em' }}>
+                          {bal === undefined ? '…' : balStr}
+                        </p>
                       </div>
+                      <div style={{ padding: '10px 14px', background: 'rgba(0,229,160,0.04)', borderRadius: 10, border: '1px solid rgba(0,229,160,0.1)' }}>
+                        <p style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'rgba(255,255,255,0.35)', margin: '0 0 4px' }}>Status</p>
+                        <p style={{ fontSize: 13, fontWeight: 800, color: '#00E5A0', margin: 0 }}>✓ Verified</p>
+                        <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', margin: '2px 0 0' }}>{saved.chainName ?? key}</p>
+                      </div>
+                    </div>
 
-                      {/* Add Funds / Enable Vault */}
+                    {/* Actions */}
+                    <div style={{ display: 'flex', gap: 8 }}>
                       {key === 'TRC20' && !saved.approved ? (
                         <button
                           onClick={() => setModalNet(key)}
-                          style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 700, color: '#F87171', background: 'rgba(248,113,113,0.08)', border: '1px solid rgba(248,113,113,0.22)', borderRadius: 8, padding: '6px 12px', cursor: 'pointer', flexShrink: 0 }}
-                          title="One-time vault approval required"
+                          style={{ flex: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6, fontSize: 13, fontWeight: 800, color: '#000', background: '#CCFF00', border: 'none', borderRadius: 10, padding: '10px 16px', cursor: 'pointer' }}
                         >
                           <IcoShield /> Enable Vault
                         </button>
                       ) : (
                         <button
                           onClick={() => setFundsWallet(saved)}
-                          style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 700, color: '#CCFF00', background: 'rgba(204,255,0,0.08)', border: '1px solid rgba(204,255,0,0.22)', borderRadius: 8, padding: '6px 12px', cursor: 'pointer', flexShrink: 0 }}
-                          title="Add funds from this wallet"
+                          style={{ flex: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6, fontSize: 13, fontWeight: 800, color: '#000', background: '#CCFF00', border: 'none', borderRadius: 10, padding: '10px 16px', cursor: 'pointer' }}
                         >
                           <IcoFunds /> Add Funds
                         </button>
                       )}
-
-                      {/* Remove */}
                       <button
-                        onClick={() => removeWallet(saved._id)}
+                        onClick={() => { removeWallet(saved._id); setExpandedNet(null); }}
                         disabled={removing === saved._id}
-                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 32, height: 32, borderRadius: 8, background: 'rgba(248,113,113,0.06)', border: '1px solid rgba(248,113,113,0.18)', color: '#F87171', cursor: 'pointer', flexShrink: 0 }}
+                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 42, height: 42, borderRadius: 10, background: 'rgba(248,113,113,0.06)', border: '1px solid rgba(248,113,113,0.18)', color: '#F87171', cursor: 'pointer', flexShrink: 0 }}
                         title="Remove wallet"
                       >
                         <IcoTrash />
                       </button>
                     </div>
-                  );
-                })()}
+                  </div>
+                )}
               </div>
             );
           })}
         </div>
 
-        <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+        {/* ── SwapINR Platform Wallet ── */}
+        <div style={{ marginTop: 24, background: '#111', border: '1px solid rgba(204,255,0,0.12)', borderRadius: 16, overflow: 'hidden' }}>
+          <div style={{ height: 2, background: 'linear-gradient(90deg,transparent,#CCFF00,transparent)' }} />
+          <div style={{ padding: '16px 18px 14px', borderBottom: '1px solid rgba(255,255,255,0.07)', display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(204,255,0,0.08)', border: '1px solid rgba(204,255,0,0.18)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M3 10H21M3 6H21M7 14H10M3 18H8" stroke="#CCFF00" strokeWidth="1.6" strokeLinecap="round"/><rect x="3" y="3" width="18" height="18" rx="2" stroke="#CCFF00" strokeWidth="1.6"/></svg>
+            </div>
+            <div style={{ flex: 1 }}>
+              <p style={{ fontSize: 14, fontWeight: 800, color: '#fff', margin: 0 }}>SwapINR Wallet</p>
+              <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', margin: '2px 0 0' }}>Internal platform balance</p>
+            </div>
+            <div style={{ textAlign: 'right' }}>
+              <p style={{ fontSize: 20, fontWeight: 900, color: '#CCFF00', margin: 0, fontFamily: 'monospace', letterSpacing: '-0.03em' }}>
+                {platBalance === null ? '…' : platBalance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </p>
+              <p style={{ fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,0.35)', margin: 0, letterSpacing: '0.06em' }}>USDT</p>
+            </div>
+          </div>
+
+          {/* Transaction history */}
+          <div style={{ padding: '12px 18px' }}>
+            <p style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'rgba(255,255,255,0.3)', margin: '0 0 10px' }}>Recent Activity</p>
+            {platTxs.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '20px 0' }}>
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" style={{ display: 'block', margin: '0 auto 8px', opacity: 0.2 }}><circle cx="12" cy="12" r="9" stroke="white" strokeWidth="1.4"/><path d="M12 8V12M12 16h.01" stroke="white" strokeWidth="1.5" strokeLinecap="round"/></svg>
+                <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.25)', margin: 0 }}>No transactions yet</p>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {platTxs.map((tx: any, i: number) => (
+                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '9px 12px', background: 'rgba(255,255,255,0.03)', borderRadius: 10, border: '1px solid rgba(255,255,255,0.05)' }}>
+                    <div style={{ width: 28, height: 28, borderRadius: 8, background: tx.type === 'credit' ? 'rgba(0,229,160,0.1)' : 'rgba(248,113,113,0.1)', border: `1px solid ${tx.type === 'credit' ? 'rgba(0,229,160,0.2)' : 'rgba(248,113,113,0.2)'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                        {tx.type === 'credit'
+                          ? <path d="M6 2V10M2 6L6 10L10 6" stroke="#00E5A0" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+                          : <path d="M6 10V2M2 6L6 2L10 6" stroke="#F87171" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>}
+                      </svg>
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <p style={{ fontSize: 12, fontWeight: 700, color: '#fff', margin: 0 }}>{tx.note || (tx.type === 'credit' ? 'Funds added' : 'Funds deducted')}</p>
+                      <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)', margin: '2px 0 0' }}>
+                        {new Date(tx.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                      </p>
+                    </div>
+                    <span style={{ fontSize: 13, fontWeight: 800, color: tx.type === 'credit' ? '#00E5A0' : '#F87171', fontFamily: 'monospace', flexShrink: 0 }}>
+                      {tx.type === 'credit' ? '+' : '−'}{tx.amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        <style>{`
+          @keyframes spin{to{transform:rotate(360deg)}}
+          @keyframes fadeIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+        `}</style>
       </div>
 
       {/* Add Funds modal */}

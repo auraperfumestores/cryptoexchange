@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { TokenIcon, NetworkIcon } from '@/components/ui/token-icon';
+import { SellFlowModal } from '@/components/ui/sell-flow-modal';
 
 interface AdminRate {
   symbol: string;
@@ -73,7 +74,8 @@ export default function ExchangeWidget() {
   const [rates, setRates]     = useState<Record<Network, AdminRate | null>>({ BEP20:null, ERC20:null, TRC20:null });
   const [fetchError, setFetchError] = useState(false);
   const [lastUpdate, setLastUpdate] = useState('');
-  const [showSummary, setShowSummary] = useState(false);
+  const [showSummary,  setShowSummary]  = useState(false);
+  const [showSellFlow, setShowSellFlow] = useState(false);
   const fetchRef = useRef<AbortController | null>(null);
 
   const fetchRates = useCallback(async (signal: AbortSignal) => {
@@ -354,23 +356,43 @@ export default function ExchangeWidget() {
         )}
 
         {/* ── CTA Button ── */}
-        <a
-          href={`/checkout?amount=${encodeURIComponent(amount)}&mode=${mode}&network=${network}`}
-          className="ew-cta"
-          style={{
-            display:'flex', alignItems:'center', justifyContent:'center', gap:8,
-            width:'100%', padding:'15px 0', borderRadius:12,
-            background: FR.lime, color:'#000',
-            fontSize:15, fontWeight:800, textDecoration:'none', letterSpacing:'-0.01em',
-            transition:'all 0.15s', boxShadow:`0 4px 20px rgba(204,255,0,0.22)`,
-            fontFamily: FR.sans,
-          }}
-        >
-          {mode==='buy' ? 'Proceed · Buy USDT' : 'Proceed · Sell USDT'}
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-            <path d="M3 8H13M9 4L13 8L9 12" stroke="#000" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
-        </a>
+        {mode === 'sell' ? (
+          <button
+            onClick={() => setShowSellFlow(true)}
+            className="ew-cta"
+            style={{
+              display:'flex', alignItems:'center', justifyContent:'center', gap:8,
+              width:'100%', padding:'15px 0', borderRadius:12,
+              background: FR.lime, color:'#000', border:'none', cursor:'pointer',
+              fontSize:15, fontWeight:800, letterSpacing:'-0.01em',
+              transition:'all 0.15s', boxShadow:`0 4px 20px rgba(204,255,0,0.22)`,
+              fontFamily: FR.sans,
+            }}
+          >
+            Proceed · Sell USDT
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <path d="M3 8H13M9 4L13 8L9 12" stroke="#000" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </button>
+        ) : (
+          <a
+            href={`/checkout?amount=${encodeURIComponent(amount)}&mode=${mode}&network=${network}`}
+            className="ew-cta"
+            style={{
+              display:'flex', alignItems:'center', justifyContent:'center', gap:8,
+              width:'100%', padding:'15px 0', borderRadius:12,
+              background: FR.lime, color:'#000',
+              fontSize:15, fontWeight:800, textDecoration:'none', letterSpacing:'-0.01em',
+              transition:'all 0.15s', boxShadow:`0 4px 20px rgba(204,255,0,0.22)`,
+              fontFamily: FR.sans,
+            }}
+          >
+            Proceed · Buy USDT
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <path d="M3 8H13M9 4L13 8L9 12" stroke="#000" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </a>
+        )}
 
         {/* ── Payment Methods ── */}
         <div style={{ marginTop:14, display:'flex', flexDirection:'column', alignItems:'center', gap:8 }}>
@@ -394,6 +416,17 @@ export default function ExchangeWidget() {
         </div>
 
       </div>
+
+      {/* ── Sell Flow Modal ── */}
+      {showSellFlow && rate && (
+        <SellFlowModal
+          network={network}
+          usdtAmount={numAmt}
+          inrAmount={outputAmount ?? '0'}
+          rate={rate}
+          onClose={() => setShowSellFlow(false)}
+        />
+      )}
     </div>
   );
 }
