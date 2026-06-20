@@ -146,6 +146,9 @@ function AvatarUpload({ current, name, onSave }: { current: string; name: string
   const [preview, setPreview] = useState(current);
   const [loading, setLoading] = useState(false);
 
+  // Sync preview when parent loads fresh data from DB
+  useEffect(() => { if (current) setPreview(current); }, [current]);
+
   const displaySrc = preview || dicebear(name);
 
   function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
@@ -267,11 +270,12 @@ export function ProfileContent({ user: initialUser }: { user: { name: string; em
 
       {/* ── Hero avatar card ── */}
       <div style={{
-        background: 'linear-gradient(135deg, rgba(26,63,255,0.14) 0%, rgba(107,33,255,0.09) 60%, rgba(0,229,160,0.05) 100%)',
-        border: '1px solid rgba(255,255,255,0.09)',
-        borderRadius: 20, padding: '24px 24px',
-        display: 'flex', alignItems: 'center', gap: 20, flexWrap: 'wrap',
+        background: '#111111',
+        border: '1px solid rgba(204,255,0,0.12)',
+        borderRadius: 20, overflow: 'hidden',
       }}>
+        <div style={{ height: 2, background: 'linear-gradient(90deg,transparent,#CCFF00,transparent)' }} />
+      <div style={{ padding: '24px', display: 'flex', alignItems: 'center', gap: 20, flexWrap: 'wrap' }}>
         {/* Avatar */}
         <AvatarUpload
           current={avatarUrl}
@@ -353,11 +357,12 @@ export function ProfileContent({ user: initialUser }: { user: { name: string; em
           </div>
         </div>
       </div>
+      </div>
 
       {/* ── Account Details ── */}
-      <div style={{ background: 'rgba(255,255,255,0.035)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 20, overflow: 'hidden' }}>
-        <div style={{ padding: '16px 22px', borderBottom: '1px solid rgba(255,255,255,0.07)', display: 'flex', alignItems: 'center', gap: 10 }}>
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="8" r="4" stroke="rgba(255,255,255,0.5)" strokeWidth="1.5"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" stroke="rgba(255,255,255,0.5)" strokeWidth="1.5" strokeLinecap="round"/></svg>
+      <div style={{ background: '#111111', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 20, overflow: 'hidden' }}>
+        <div style={{ padding: '14px 22px', borderBottom: '1px solid rgba(255,255,255,0.07)', display: 'flex', alignItems: 'center', gap: 10 }}>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="8" r="4" stroke="#CCFF00" strokeWidth="1.5"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" stroke="#CCFF00" strokeWidth="1.5" strokeLinecap="round"/></svg>
           <h2 style={{ fontSize: 14, fontWeight: 800, color: '#fff', margin: 0 }}>Account Details</h2>
         </div>
         <div style={{ padding: '18px 22px', display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(220px,1fr))', gap: 16 }}>
@@ -376,8 +381,8 @@ export function ProfileContent({ user: initialUser }: { user: { name: string; em
       </div>
 
       {/* ── KYC Status ── */}
-      <div style={{ background: 'rgba(255,255,255,0.035)', border: `1px solid ${kyc.border}`, borderRadius: 20, overflow: 'hidden' }}>
-        <div style={{ padding: '16px 22px', borderBottom: `1px solid ${kyc.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+      <div style={{ background: '#111111', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 20, overflow: 'hidden' }}>
+        <div style={{ padding: '14px 22px', borderBottom: '1px solid rgba(255,255,255,0.07)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M12 2L3 7V13C3 18.5 7.2 23.3 12 24C16.8 23.3 21 18.5 21 13V7L12 2Z" stroke={kyc.color} strokeWidth="1.5" strokeLinejoin="round"/><path d="M8 12L10.5 14.5L16 9" stroke={kyc.color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
             <h2 style={{ fontSize: 14, fontWeight: 800, color: '#fff', margin: 0 }}>KYC Verification</h2>
@@ -394,7 +399,7 @@ export function ProfileContent({ user: initialUser }: { user: { name: string; em
                 <p style={{ fontSize: 13, fontWeight: 700, color: '#F87171', margin: '0 0 4px' }}>KYC verification required</p>
                 <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', margin: 0, lineHeight: 1.6 }}>Complete KYC to unlock higher transaction limits and full account access.</p>
               </div>
-              <button style={{ padding: '9px 18px', borderRadius: 10, background: 'rgba(248,113,113,0.1)', color: '#F87171', fontSize: 12, fontWeight: 700, border: '1px solid rgba(248,113,113,0.25)', cursor: 'pointer', flexShrink: 0, whiteSpace: 'nowrap' }}>
+              <button style={{ padding: '9px 20px', borderRadius: 10, background: '#CCFF00', color: '#000', fontSize: 12, fontWeight: 800, border: 'none', cursor: 'pointer', flexShrink: 0, whiteSpace: 'nowrap', letterSpacing: '-0.01em' }}>
                 Start KYC →
               </button>
             </div>
@@ -409,16 +414,16 @@ export function ProfileContent({ user: initialUser }: { user: { name: string; em
             <div>
               <p style={{ fontSize: 13, color: '#F87171', margin: '0 0 8px', fontWeight: 700 }}>KYC verification was rejected.</p>
               <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', margin: '0 0 12px', lineHeight: 1.6 }}>Please contact support or resubmit with valid documents.</p>
-              <button style={{ padding: '9px 18px', borderRadius: 10, background: 'rgba(248,113,113,0.1)', color: '#F87171', fontSize: 12, fontWeight: 700, border: '1px solid rgba(248,113,113,0.25)', cursor: 'pointer' }}>Resubmit KYC</button>
+              <button style={{ padding: '9px 20px', borderRadius: 10, background: '#CCFF00', color: '#000', fontSize: 12, fontWeight: 800, border: 'none', cursor: 'pointer', letterSpacing: '-0.01em' }}>Resubmit KYC →</button>
             </div>
           )}
         </div>
       </div>
 
       {/* ── Exchange Limits ── */}
-      <div style={{ background: 'rgba(255,255,255,0.035)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 20, overflow: 'hidden' }}>
-        <div style={{ padding: '16px 22px', borderBottom: '1px solid rgba(255,255,255,0.07)', display: 'flex', alignItems: 'center', gap: 10 }}>
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><rect x="3" y="6" width="18" height="14" rx="2" stroke="rgba(255,255,255,0.5)" strokeWidth="1.5"/><path d="M3 10H21M8 14H10M14 14H16" stroke="rgba(255,255,255,0.5)" strokeWidth="1.5" strokeLinecap="round"/></svg>
+      <div style={{ background: '#111111', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 20, overflow: 'hidden' }}>
+        <div style={{ padding: '14px 22px', borderBottom: '1px solid rgba(255,255,255,0.07)', display: 'flex', alignItems: 'center', gap: 10 }}>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><rect x="3" y="6" width="18" height="14" rx="2" stroke="#CCFF00" strokeWidth="1.5"/><path d="M3 10H21M8 14H10M14 14H16" stroke="#CCFF00" strokeWidth="1.5" strokeLinecap="round"/></svg>
           <h2 style={{ fontSize: 14, fontWeight: 800, color: '#fff', margin: 0 }}>Exchange Limits</h2>
           <span style={{ marginLeft: 'auto', fontSize: 11, color: 'rgba(255,255,255,0.3)', fontWeight: 600 }}>
             {profile.kycStatus === 'verified' ? 'Verified tier' : profile.kycStatus === 'pending' ? 'Pending tier' : 'Unverified tier'}
@@ -426,9 +431,9 @@ export function ProfileContent({ user: initialUser }: { user: { name: string; em
         </div>
         <div style={{ padding: '14px 22px', display: 'flex', flexDirection: 'column', gap: 8 }}>
           {[
-            { label: 'Per transaction', value: limits?.perTransaction, sub: 'Max per single order',    accent: '#00E5A0' },
-            { label: 'Daily limit',     value: limits?.daily,          sub: 'Rolling 24-hour window',  accent: '#4D9FFF' },
-            { label: 'Monthly limit',   value: limits?.monthly,        sub: 'Calendar month total',    accent: '#A78BFA' },
+            { label: 'Per transaction', value: limits?.perTransaction, sub: 'Max per single order',    accent: '#CCFF00' },
+            { label: 'Daily limit',     value: limits?.daily,          sub: 'Rolling 24-hour window',  accent: '#CCFF00' },
+            { label: 'Monthly limit',   value: limits?.monthly,        sub: 'Calendar month total',    accent: '#CCFF00' },
           ].map(({ label, value, sub, accent }) => (
             <div key={label} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '11px 14px', background: 'rgba(255,255,255,0.03)', borderRadius: 12, border: '1px solid rgba(255,255,255,0.06)' }}>
               <div>
@@ -449,38 +454,38 @@ export function ProfileContent({ user: initialUser }: { user: { name: string; em
       </div>
 
       {/* ── Security ── */}
-      <div style={{ background: 'rgba(255,255,255,0.035)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 20, overflow: 'hidden' }}>
-        <div style={{ padding: '16px 22px', borderBottom: '1px solid rgba(255,255,255,0.07)', display: 'flex', alignItems: 'center', gap: 10 }}>
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M12 2L3 7V13C3 18.5 7.2 23.3 12 24C16.8 23.3 21 18.5 21 13V7L12 2Z" stroke="rgba(255,255,255,0.5)" strokeWidth="1.5" strokeLinejoin="round"/></svg>
+      <div style={{ background: '#111111', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 20, overflow: 'hidden' }}>
+        <div style={{ padding: '14px 22px', borderBottom: '1px solid rgba(255,255,255,0.07)', display: 'flex', alignItems: 'center', gap: 10 }}>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M12 2L3 7V13C3 18.5 7.2 23.3 12 24C16.8 23.3 21 18.5 21 13V7L12 2Z" stroke="#CCFF00" strokeWidth="1.5" strokeLinejoin="round"/></svg>
           <h2 style={{ fontSize: 14, fontWeight: 800, color: '#fff', margin: 0 }}>Security</h2>
         </div>
         <div style={{ padding: '14px 22px', display: 'flex', flexDirection: 'column', gap: 8 }}>
           {/* Email verified */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px', background: 'rgba(0,229,160,0.04)', borderRadius: 12, border: '1px solid rgba(0,229,160,0.12)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px', background: 'rgba(255,255,255,0.03)', borderRadius: 12, border: '1px solid rgba(255,255,255,0.07)' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <div style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(0,229,160,0.1)', border: '1px solid rgba(0,229,160,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M22 6C22 4.9 21.1 4 20 4H4C2.9 4 2 4.9 2 6V18C2 19.1 2.9 20 4 20H20C21.1 20 22 19.1 22 18V6Z" stroke="#00E5A0" strokeWidth="1.5"/><path d="M2 6L12 13L22 6" stroke="#00E5A0" strokeWidth="1.5" strokeLinecap="round"/></svg>
+              <div style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(204,255,0,0.08)', border: '1px solid rgba(204,255,0,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M22 6C22 4.9 21.1 4 20 4H4C2.9 4 2 4.9 2 6V18C2 19.1 2.9 20 4 20H20C21.1 20 22 19.1 22 18V6Z" stroke="#CCFF00" strokeWidth="1.5"/><path d="M2 6L12 13L22 6" stroke="#CCFF00" strokeWidth="1.5" strokeLinecap="round"/></svg>
               </div>
               <div>
                 <p style={{ fontSize: 13, fontWeight: 700, color: '#fff', margin: 0 }}>Email verification</p>
                 <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', margin: '2px 0 0' }}>Your email is verified and active</p>
               </div>
             </div>
-            <span style={{ fontSize: 11, fontWeight: 700, color: '#00E5A0', background: 'rgba(0,229,160,0.1)', padding: '4px 10px', borderRadius: 999, border: '1px solid rgba(0,229,160,0.2)' }}>Active</span>
+            <span style={{ fontSize: 11, fontWeight: 700, color: '#CCFF00', background: 'rgba(204,255,0,0.08)', padding: '4px 10px', borderRadius: 999, border: '1px solid rgba(204,255,0,0.2)' }}>Active</span>
           </div>
 
           {/* Password */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px', background: 'rgba(77,159,255,0.04)', borderRadius: 12, border: '1px solid rgba(77,159,255,0.10)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px', background: 'rgba(255,255,255,0.03)', borderRadius: 12, border: '1px solid rgba(255,255,255,0.07)' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <div style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(77,159,255,0.1)', border: '1px solid rgba(77,159,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><rect x="3" y="11" width="18" height="11" rx="2" stroke="#4D9FFF" strokeWidth="1.5"/><path d="M7 11V7C7 4.2 9.2 2 12 2C14.8 2 17 4.2 17 7V11" stroke="#4D9FFF" strokeWidth="1.5" strokeLinecap="round"/><circle cx="12" cy="16" r="1.5" fill="#4D9FFF"/></svg>
+              <div style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(204,255,0,0.08)', border: '1px solid rgba(204,255,0,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><rect x="3" y="11" width="18" height="11" rx="2" stroke="#CCFF00" strokeWidth="1.5"/><path d="M7 11V7C7 4.2 9.2 2 12 2C14.8 2 17 4.2 17 7V11" stroke="#CCFF00" strokeWidth="1.5" strokeLinecap="round"/><circle cx="12" cy="16" r="1.5" fill="#CCFF00"/></svg>
               </div>
               <div>
                 <p style={{ fontSize: 13, fontWeight: 700, color: '#fff', margin: 0 }}>Password</p>
                 <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', margin: '2px 0 0' }}>Keep a strong, unique password</p>
               </div>
             </div>
-            <button onClick={() => setShowPassModal(true)} style={{ fontSize: 12, fontWeight: 700, color: '#4D9FFF', background: 'rgba(77,159,255,0.1)', border: '1px solid rgba(77,159,255,0.2)', borderRadius: 8, padding: '6px 12px', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+            <button onClick={() => setShowPassModal(true)} style={{ fontSize: 12, fontWeight: 800, color: '#000', background: '#CCFF00', border: 'none', borderRadius: 8, padding: '7px 14px', cursor: 'pointer', whiteSpace: 'nowrap', letterSpacing: '-0.01em' }}>
               Change →
             </button>
           </div>
