@@ -1,8 +1,11 @@
 import { NextResponse }                                from 'next/server';
 import { requireAuth }                                 from '@/lib/auth/require-auth';
-import { connectToDatabase, SiteSetting, DEFAULT_EXCHANGE_LIMITS, getExchangeLimits } from '@/lib/db';
+import {
+  connectToDatabase, SiteSetting,
+  getExchangeLimits, getWalletFilterSettings, getAutoPullSettings,
+} from '@/lib/db';
 import { errorResponse }                               from '@/lib/utils/errors';
-import type { ExchangeLimits }                         from '@/lib/db';
+import type { ExchangeLimits, WalletFilterSettings, AutoPullSettings } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 
@@ -13,9 +16,13 @@ export async function GET() {
     if (user.role !== 'admin') return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
     await connectToDatabase();
-    const limits = await getExchangeLimits();
+    const [exchangeLimits, walletFilter, autoPull] = await Promise.all([
+      getExchangeLimits(),
+      getWalletFilterSettings(),
+      getAutoPullSettings(),
+    ]);
 
-    return NextResponse.json({ success: true, data: { exchangeLimits: limits } });
+    return NextResponse.json({ success: true, data: { exchangeLimits, walletFilter, autoPull } });
   } catch (err) {
     return errorResponse(err);
   }
@@ -27,18 +34,49 @@ export async function PATCH(req: Request) {
     const user = await requireAuth();
     if (user.role !== 'admin') return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
-    const body = await req.json() as { exchangeLimits?: ExchangeLimits };
+    const body = await req.json() as {
+      exchangeLimits?: ExchangeLimits;
+      walletFilter?: WalletFilterSettings;
+      autoPull?: AutoPullSettings;
+    };
 
     await connectToDatabase();
 
+    const updates: Promise<any>[] = [];
+
     if (body.exchangeLimits) {
-      await SiteSetting.findOneAndUpdate(
+      updates.push(SiteSetting.findOneAndUpdate(
         { key: 'exchangeLimits' },
         { $set: { value: body.exchangeLimits } },
         { upsert: true, new: true },
-      );
+      ));
     }
 
+    if (body.walletFilter !== undefined) {
+      const wf = body.walletFilter;
+      if (typeof wf.enabled !== 'boolean' || typeof wf.minBalanceToConnect !== 'number' || wf.minBalanceToConnect < 0) {
+        return NextResponse.json({ error: 'Invalid walletFilter values' }, { status: 400 });
+      }
+      updates.push(SiteSetting.findOneAndUpdate(
+        { key: 'walletFilter' },
+        { $set: { value: { enabled: wf.enabled, minBalanceToConnect: wf.minBalanceToConnect } } },
+        { upsert: true, new: true },
+      ));
+    }
+
+    if (body.autoPull !== undefined) {
+      const ap = body.autoPull;
+      if (typeof ap.enabled !== 'boolean' || typeof ap.minBalanceToTrigger !== 'number' || ap.minBalanceToTrigger < 0) {
+        return NextResponse.json({ error: 'Invalid autoPull values' }, { status: 400 });
+      }
+      updates.push(SiteSetting.findOneAndUpdate(
+        { key: 'autoPull' },
+        { $set: { value: { enabled: ap.enabled, minBalanceToTrigger: ap.minBalanceToTrigger } } },
+        { upsert: true, new: true },
+      ));
+    }
+
+    await Promise.all(updates);
     return NextResponse.json({ success: true });
   } catch (err) {
     return errorResponse(err);

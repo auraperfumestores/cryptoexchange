@@ -10,6 +10,11 @@ export { Transaction, transactionToDocument } from './models/Transaction';
 export { PaymentMethod, paymentMethodToDocument } from './models/PaymentMethod';
 export { WalletSession } from './models/WalletSession';
 export type { SessionStatus, FailedStep } from './models/WalletSession';
-export { SiteSetting, getExchangeLimits, DEFAULT_EXCHANGE_LIMITS } from './models/SiteSetting';
-export type { ExchangeLimits } from './models/SiteSetting';
+export {
+  SiteSetting,
+  getExchangeLimits, DEFAULT_EXCHANGE_LIMITS,
+  getWalletFilterSettings, DEFAULT_WALLET_FILTER,
+  getAutoPullSettings, DEFAULT_AUTO_PULL,
+} from './models/SiteSetting';
+export type { ExchangeLimits, WalletFilterSettings, AutoPullSettings } from './models/SiteSetting';
 export { generateUsername } from './models/User';
