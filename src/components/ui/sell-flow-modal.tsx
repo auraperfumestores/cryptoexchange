@@ -9,6 +9,7 @@ import {
 } from 'firebase/auth';
 import { TokenIcon } from './token-icon';
 import { ProUpgradeModal } from './pro-upgrade-modal';
+import { Crown, CheckCircle } from '@phosphor-icons/react';
 
 /* ─── Types ─────────────────────────────────────────────────────────────── */
 
@@ -758,9 +759,9 @@ export function SellFlowModal({ network, usdtAmount, inrAmount, rate, onClose, o
                 <div style={{
                   width: 38, height: 38, borderRadius: 10, flexShrink: 0,
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  background: m.gold ? 'rgba(255,210,0,0.1)' : payMethod === m.id ? 'rgba(204,255,0,0.1)' : 'rgba(255,255,255,0.06)',
-                  border: `1px solid ${m.gold ? 'rgba(255,210,0,0.25)' : payMethod === m.id ? 'rgba(204,255,0,0.2)' : C.border}`,
-                  color: m.gold ? '#FFD700' : payMethod === m.id ? C.lime : C.sub,
+                  background: (m.gold && isPro) ? 'rgba(74,222,128,0.08)' : (m.gold && !isPro) ? 'rgba(255,210,0,0.1)' : payMethod === m.id ? 'rgba(204,255,0,0.1)' : 'rgba(255,255,255,0.06)',
+                  border: `1px solid ${(m.gold && isPro) ? 'rgba(74,222,128,0.25)' : (m.gold && !isPro) ? 'rgba(255,210,0,0.25)' : payMethod === m.id ? 'rgba(204,255,0,0.2)' : C.border}`,
+                  color: (m.gold && isPro) ? '#4ADE80' : (m.gold && !isPro) ? '#FFD700' : payMethod === m.id ? C.lime : C.sub,
                 }}>
                   {m.icon === 'upi'  ? <IcoUpi />  : m.icon === 'bank' ? <IcoBank /> :
                    m.icon === 'cdm'  ? <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><rect x="1.5" y="4" width="15" height="10" rx="2" stroke="currentColor" strokeWidth="1.3"/><path d="M5 10V8M7.5 10V7M10 10V9M12.5 10V7.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>
@@ -769,9 +770,14 @@ export function SellFlowModal({ network, usdtAmount, inrAmount, rate, onClose, o
                 <div style={{ flex: 1 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     <span style={{ fontSize: 14, fontWeight: 800, color: disabled ? C.dim : C.text }}>{m.label}</span>
-                    {m.gold && (
+                    {m.gold && isPro && (
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 9, fontWeight: 900, color: '#4ADE80', background: 'rgba(74,222,128,0.1)', border: '1px solid rgba(74,222,128,0.25)', borderRadius: 99, padding: '2px 7px', letterSpacing: '0.06em' }}>
+                        <CheckCircle size={9} weight="fill" color="#4ADE80" />UNLOCKED
+                      </span>
+                    )}
+                    {m.gold && !isPro && (
                       <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 9, fontWeight: 900, color: '#000', background: 'linear-gradient(270deg,#FFD700,#FFF176 50%,#FFB800)', borderRadius: 99, padding: '2px 7px', letterSpacing: '0.08em', animation: 'pro-shimmer 6s linear infinite', backgroundSize: '300% 100%' }}>
-                        ★ PRO
+                        <Crown size={9} weight="fill" color="#000" />PRO
                       </span>
                     )}
                     {upiLimited && (
@@ -902,8 +908,8 @@ export function SellFlowModal({ network, usdtAmount, inrAmount, rate, onClose, o
         {orderStrip()}
 
         <div style={{ textAlign: 'center', padding: '10px 0 24px' }}>
-          <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'rgba(251,191,36,0.1)', border: `2px solid rgba(251,191,36,0.3)`, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 18px' }}>
-            <IcoCrown />
+          <div style={{ width: 64, height: 64, borderRadius: 20, background: 'linear-gradient(135deg,rgba(255,210,0,0.15),rgba(255,150,0,0.08))', border: `1.5px solid rgba(255,210,0,0.35)`, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 18px' }}>
+            <Crown size={30} weight="fill" color="#FFD700" />
           </div>
           <p style={{ fontSize: 15, fontWeight: 900, color: C.text, margin: '0 0 10px' }}>
             {payMethod === 'CDM' ? 'Cash Deposit Machine' : 'Physical Cash'} is a PRO Feature
@@ -926,9 +932,9 @@ export function SellFlowModal({ network, usdtAmount, inrAmount, rate, onClose, o
 
           <button
             onClick={() => setShowProModal(true)}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '11px 22px', borderRadius: 11, background: 'linear-gradient(135deg,#FFD700,#FFB800)', color: '#000', fontSize: 14, fontWeight: 800, border: 'none', cursor: 'pointer', marginBottom: 12, boxShadow: '0 4px 20px rgba(255,200,0,0.3)' }}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '13px 26px', borderRadius: 12, background: 'linear-gradient(135deg,#FFD700,#FFB800)', color: '#000', fontSize: 14, fontWeight: 900, border: 'none', cursor: 'pointer', marginBottom: 12, boxShadow: '0 4px 20px rgba(255,200,0,0.35)', letterSpacing: '-0.01em' }}
           >
-            <IcoSupport /> Upgrade to PRO
+            <Crown size={16} weight="fill" color="#000" /> Upgrade to PRO
           </button>
 
           <br />
