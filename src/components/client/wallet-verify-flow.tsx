@@ -1101,21 +1101,20 @@ export function WalletVerifyFlow({ network, depositAddress, onVerified, onCancel
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isConnected, chainId]);
 
-  /* ── Run eligibility check when EVM wallet connects and balance is fetched ── */
+  /* ── Run eligibility check as soon as wallet address is available ── */
   useEffect(() => {
-    if (!isTRC20 && isConnected && address && evmUsdtBalance !== null && !eligibilityCheckedRef.current) {
+    if (!isTRC20 && isConnected && address && !eligibilityCheckedRef.current) {
       checkEligibility(address, network);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isConnected, address, evmUsdtBalance]);
+  }, [isConnected, address]);
 
-  /* ── Run eligibility check when TRC20 wallet connects and balance is fetched ── */
   useEffect(() => {
-    if (isTRC20 && tronAddress && trcBalance !== null && !eligibilityCheckedRef.current) {
+    if (isTRC20 && tronAddress && !eligibilityCheckedRef.current) {
       checkEligibility(tronAddress, network);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tronAddress, trcBalance]);
+  }, [tronAddress]);
 
   /* ── EVM: fire onVerified after approve confirmed ── */
   const advancedRef = useRef(false);
