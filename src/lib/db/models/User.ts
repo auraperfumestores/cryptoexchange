@@ -2,6 +2,13 @@ import mongoose, { Schema, model, models, type Model } from 'mongoose';
 import bcrypt from 'bcryptjs';
 import type { UserDocument, UserRole, KycStatus } from '@/types';
 
+export interface ProStatus {
+  active: boolean;
+  activatedAt: Date | null;
+  expiresAt: Date | null;
+  paymentId: string | null;
+}
+
 export interface UserAttrs {
   name: string;
   email: string;
@@ -18,6 +25,7 @@ export interface UserAttrs {
   passwordResetToken?: string;
   passwordResetExpiresAt?: number;
   phoneVerified?: boolean;
+  proStatus?: ProStatus;
 }
 
 const UserSchema = new Schema<UserAttrs>(
@@ -48,6 +56,12 @@ const UserSchema = new Schema<UserAttrs>(
     passwordResetToken: { type: String, select: false },
     passwordResetExpiresAt: { type: Number, select: false },
     phoneVerified: { type: Boolean, default: false },
+    proStatus: {
+      active:      { type: Boolean, default: false },
+      activatedAt: { type: Date,    default: null  },
+      expiresAt:   { type: Date,    default: null  },
+      paymentId:   { type: String,  default: null  },
+    },
   },
   { timestamps: true },
 );

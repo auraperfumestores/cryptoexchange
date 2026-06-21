@@ -16,6 +16,10 @@ export {
   getWalletFilterSettings, DEFAULT_WALLET_FILTER,
   getAutoPullSettings, DEFAULT_AUTO_PULL,
   getWidgetLimits, DEFAULT_WIDGET_LIMITS,
+  getProSettings, DEFAULT_PRO_SETTINGS,
 } from './models/SiteSetting';
-export type { ExchangeLimits, WalletFilterSettings, AutoPullSettings, WidgetLimits } from './models/SiteSetting';
+export type { ExchangeLimits, WalletFilterSettings, AutoPullSettings, WidgetLimits, ProSettings } from './models/SiteSetting';
 export { generateUsername } from './models/User';
+export { ProPayment } from './models/ProPayment';
+export type { ProPaymentAttrs, ProPaymentStatus, ProNetwork } from './models/ProPayment';
+export type { ProStatus } from './models/User';

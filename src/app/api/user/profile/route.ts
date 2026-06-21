@@ -28,6 +28,8 @@ export async function GET() {
         phoneVerified: (user as any).phoneVerified ?? false,
         role:         user.role,
         createdAt:    (user as any).createdAt,
+        isPro:        !!((user as any).proStatus?.active && (user as any).proStatus?.expiresAt && new Date((user as any).proStatus.expiresAt) > new Date()),
+        proExpiresAt: (user as any).proStatus?.expiresAt ?? null,
       },
     });
   } catch (err) {

@@ -1,11 +1,12 @@
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth/auth';
 import { redirect } from 'next/navigation';
-import { connectToDatabase, getExchangeLimits, getWalletFilterSettings, getAutoPullSettings, getWidgetLimits, Rate, rateToDocument } from '@/lib/db';
+import { connectToDatabase, getExchangeLimits, getWalletFilterSettings, getAutoPullSettings, getWidgetLimits, getProSettings, Rate, rateToDocument } from '@/lib/db';
 import { ClientShell } from '@/components/layout/client-shell';
 import { ExchangeLimitsManager } from '@/components/admin/exchange-limits-manager';
 import { WalletSettingsManager } from '@/components/admin/wallet-settings-manager';
 import { WidgetLimitsManager } from '@/components/admin/widget-limits-manager';
+import { ProSettingsManager } from '@/components/admin/pro-settings-manager';
 import type { RateDocument } from '@/types';
 
 export default async function AdminSettingsPage() {
@@ -13,11 +14,12 @@ export default async function AdminSettingsPage() {
   if (!session?.user || (session.user as any).role !== 'admin') redirect('/dashboard');
 
   await connectToDatabase();
-  const [limits, walletFilter, autoPull, widgetLimits, rates] = await Promise.all([
+  const [limits, walletFilter, autoPull, widgetLimits, proSettings, rates] = await Promise.all([
     getExchangeLimits(),
     getWalletFilterSettings(),
     getAutoPullSettings(),
     getWidgetLimits(),
+    getProSettings(),
     Rate.find({}).sort({ symbol: 1 }).lean(),
   ]);
 
@@ -54,6 +56,17 @@ export default async function AdminSettingsPage() {
             <p style={{ fontSize: 13, color: 'var(--fr-text-tertiary)', margin: '4px 0 0' }}>Minimum transaction size shown on the exchange widget. Updates live within 15 seconds.</p>
           </div>
           <WidgetLimitsManager initialLimits={widgetLimits} />
+        </section>
+
+        <div style={{ height: 1, background: 'var(--fr-border-subtle)' }} />
+
+        {/* PRO Membership Settings */}
+        <section>
+          <div style={{ marginBottom: 20 }}>
+            <h2 style={{ fontSize: 22, fontWeight: 900, color: 'var(--fr-text-primary)', margin: 0, letterSpacing: '-0.03em' }}>PRO Membership</h2>
+            <p style={{ fontSize: 13, color: 'var(--fr-text-tertiary)', margin: '4px 0 0' }}>Configure Pro membership pricing, duration, and the personal manager Telegram link shown to Pro users.</p>
+          </div>
+          <ProSettingsManager initialSettings={proSettings} />
         </section>
 
       </div>

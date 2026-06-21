@@ -285,6 +285,7 @@ export function SellFlowModal({ network, usdtAmount, inrAmount, rate, onClose, o
 
   /* payment */
   const [payMethod,    setPayMethod]    = useState<PayMethod | null>(null);
+  const [isPro,        setIsPro]        = useState(false);
 
   /* UPI */
   const [upiId,        setUpiId]        = useState('');
@@ -336,6 +337,7 @@ export function SellFlowModal({ network, usdtAmount, inrAmount, rate, onClose, o
       const hasWallet = wallets.some((w: any) => w.chainId === chainId && w.isVerified);
       if (!hasWallet) { setStep('walletGate'); return; }
 
+      setIsPro(!!(profile?.isPro));
       setStep('payMethod');
     } catch {
       setStep('notLoggedIn');
@@ -464,7 +466,7 @@ export function SellFlowModal({ network, usdtAmount, inrAmount, rate, onClose, o
   function handlePayMethodSelect(m: PayMethod) {
     setPayMethod(m);
     setError('');
-    if (m === 'CDM' || m === 'CASH') { setStep('goldOnly'); return; }
+    if ((m === 'CDM' || m === 'CASH') && !isPro) { setStep('goldOnly'); return; }
     if (m === 'UPI')  { setStep('upiDetails');  return; }
     setStep('bankDetails');
   }

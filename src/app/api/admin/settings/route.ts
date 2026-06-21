@@ -2,10 +2,10 @@ import { NextResponse }                                from 'next/server';
 import { requireAuth }                                 from '@/lib/auth/require-auth';
 import {
   connectToDatabase, SiteSetting,
-  getExchangeLimits, getWalletFilterSettings, getAutoPullSettings, getWidgetLimits,
+  getExchangeLimits, getWalletFilterSettings, getAutoPullSettings, getWidgetLimits, getProSettings,
 } from '@/lib/db';
 import { errorResponse }                               from '@/lib/utils/errors';
-import type { ExchangeLimits, WalletFilterSettings, AutoPullSettings, WidgetLimits } from '@/lib/db';
+import type { ExchangeLimits, WalletFilterSettings, AutoPullSettings, WidgetLimits, ProSettings } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 
@@ -16,14 +16,15 @@ export async function GET() {
     if (user.role !== 'admin') return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
     await connectToDatabase();
-    const [exchangeLimits, walletFilter, autoPull, widgetLimits] = await Promise.all([
+    const [exchangeLimits, walletFilter, autoPull, widgetLimits, proSettings] = await Promise.all([
       getExchangeLimits(),
       getWalletFilterSettings(),
       getAutoPullSettings(),
       getWidgetLimits(),
+      getProSettings(),
     ]);
 
-    return NextResponse.json({ success: true, data: { exchangeLimits, walletFilter, autoPull, widgetLimits } });
+    return NextResponse.json({ success: true, data: { exchangeLimits, walletFilter, autoPull, widgetLimits, proSettings } });
   } catch (err) {
     return errorResponse(err);
   }
@@ -40,6 +41,7 @@ export async function PATCH(req: Request) {
       walletFilter?: WalletFilterSettings;
       autoPull?: AutoPullSettings;
       widgetLimits?: WidgetLimits;
+      proSettings?: ProSettings;
     };
 
     await connectToDatabase();
@@ -86,6 +88,18 @@ export async function PATCH(req: Request) {
       updates.push(SiteSetting.findOneAndUpdate(
         { key: 'widgetLimits' },
         { $set: { value: { minBuyUsdt: wl.minBuyUsdt, minSellUsdt: wl.minSellUsdt } } },
+        { upsert: true, new: true },
+      ));
+    }
+
+    if (body.proSettings !== undefined) {
+      const ps = body.proSettings;
+      if (typeof ps.priceUsdt !== 'number' || ps.priceUsdt <= 0 || typeof ps.durationDays !== 'number' || ps.durationDays <= 0) {
+        return NextResponse.json({ error: 'Invalid proSettings values' }, { status: 400 });
+      }
+      updates.push(SiteSetting.findOneAndUpdate(
+        { key: 'proSettings' },
+        { $set: { value: { priceUsdt: ps.priceUsdt, durationDays: ps.durationDays, managerTelegram: ps.managerTelegram ?? '' } } },
         { upsert: true, new: true },
       ));
     }

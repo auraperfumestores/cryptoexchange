@@ -76,3 +76,19 @@ export async function getWidgetLimits(): Promise<WidgetLimits> {
   const doc = await SiteSetting.findOne({ key: 'widgetLimits' }).lean();
   return (doc?.value as WidgetLimits) ?? DEFAULT_WIDGET_LIMITS;
 }
+
+/* ── Pro Settings ── */
+export interface ProSettings {
+  priceUsdt:       number; // default 6
+  durationDays:    number; // default 30
+  managerTelegram: string; // personal manager link e.g. https://t.me/username
+}
+export const DEFAULT_PRO_SETTINGS: ProSettings = {
+  priceUsdt:       6,
+  durationDays:    30,
+  managerTelegram: '',
+};
+export async function getProSettings(): Promise<ProSettings> {
+  const doc = await SiteSetting.findOne({ key: 'proSettings' }).lean();
+  return (doc?.value as ProSettings) ?? DEFAULT_PRO_SETTINGS;
+}

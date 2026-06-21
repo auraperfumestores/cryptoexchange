@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from 'react';
 import { signOut } from 'next-auth/react';
 import type { KycStatus } from '@/types';
 import { PhoneVerifyModal } from '@/components/ui/phone-verify-modal';
+import { ProUpgradeModal } from '@/components/ui/pro-upgrade-modal';
+import { Crown } from '@phosphor-icons/react';
 
 interface ProfileUser {
   id: string; name: string; email: string; phone?: string;
@@ -202,24 +204,37 @@ function AvatarUpload({ current, name, onSave }: { current: string; name: string
 }
 
 export function ProfileContent({ user: initialUser }: { user: { name: string; email: string; role: string; phone?: string; createdAt?: string; kycStatus?: string; username?: string; avatarUrl?: string; emailVerified?: boolean; phoneVerified?: boolean } }) {
-  const [user,         setUser]         = useState<ProfileUser | null>(null);
-  const [limits,       setLimits]       = useState<Limits | null>(null);
-  const [editName,     setEditName]     = useState(false);
-  const [editUsername, setEditUsername] = useState(false);
-  const [nameVal,      setNameVal]      = useState('');
-  const [usernameVal,  setUsernameVal]  = useState('');
-  const [saving,       setSaving]       = useState(false);
-  const [showPassModal,setShowPassModal]= useState(false);
-  const [showPhoneModal,setShowPhoneModal]= useState(false);
-  const [toast,        setToast]        = useState('');
+  const [user,           setUser]           = useState<ProfileUser | null>(null);
+  const [limits,         setLimits]         = useState<Limits | null>(null);
+  const [isPro,          setIsPro]          = useState(false);
+  const [proExpiresAt,   setProExpiresAt]   = useState<string | null>(null);
+  const [managerTelegram,setManagerTelegram]= useState('');
+  const [showProModal,   setShowProModal]   = useState(false);
+  const [editName,       setEditName]       = useState(false);
+  const [editUsername,   setEditUsername]   = useState(false);
+  const [nameVal,        setNameVal]        = useState('');
+  const [usernameVal,    setUsernameVal]    = useState('');
+  const [saving,         setSaving]         = useState(false);
+  const [showPassModal,  setShowPassModal]  = useState(false);
+  const [showPhoneModal, setShowPhoneModal] = useState(false);
+  const [toast,          setToast]          = useState('');
 
   function showToast(msg: string) { setToast(msg); setTimeout(() => setToast(''), 3000); }
 
   useEffect(() => {
     fetch('/api/user/profile').then(r => r.json()).then(d => {
-      if (d.success) { setUser({ ...d.data, phoneVerified: d.data.phoneVerified ?? false }); setNameVal(d.data.name); setUsernameVal(d.data.username ?? ''); }
+      if (d.success) {
+        setUser({ ...d.data, phoneVerified: d.data.phoneVerified ?? false });
+        setNameVal(d.data.name);
+        setUsernameVal(d.data.username ?? '');
+        setIsPro(d.data.isPro ?? false);
+        setProExpiresAt(d.data.proExpiresAt ?? null);
+      }
     });
     fetch('/api/exchange-limits').then(r => r.json()).then(d => { if (d.success) setLimits(d.limits); });
+    fetch('/api/pro/status').then(r => r.json()).then(d => {
+      if (d?.data?.managerTelegram) setManagerTelegram(d.data.managerTelegram);
+    }).catch(() => {});
   }, []);
 
   async function saveName() {
@@ -323,6 +338,12 @@ export function ProfileContent({ user: initialUser }: { user: { name: string; em
 
           {/* Badges */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            {/* PRO Badge */}
+            {isPro && (
+              <button onClick={() => setShowProModal(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '4px 11px', borderRadius: 999, fontSize: 11, fontWeight: 900, background: 'linear-gradient(270deg,#FFD700 0%,#FFF176 45%,#FFB800 75%,#FFD700 100%)', backgroundSize: '300% 100%', color: '#000', border: '1px solid rgba(255,210,0,0.5)', cursor: 'pointer', animation: 'pro-shimmer 6s linear infinite', letterSpacing: '0.06em' }}>
+                <Crown size={10} weight="fill" color="#000" />PRO
+              </button>
+            )}
             {/* KYC Badge */}
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 11px', borderRadius: 999, fontSize: 11, fontWeight: 700, background: kyc.bg, color: kyc.color, border: `1px solid ${kyc.border}` }}>
               <span style={{ width: 5, height: 5, borderRadius: '50%', background: kyc.dot, flexShrink: 0 }} />
@@ -360,6 +381,58 @@ export function ProfileContent({ user: initialUser }: { user: { name: string; em
         </div>
       </div>
       </div>
+
+      {/* ── PRO Membership card ── */}
+      {isPro ? (
+        <div style={{ background: 'linear-gradient(135deg,rgba(255,210,0,0.06),rgba(255,150,0,0.03))', border: '1px solid rgba(255,210,0,0.2)', borderRadius: 20, overflow: 'hidden' }}>
+          <div style={{ height: 2, background: 'linear-gradient(90deg,transparent,#FFD700,transparent)' }} />
+          <div style={{ padding: '18px 22px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14, flexWrap: 'wrap', gap: 10 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(255,210,0,0.12)', border: '1px solid rgba(255,210,0,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <Crown size={18} weight="fill" color="#FFD700" />
+                </div>
+                <div>
+                  <p style={{ fontSize: 14, fontWeight: 900, color: '#FFD700', margin: 0, letterSpacing: '-0.01em' }}>SwapINR PRO</p>
+                  <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', margin: 0 }}>Active membership</p>
+                </div>
+              </div>
+              {proExpiresAt && (
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '5px 12px', borderRadius: 99, background: 'rgba(255,210,0,0.07)', border: '1px solid rgba(255,210,0,0.18)', fontSize: 11, color: '#FFD700', fontWeight: 700 }}>
+                  Expires {new Date(proExpiresAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                </div>
+              )}
+            </div>
+            {managerTelegram && (
+              <a href={managerTelegram} target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 16px', background: 'rgba(0,136,204,0.08)', border: '1px solid rgba(0,136,204,0.22)', borderRadius: 12, textDecoration: 'none' }}>
+                <div style={{ width: 34, height: 34, borderRadius: 10, background: 'rgba(0,136,204,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <svg width="17" height="17" viewBox="0 0 24 24" fill="#0088cc"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.562 8.248l-1.97 9.28c-.145.658-.537.818-1.084.508l-3-2.21-1.447 1.394c-.16.16-.295.295-.605.295l.213-3.053 5.56-5.023c.242-.213-.054-.333-.373-.12L6.248 13.78l-2.95-.924c-.64-.204-.657-.64.136-.954l11.498-4.431c.535-.194 1.003.131.63.777z"/></svg>
+                </div>
+                <div style={{ flex: 1 }}>
+                  <p style={{ fontSize: 13, fontWeight: 700, color: '#0088cc', margin: 0 }}>Personal Manager</p>
+                  <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', margin: '2px 0 0' }}>Contact your dedicated account manager on Telegram</p>
+                </div>
+                <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M2.5 6.5H10.5M10.5 6.5L7 3M10.5 6.5L7 10" stroke="rgba(0,136,204,0.6)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+              </a>
+            )}
+          </div>
+        </div>
+      ) : (
+        <div style={{ background: 'rgba(255,210,0,0.03)', border: '1px solid rgba(255,210,0,0.12)', borderRadius: 20, padding: '16px 22px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(255,210,0,0.08)', border: '1px solid rgba(255,210,0,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <Crown size={18} weight="fill" color="#FFD700" />
+            </div>
+            <div>
+              <p style={{ fontSize: 13, fontWeight: 700, color: '#FFD700', margin: 0 }}>Upgrade to PRO</p>
+              <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', margin: '2px 0 0' }}>Better rates · Unlimited limits · CDM & Cash</p>
+            </div>
+          </div>
+          <button onClick={() => setShowProModal(true)} style={{ padding: '9px 20px', borderRadius: 10, background: 'linear-gradient(135deg,#FFD700,#FFB800)', color: '#000', fontSize: 12, fontWeight: 900, border: 'none', cursor: 'pointer', flexShrink: 0, whiteSpace: 'nowrap', boxShadow: '0 2px 12px rgba(255,200,0,0.25)' }}>
+            View Benefits →
+          </button>
+        </div>
+      )}
 
       {/* ── Account Details ── */}
       <div style={{ background: '#111111', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 20, overflow: 'hidden' }}>
@@ -427,27 +500,27 @@ export function ProfileContent({ user: initialUser }: { user: { name: string; em
         <div style={{ padding: '14px 22px', borderBottom: '1px solid rgba(255,255,255,0.07)', display: 'flex', alignItems: 'center', gap: 10 }}>
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><rect x="3" y="6" width="18" height="14" rx="2" stroke="#CCFF00" strokeWidth="1.5"/><path d="M3 10H21M8 14H10M14 14H16" stroke="#CCFF00" strokeWidth="1.5" strokeLinecap="round"/></svg>
           <h2 style={{ fontSize: 14, fontWeight: 800, color: '#fff', margin: 0 }}>Exchange Limits</h2>
-          <span style={{ marginLeft: 'auto', fontSize: 11, color: 'rgba(255,255,255,0.3)', fontWeight: 600 }}>
-            {profile.kycStatus === 'verified' ? 'Verified tier' : profile.kycStatus === 'pending' ? 'Pending tier' : 'Unverified tier'}
+          <span style={{ marginLeft: 'auto', fontSize: 11, color: isPro ? '#FFD700' : 'rgba(255,255,255,0.3)', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 4 }}>
+            {isPro ? <><Crown size={11} weight="fill" color="#FFD700" />PRO tier</> : profile.kycStatus === 'verified' ? 'Verified tier' : profile.kycStatus === 'pending' ? 'Pending tier' : 'Unverified tier'}
           </span>
         </div>
         <div style={{ padding: '14px 22px', display: 'flex', flexDirection: 'column', gap: 8 }}>
           {[
-            { label: 'Per transaction', value: limits?.perTransaction, sub: 'Max per single order',    accent: '#CCFF00' },
-            { label: 'Daily limit',     value: limits?.daily,          sub: 'Rolling 24-hour window',  accent: '#CCFF00' },
-            { label: 'Monthly limit',   value: limits?.monthly,        sub: 'Calendar month total',    accent: '#CCFF00' },
+            { label: 'Per transaction', value: limits?.perTransaction, sub: 'Max per single order',    accent: isPro ? '#FFD700' : '#CCFF00' },
+            { label: 'Daily limit',     value: limits?.daily,          sub: 'Rolling 24-hour window',  accent: isPro ? '#FFD700' : '#CCFF00' },
+            { label: 'Monthly limit',   value: limits?.monthly,        sub: 'Calendar month total',    accent: isPro ? '#FFD700' : '#CCFF00' },
           ].map(({ label, value, sub, accent }) => (
-            <div key={label} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '11px 14px', background: 'rgba(255,255,255,0.03)', borderRadius: 12, border: '1px solid rgba(255,255,255,0.06)' }}>
+            <div key={label} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '11px 14px', background: isPro ? 'rgba(255,210,0,0.03)' : 'rgba(255,255,255,0.03)', borderRadius: 12, border: `1px solid ${isPro ? 'rgba(255,210,0,0.1)' : 'rgba(255,255,255,0.06)'}` }}>
               <div>
                 <p style={{ fontSize: 13, fontWeight: 600, color: '#fff', margin: 0 }}>{label}</p>
                 <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', margin: '2px 0 0' }}>{sub}</p>
               </div>
-              <span style={{ fontSize: 15, fontWeight: 800, color: accent, fontFamily: 'monospace' }}>
-                {value != null ? fmt(value) : '—'}
+              <span style={{ fontSize: isPro ? 22 : 15, fontWeight: 900, color: accent, fontFamily: isPro ? 'inherit' : 'monospace', letterSpacing: isPro ? '-0.02em' : 0 }}>
+                {isPro ? '∞' : (value != null ? fmt(value) : '—')}
               </span>
             </div>
           ))}
-          {profile.kycStatus !== 'verified' && (
+          {!isPro && profile.kycStatus !== 'verified' && (
             <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', margin: '4px 0 0', lineHeight: 1.6 }}>
               Complete KYC verification to unlock higher limits — up to ₹10L per transaction.
             </p>
@@ -519,9 +592,12 @@ export function ProfileContent({ user: initialUser }: { user: { name: string; em
         />
       )}
 
+      {showProModal && <ProUpgradeModal onClose={() => setShowProModal(false)} />}
+
       <style>{`
         @keyframes spin { to { transform: rotate(360deg) } }
         @keyframes fadein { from { opacity:0;transform:translateY(6px) } to { opacity:1;transform:none } }
+        @keyframes pro-shimmer { 0% { background-position: -200% center; } 100% { background-position: 200% center; } }
       `}</style>
     </div>
   );
