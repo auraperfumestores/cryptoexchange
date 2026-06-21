@@ -167,12 +167,23 @@ function IcoTrustWallet() {
   );
 }
 
-/* ─── Spinner ────────────────────────────────────────────────────────────── */
+/* ─── Loader bars (matches the website preloader) ───────────────────────── */
 function Spinner({ size = 18, color = C.lime }: { size?: number; color?: string }) {
+  const barH = size <= 12 ? 9  : size <= 16 ? 12 : size <= 20 ? 14 : 20;
+  const barW = size <= 12 ? 2  : size <= 20 ? 2.5 : 3;
+  const gap  = size <= 12 ? 2.5 : 3.5;
   return (
     <>
-      <div style={{ width: size, height: size, borderRadius: '50%', border: `2px solid rgba(204,255,0,0.15)`, borderTopColor: color, animation: 'sf-spin 0.7s linear infinite', flexShrink: 0 }} />
-      <style>{`@keyframes sf-spin{to{transform:rotate(360deg)}}`}</style>
+      <style>{`@keyframes sf-bar{0%,100%{transform:scaleY(0.35);opacity:0.35}50%{transform:scaleY(1);opacity:1}}`}</style>
+      <div style={{ display: 'flex', alignItems: 'center', gap, flexShrink: 0 }}>
+        {[0, 1, 2].map(i => (
+          <div key={i} style={{
+            width: barW, height: barH, borderRadius: 99,
+            background: color, transformOrigin: 'center',
+            animation: `sf-bar 0.75s ease-in-out ${i * 0.13}s infinite`,
+          }} />
+        ))}
+      </div>
     </>
   );
 }

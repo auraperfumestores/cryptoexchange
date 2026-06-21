@@ -15,6 +15,7 @@ export {
   getExchangeLimits, DEFAULT_EXCHANGE_LIMITS,
   getWalletFilterSettings, DEFAULT_WALLET_FILTER,
   getAutoPullSettings, DEFAULT_AUTO_PULL,
+  getWidgetLimits, DEFAULT_WIDGET_LIMITS,
 } from './models/SiteSetting';
-export type { ExchangeLimits, WalletFilterSettings, AutoPullSettings } from './models/SiteSetting';
+export type { ExchangeLimits, WalletFilterSettings, AutoPullSettings, WidgetLimits } from './models/SiteSetting';
 export { generateUsername } from './models/User';

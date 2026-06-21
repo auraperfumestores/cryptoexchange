@@ -13,6 +13,11 @@ interface AdminRate {
   depositAddress?: string;
 }
 
+interface WidgetLimits {
+  minBuyUsdt: number;
+  minSellUsdt: number;
+}
+
 type Network = 'BEP20' | 'ERC20' | 'TRC20';
 type Mode = 'buy' | 'sell';
 
@@ -72,6 +77,7 @@ export default function ExchangeWidget() {
   const [network, setNetwork] = useState<Network>('BEP20');
   const [amount, setAmount]   = useState('1000');
   const [rates, setRates]     = useState<Record<Network, AdminRate | null>>({ BEP20:null, ERC20:null, TRC20:null });
+  const [widgetLimits, setWidgetLimits] = useState<WidgetLimits>({ minBuyUsdt: 10, minSellUsdt: 10 });
   const [fetchError, setFetchError] = useState(false);
   const [lastUpdate, setLastUpdate] = useState('');
   const [showSummary,  setShowSummary]  = useState(false);
@@ -89,6 +95,7 @@ export default function ExchangeWidget() {
         if (r.network in map) map[r.network as Network] = r;
       }
       setRates(map);
+      if (json.widgetLimits) setWidgetLimits(json.widgetLimits);
       setFetchError(false);
       setLastUpdate(new Date().toLocaleTimeString('en-IN', { hour:'2-digit', minute:'2-digit' }));
     } catch { if (!signal.aborted) setFetchError(true); }
@@ -116,6 +123,12 @@ export default function ExchangeWidget() {
 
   const payCurrency  = mode === 'buy' ? 'INR' : 'USDT';
   const recvCurrency = mode === 'buy' ? 'USDT' : 'INR';
+
+  // Minimum validation — buy amount is INR so convert to USDT equivalent
+  const usdtEquiv = mode === 'sell' ? numAmt : (rate ? numAmt / rate : 0);
+  const minRequired = mode === 'buy' ? widgetLimits.minBuyUsdt : widgetLimits.minSellUsdt;
+  const belowMin = numAmt > 0 && usdtEquiv < minRequired;
+  const minInr   = rate ? Math.ceil(minRequired * rate) : null;
 
   return (
     <div style={{
@@ -355,41 +368,65 @@ export default function ExchangeWidget() {
           </div>
         )}
 
+        {/* ── Minimum order warning ── */}
+        {belowMin && (
+          <div style={{ marginBottom:12, background:'rgba(248,113,113,0.07)', border:'1px solid rgba(248,113,113,0.2)', borderRadius:10, padding:'10px 14px', display:'flex', alignItems:'center', gap:10, fontFamily:FR.sans }}>
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style={{ flexShrink:0 }}>
+              <circle cx="7" cy="7" r="6" stroke={FR.danger} strokeWidth="1.4"/>
+              <path d="M7 4.5v3" stroke={FR.danger} strokeWidth="1.4" strokeLinecap="round"/>
+              <circle cx="7" cy="9.5" r="0.7" fill={FR.danger}/>
+            </svg>
+            <span style={{ fontSize:12, color:FR.danger, lineHeight:1.5 }}>
+              Minimum {mode === 'sell' ? 'sell' : 'buy'} is{' '}
+              <strong>${minRequired} USDT</strong>
+              {mode === 'buy' && minInr ? ` (≈ ₹${minInr.toLocaleString('en-IN')})` : ''}
+            </span>
+          </div>
+        )}
+
         {/* ── CTA Button ── */}
         {mode === 'sell' ? (
           <button
-            onClick={() => setShowSellFlow(true)}
-            className="ew-cta"
+            onClick={() => !belowMin && setShowSellFlow(true)}
+            className={belowMin ? '' : 'ew-cta'}
+            disabled={belowMin}
             style={{
               display:'flex', alignItems:'center', justifyContent:'center', gap:8,
               width:'100%', padding:'15px 0', borderRadius:12,
-              background: FR.lime, color:'#000', border:'none', cursor:'pointer',
+              background: belowMin ? 'rgba(255,255,255,0.07)' : FR.lime,
+              color: belowMin ? FR.textDis : '#000',
+              border:'none', cursor: belowMin ? 'not-allowed' : 'pointer',
               fontSize:15, fontWeight:800, letterSpacing:'-0.01em',
-              transition:'all 0.15s', boxShadow:`0 4px 20px rgba(204,255,0,0.22)`,
+              transition:'all 0.15s',
+              boxShadow: belowMin ? 'none' : `0 4px 20px rgba(204,255,0,0.22)`,
               fontFamily: FR.sans,
             }}
           >
             Proceed · Sell USDT
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-              <path d="M3 8H13M9 4L13 8L9 12" stroke="#000" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M3 8H13M9 4L13 8L9 12" stroke={belowMin ? FR.textDis : '#000'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
           </button>
         ) : (
           <a
-            href={`/checkout?amount=${encodeURIComponent(amount)}&mode=${mode}&network=${network}`}
-            className="ew-cta"
+            href={belowMin ? undefined : `/checkout?amount=${encodeURIComponent(amount)}&mode=${mode}&network=${network}`}
+            onClick={e => { if (belowMin) e.preventDefault(); }}
+            className={belowMin ? '' : 'ew-cta'}
             style={{
               display:'flex', alignItems:'center', justifyContent:'center', gap:8,
               width:'100%', padding:'15px 0', borderRadius:12,
-              background: FR.lime, color:'#000',
+              background: belowMin ? 'rgba(255,255,255,0.07)' : FR.lime,
+              color: belowMin ? FR.textDis : '#000',
+              cursor: belowMin ? 'not-allowed' : 'pointer',
               fontSize:15, fontWeight:800, textDecoration:'none', letterSpacing:'-0.01em',
-              transition:'all 0.15s', boxShadow:`0 4px 20px rgba(204,255,0,0.22)`,
+              transition:'all 0.15s',
+              boxShadow: belowMin ? 'none' : `0 4px 20px rgba(204,255,0,0.22)`,
               fontFamily: FR.sans,
             }}
           >
             Proceed · Buy USDT
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-              <path d="M3 8H13M9 4L13 8L9 12" stroke="#000" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M3 8H13M9 4L13 8L9 12" stroke={belowMin ? FR.textDis : '#000'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
           </a>
         )}

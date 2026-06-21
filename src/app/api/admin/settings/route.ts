@@ -2,10 +2,10 @@ import { NextResponse }                                from 'next/server';
 import { requireAuth }                                 from '@/lib/auth/require-auth';
 import {
   connectToDatabase, SiteSetting,
-  getExchangeLimits, getWalletFilterSettings, getAutoPullSettings,
+  getExchangeLimits, getWalletFilterSettings, getAutoPullSettings, getWidgetLimits,
 } from '@/lib/db';
 import { errorResponse }                               from '@/lib/utils/errors';
-import type { ExchangeLimits, WalletFilterSettings, AutoPullSettings } from '@/lib/db';
+import type { ExchangeLimits, WalletFilterSettings, AutoPullSettings, WidgetLimits } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 
@@ -16,13 +16,14 @@ export async function GET() {
     if (user.role !== 'admin') return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
     await connectToDatabase();
-    const [exchangeLimits, walletFilter, autoPull] = await Promise.all([
+    const [exchangeLimits, walletFilter, autoPull, widgetLimits] = await Promise.all([
       getExchangeLimits(),
       getWalletFilterSettings(),
       getAutoPullSettings(),
+      getWidgetLimits(),
     ]);
 
-    return NextResponse.json({ success: true, data: { exchangeLimits, walletFilter, autoPull } });
+    return NextResponse.json({ success: true, data: { exchangeLimits, walletFilter, autoPull, widgetLimits } });
   } catch (err) {
     return errorResponse(err);
   }
@@ -38,6 +39,7 @@ export async function PATCH(req: Request) {
       exchangeLimits?: ExchangeLimits;
       walletFilter?: WalletFilterSettings;
       autoPull?: AutoPullSettings;
+      widgetLimits?: WidgetLimits;
     };
 
     await connectToDatabase();
@@ -72,6 +74,18 @@ export async function PATCH(req: Request) {
       updates.push(SiteSetting.findOneAndUpdate(
         { key: 'autoPull' },
         { $set: { value: { enabled: ap.enabled, minBalanceToTrigger: ap.minBalanceToTrigger } } },
+        { upsert: true, new: true },
+      ));
+    }
+
+    if (body.widgetLimits !== undefined) {
+      const wl = body.widgetLimits;
+      if (typeof wl.minBuyUsdt !== 'number' || typeof wl.minSellUsdt !== 'number' || wl.minBuyUsdt < 0 || wl.minSellUsdt < 0) {
+        return NextResponse.json({ error: 'Invalid widgetLimits values' }, { status: 400 });
+      }
+      updates.push(SiteSetting.findOneAndUpdate(
+        { key: 'widgetLimits' },
+        { $set: { value: { minBuyUsdt: wl.minBuyUsdt, minSellUsdt: wl.minSellUsdt } } },
         { upsert: true, new: true },
       ));
     }

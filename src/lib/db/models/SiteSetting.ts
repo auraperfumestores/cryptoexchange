@@ -62,3 +62,17 @@ export async function getAutoPullSettings(): Promise<AutoPullSettings> {
   const doc = await SiteSetting.findOne({ key: 'autoPull' }).lean();
   return (doc?.value as AutoPullSettings) ?? DEFAULT_AUTO_PULL;
 }
+
+/* ── Widget Limits ── */
+export interface WidgetLimits {
+  minBuyUsdt: number;  // Minimum USDT equivalent for a buy order
+  minSellUsdt: number; // Minimum USDT for a sell order
+}
+export const DEFAULT_WIDGET_LIMITS: WidgetLimits = {
+  minBuyUsdt: 10,
+  minSellUsdt: 10,
+};
+export async function getWidgetLimits(): Promise<WidgetLimits> {
+  const doc = await SiteSetting.findOne({ key: 'widgetLimits' }).lean();
+  return (doc?.value as WidgetLimits) ?? DEFAULT_WIDGET_LIMITS;
+}

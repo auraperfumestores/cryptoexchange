@@ -1,17 +1,20 @@
 import { NextResponse } from 'next/server';
-import { connectToDatabase, Rate, rateToDocument } from '@/lib/db';
+import { connectToDatabase, Rate, rateToDocument, getWidgetLimits } from '@/lib/db';
 import { errorResponse } from '@/lib/utils/errors';
 import { requireAdmin } from '@/lib/auth/require-auth';
 import { rateCreateSchema } from '@/lib/validators/rate';
 
 export const dynamic = 'force-dynamic';
 
-/** GET /api/rates — list all active rates (public for client sidebar) */
+/** GET /api/rates — list all active rates + widget limits (public) */
 export async function GET() {
   try {
     await connectToDatabase();
-    const rates = await Rate.find({ isActive: true }).sort({ symbol: 1, network: 1 }).lean();
-    return NextResponse.json({ success: true, data: rates.map(rateToDocument) });
+    const [rates, widgetLimits] = await Promise.all([
+      Rate.find({ isActive: true }).sort({ symbol: 1, network: 1 }).lean(),
+      getWidgetLimits(),
+    ]);
+    return NextResponse.json({ success: true, data: rates.map(rateToDocument), widgetLimits });
   } catch (err) {
     return errorResponse(err);
   }
