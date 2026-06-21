@@ -8,6 +8,7 @@ import {
   type ConfirmationResult,
 } from 'firebase/auth';
 import { TokenIcon } from './token-icon';
+import { ProUpgradeModal } from './pro-upgrade-modal';
 
 /* ─── Types ─────────────────────────────────────────────────────────────── */
 
@@ -286,6 +287,7 @@ export function SellFlowModal({ network, usdtAmount, inrAmount, rate, onClose, o
   /* payment */
   const [payMethod,    setPayMethod]    = useState<PayMethod | null>(null);
   const [isPro,        setIsPro]        = useState(false);
+  const [showProModal, setShowProModal] = useState(false);
 
   /* UPI */
   const [upiId,        setUpiId]        = useState('');
@@ -922,14 +924,12 @@ export function SellFlowModal({ network, usdtAmount, inrAmount, rate, onClose, o
             ))}
           </div>
 
-          <a
-            href={SUPPORT_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '11px 22px', borderRadius: 11, background: 'linear-gradient(135deg,#FFD700,#FFB800)', color: '#000', fontSize: 14, fontWeight: 800, textDecoration: 'none', marginBottom: 12, boxShadow: '0 4px 20px rgba(255,200,0,0.3)' }}
+          <button
+            onClick={() => setShowProModal(true)}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '11px 22px', borderRadius: 11, background: 'linear-gradient(135deg,#FFD700,#FFB800)', color: '#000', fontSize: 14, fontWeight: 800, border: 'none', cursor: 'pointer', marginBottom: 12, boxShadow: '0 4px 20px rgba(255,200,0,0.3)' }}
           >
             <IcoSupport /> Upgrade to PRO
-          </a>
+          </button>
 
           <br />
           <button onClick={() => setStep('payMethod')} style={{ fontSize: 13, color: C.sub, background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600 }}>
@@ -1074,6 +1074,15 @@ export function SellFlowModal({ network, usdtAmount, inrAmount, rate, onClose, o
         }
         @keyframes sf-spin { to { transform: rotate(360deg); } }
       `}</style>
+      {showProModal && (
+        <ProUpgradeModal onClose={() => {
+          setShowProModal(false);
+          /* re-check pro status after modal closes in case they just upgraded */
+          fetch('/api/user/profile').then(r => r.json()).then(d => {
+            if (d?.data?.isPro) { setIsPro(true); setStep('payMethod'); }
+          }).catch(() => {});
+        }} />
+      )}
     </>
   );
 }
