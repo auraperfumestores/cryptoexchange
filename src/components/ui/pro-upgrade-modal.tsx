@@ -1,9 +1,8 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, Fragment } from 'react';
 import {
   Crown, Check, X, ArrowRight, Phone, Wallet,
-  TrendUp, Lightning, Infinity, HandCoins, UserCircle,
 } from '@phosphor-icons/react';
 import { QRCodeSVG } from 'qrcode.react';
 
@@ -34,12 +33,17 @@ const NET_LABEL: Record<ProNetwork, string> = { BEP20: 'BNB Smart Chain', ERC20:
 const NET_COLOR: Record<ProNetwork, string> = { BEP20: '#F3BA2F', ERC20: '#627EEA', TRC20: '#EF4444' };
 const NET_TOKEN: Record<ProNetwork, string> = { BEP20: 'USDT (BEP20)', ERC20: 'USDT (ERC20)', TRC20: 'USDT (TRC20)' };
 
-const BENEFITS = [
-  { Icon: TrendUp,    label: 'Better Rates',       desc: '+1% sell · −1% buy'     },
-  { Icon: Infinity,   label: 'Unlimited Limits',   desc: 'Daily & monthly'         },
-  { Icon: Lightning,  label: 'Priority Settlement',desc: 'Under 8 minutes'         },
-  { Icon: HandCoins,  label: 'CDM & Cash',         desc: 'Exclusive payout modes'  },
-  { Icon: UserCircle, label: 'Personal Manager',   desc: 'Dedicated Telegram line' },
+type FeatureValue = boolean | string;
+interface FeatureRow { label: string; free: FeatureValue; pro: FeatureValue }
+
+const FEATURES: FeatureRow[] = [
+  { label: 'Exchange rate',       free: 'Standard',     pro: '+1% sell · −1% buy' },
+  { label: 'Daily limit',         free: false,          pro: 'Unlimited'          },
+  { label: 'Monthly limit',       free: false,          pro: 'Unlimited'          },
+  { label: 'Settlement speed',    free: 'Standard',     pro: 'Under 8 minutes'    },
+  { label: 'CDM deposits',        free: false,          pro: true                 },
+  { label: 'Cash deals',          free: false,          pro: true                 },
+  { label: 'Personal manager',    free: false,          pro: true                 },
 ];
 
 /* ── Design tokens ── */
@@ -69,6 +73,46 @@ function CopyButton({ text }: { text: string }) {
     >
       {copied ? <><Check size={11} weight="bold" />Copied</> : <>Copy</>}
     </button>
+  );
+}
+
+function FeatureCell({ value, accent }: { value: FeatureValue; accent: boolean }) {
+  if (value === true)  return <Check size={13} weight="bold" color={accent ? T.gold : T.success} />;
+  if (value === false) return <X size={12} weight="bold" color={accent ? 'rgba(255,210,0,0.3)' : 'rgba(255,255,255,0.18)'} />;
+  return <span style={{ fontSize: 10.5, fontWeight: 800, color: accent ? T.gold : T.dim, lineHeight: 1.3 }}>{value}</span>;
+}
+
+function ComparisonTable({ compact = false }: { compact?: boolean }) {
+  const pad = compact ? '7px 6px' : '11px 8px';
+  const labelSize = compact ? 10.5 : 12;
+  const headSize  = compact ? 9 : 10;
+  return (
+    <div style={{ borderRadius: 14, border: '1px solid rgba(255,255,255,0.08)', overflow: 'hidden' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 0.8fr 0.95fr' }}>
+        {/* Header row */}
+        <div style={{ padding: pad, background: T.card2 }} />
+        <div style={{ padding: pad, background: T.card2, borderLeft: '1px solid rgba(255,255,255,0.06)', textAlign: 'center', fontSize: headSize, fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase', color: T.dim }}>
+          Free
+        </div>
+        <div style={{ padding: pad, background: 'linear-gradient(135deg,rgba(255,210,0,0.18),rgba(255,150,0,0.09))', borderLeft: `1px solid ${T.goldBdr}`, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, fontSize: headSize, fontWeight: 900, letterSpacing: '0.08em', textTransform: 'uppercase', color: T.gold }}>
+          <Crown size={compact ? 10 : 11} weight="fill" />Pro
+        </div>
+
+        {FEATURES.map((f, i) => (
+          <Fragment key={f.label}>
+            <div style={{ padding: pad, background: i % 2 ? T.card2 : T.card, fontSize: labelSize, fontWeight: 650, color: T.sub, borderTop: '1px solid rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center' }}>
+              {f.label}
+            </div>
+            <div style={{ padding: pad, background: i % 2 ? T.card2 : T.card, borderTop: '1px solid rgba(255,255,255,0.05)', borderLeft: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <FeatureCell value={f.free} accent={false} />
+            </div>
+            <div style={{ padding: pad, background: i % 2 ? 'rgba(255,210,0,0.05)' : 'rgba(255,210,0,0.08)', borderTop: `1px solid ${T.goldBdr}`, borderLeft: `1px solid ${T.goldBdr}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <FeatureCell value={f.pro} accent />
+            </div>
+          </Fragment>
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -246,17 +290,9 @@ export function ProUpgradeModal({ onClose }: { onClose: () => void }) {
         </div>
       )}
 
-      {/* Benefits grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 16 }}>
-        {BENEFITS.map(({ Icon, label, desc }) => (
-          <div key={label} style={{ padding: '12px 14px', background: T.card2, border: `1px solid ${T.goldBdr}`, borderRadius: 12 }}>
-            <div style={{ width: 28, height: 28, borderRadius: 8, background: T.goldBg, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 8 }}>
-              <Icon size={14} weight="fill" color={T.gold} />
-            </div>
-            <p style={{ fontSize: 12, fontWeight: 800, color: T.text, margin: '0 0 2px', lineHeight: 1.2 }}>{label}</p>
-            <p style={{ fontSize: 10, color: T.dim, margin: 0 }}>{desc}</p>
-          </div>
-        ))}
+      {/* Feature comparison */}
+      <div style={{ marginBottom: 16 }}>
+        <ComparisonTable />
       </div>
 
       {proStatus.managerTelegram && (
@@ -314,17 +350,10 @@ export function ProUpgradeModal({ onClose }: { onClose: () => void }) {
         ))}
       </div>
 
-      {/* Mini benefits teaser */}
-      <div style={{ background: T.card2, border: `1px solid ${T.goldBdr}`, borderRadius: 14, padding: '14px 16px', marginBottom: 16 }}>
-        <p style={{ fontSize: 10, fontWeight: 800, color: T.gold, letterSpacing: '0.1em', textTransform: 'uppercase', margin: '0 0 12px' }}>What you unlock</p>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-          {BENEFITS.map(({ Icon, label }) => (
-            <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-              <Icon size={12} weight="fill" color={T.gold} />
-              <span style={{ fontSize: 11, color: T.sub }}>{label}</span>
-            </div>
-          ))}
-        </div>
+      {/* Mini comparison teaser */}
+      <div style={{ marginBottom: 16 }}>
+        <p style={{ fontSize: 10, fontWeight: 800, color: T.gold, letterSpacing: '0.1em', textTransform: 'uppercase', margin: '0 0 10px' }}>What you unlock</p>
+        <ComparisonTable compact />
       </div>
 
       <button onClick={onClose} style={{ width: '100%', padding: '12px', borderRadius: 12, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', color: T.dim, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
@@ -373,22 +402,10 @@ export function ProUpgradeModal({ onClose }: { onClose: () => void }) {
         </div>
       </div>
 
-      {/* ── Benefits grid ── */}
+      {/* ── Feature comparison ── */}
       <div style={{ padding: '0 24px 20px' }}>
-        <p style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.12em', color: T.dim, margin: '0 0 12px' }}>What you get</p>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-          {BENEFITS.map(({ Icon, label, desc }) => (
-            <div key={label} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '12px 13px', background: T.card2, border: `1px solid rgba(255,255,255,0.06)`, borderRadius: 13, transition: 'border-color 0.15s' }}>
-              <div style={{ width: 30, height: 30, borderRadius: 9, background: T.goldBg, border: `1px solid ${T.goldBdr}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                <Icon size={15} weight="fill" color={T.gold} />
-              </div>
-              <div>
-                <p style={{ fontSize: 12, fontWeight: 800, color: T.text, margin: '0 0 2px', lineHeight: 1.2 }}>{label}</p>
-                <p style={{ fontSize: 10, color: T.dim, margin: 0, lineHeight: 1.4 }}>{desc}</p>
-              </div>
-            </div>
-          ))}
-        </div>
+        <p style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.12em', color: T.dim, margin: '0 0 12px' }}>Free vs Pro</p>
+        <ComparisonTable />
       </div>
 
       {/* ── Network selector ── */}
@@ -536,18 +553,8 @@ export function ProUpgradeModal({ onClose }: { onClose: () => void }) {
         </div>
       )}
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 22, textAlign: 'left' }}>
-        {BENEFITS.map(({ Icon, label, desc }) => (
-          <div key={label} style={{ display: 'flex', alignItems: 'flex-start', gap: 9, padding: '11px 12px', background: T.card2, border: `1px solid ${T.goldBdr}`, borderRadius: 12 }}>
-            <div style={{ width: 26, height: 26, borderRadius: 7, background: T.goldBg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-              <Icon size={13} weight="fill" color={T.gold} />
-            </div>
-            <div>
-              <p style={{ fontSize: 11, fontWeight: 800, color: T.text, margin: 0 }}>{label}</p>
-              <p style={{ fontSize: 9, color: T.dim, margin: '2px 0 0' }}>{desc}</p>
-            </div>
-          </div>
-        ))}
+      <div style={{ marginBottom: 22, textAlign: 'left' }}>
+        <ComparisonTable compact />
       </div>
 
       <button onClick={() => window.location.reload()} style={{ width: '100%', padding: '15px', borderRadius: 14, background: 'linear-gradient(135deg,#FFD700,#FFB800)', color: '#000', fontSize: 15, fontWeight: 900, border: 'none', cursor: 'pointer', boxShadow: '0 6px 24px rgba(255,195,0,0.35)', letterSpacing: '-0.01em' }}>
