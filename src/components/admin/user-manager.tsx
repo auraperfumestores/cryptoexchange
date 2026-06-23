@@ -497,6 +497,87 @@ function ProControl({ user, acting, onAction }: {
   );
 }
 
+/* ─── Platform wallet balance control ─────────────── */
+function BalanceControl({ userId }: { userId: string }) {
+  const [balance, setBalance] = useState<number | null>(null);
+  const [loaded,  setLoaded]  = useState(false);
+  const [amount,  setAmount]  = useState('');
+  const [note,    setNote]    = useState('');
+  const [acting,  setActing]  = useState<'credit' | 'debit' | null>(null);
+
+  async function load() {
+    try {
+      const res  = await fetch(`/api/admin/platform-wallet?userId=${userId}`);
+      const json = await res.json();
+      if (json.success) setBalance(json.balance);
+    } catch { /* ignore */ }
+    finally { setLoaded(true); }
+  }
+
+  useEffect(() => { load(); }, [userId]);
+
+  async function submit(type: 'credit' | 'debit') {
+    const amt = Number(amount);
+    if (!amt || amt <= 0) { toast.error('Enter a valid amount'); return; }
+    setActing(type);
+    try {
+      const res  = await fetch('/api/admin/platform-wallet', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, type, amount: amt, note: note.trim() || undefined }),
+      });
+      const data = await res.json();
+      if (!res.ok) { toast.error(data.error ?? 'Failed'); return; }
+      setBalance(data.balance);
+      setAmount(''); setNote('');
+      toast.success(type === 'credit' ? 'Wallet credited' : 'Wallet debited');
+    } catch { toast.error('Failed'); }
+    finally { setActing(null); }
+  }
+
+  return (
+    <div style={{ background: T.bg, border: `1px solid ${T.border}`, borderRadius: 14, padding: '14px 18px', marginBottom: 12 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, flexWrap: 'wrap' as const }}>
+        <span style={{ color: T.lime }}><IcoWallet /></span>
+        <span style={{ fontSize: 12, fontWeight: 800, textTransform: 'uppercase' as const, letterSpacing: '0.1em', color: T.lime }}>Platform Balance</span>
+        <Badge
+          label={loaded ? `${(balance ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USDT` : '…'}
+          color={T.lime} bg="rgba(204,255,0,0.1)"
+        />
+      </div>
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' as const }}>
+        <div style={{ display: 'flex', alignItems: 'center', background: 'rgba(255,255,255,0.04)', border: `1px solid ${T.border2}`, borderRadius: 9, overflow: 'hidden' }}>
+          <input
+            type="number" min="0" step="0.01" placeholder="Amount" value={amount}
+            onChange={e => setAmount(e.target.value)}
+            style={{ width: 90, padding: '8px 10px', background: 'transparent', border: 'none', outline: 'none', fontSize: 13, fontWeight: 700, color: T.text, fontFamily: 'monospace' }}
+          />
+        </div>
+        <input
+          type="text" placeholder="Note (optional)" value={note}
+          onChange={e => setNote(e.target.value)}
+          style={{ flex: 1, minWidth: 120, padding: '9px 12px', background: 'rgba(255,255,255,0.04)', border: `1px solid ${T.border2}`, borderRadius: 9, outline: 'none', fontSize: 12, color: T.text }}
+        />
+        <button
+          disabled={!!acting}
+          onClick={() => submit('credit')}
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '9px 16px', borderRadius: 9, fontSize: 12, fontWeight: 800,
+            background: 'linear-gradient(135deg,#CCFF00,#A8D600)', border: 'none', color: '#000',
+            cursor: acting ? 'not-allowed' : 'pointer', opacity: acting ? 0.6 : 1, boxShadow: '0 3px 14px rgba(204,255,0,0.22)' }}>
+          {acting === 'credit' ? '…' : 'Credit'}
+        </button>
+        <button
+          disabled={!!acting}
+          onClick={() => submit('debit')}
+          style={{ padding: '9px 16px', borderRadius: 9, fontSize: 12, fontWeight: 700,
+            background: 'rgba(248,113,113,0.07)', border: '1px solid rgba(248,113,113,0.25)', color: T.red,
+            cursor: acting ? 'not-allowed' : 'pointer', opacity: acting ? 0.6 : 1 }}>
+          {acting === 'debit' ? '…' : 'Debit'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 /* ─── User row ─────────────────────────────────────── */
 function UserRow({ user, onToggle, toggling, onProAction, proActing }: {
   user:        UserDocument;
@@ -630,6 +711,7 @@ function UserRow({ user, onToggle, toggling, onProAction, proActing }: {
 
           <div style={{ padding: '0 20px 20px' }}>
             <ProControl user={user} acting={proActing} onAction={onProAction} />
+            <BalanceControl userId={user._id} />
             {loadingW ? (
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '20px 0', color: T.dim, fontSize: 13 }}>
                 <Spinner /> Loading wallets…

@@ -56,6 +56,39 @@ const NAV = [
   { href: '/settings',     label: 'Profile',  Icon: IcoProfile  },
 ];
 
+/* ── Wallet balance chip ──────────────────────────────────────────────────── */
+function IcoBalanceCoin({ size = 14 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 20 20" fill="none">
+      <circle cx="10" cy="10" r="7.5" stroke="currentColor" strokeWidth="1.6"/>
+      <path d="M10 6.5V13.5M7.8 8.2C7.8 7.2 8.8 6.5 10 6.5C11.2 6.5 12.2 7.2 12.2 8.2C12.2 9.2 11.2 9.6 10 10C8.8 10.4 7.8 10.8 7.8 11.8C7.8 12.8 8.8 13.5 10 13.5C11.2 13.5 12.2 12.8 12.2 11.8" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+    </svg>
+  );
+}
+function BalanceChip({ balance }: { balance: number | null }) {
+  return (
+    <div
+      className="user-balance-chip"
+      title="SwapINR Wallet Balance"
+      style={{
+        display: 'flex', alignItems: 'center', gap: 6,
+        minWidth: 86, padding: '6px 12px', borderRadius: 999,
+        background: 'rgba(204,255,0,0.05)',
+        border: '1px solid rgba(204,255,0,0.35)',
+        flexShrink: 0,
+      }}
+    >
+      <span style={{ color: 'var(--fr-lime)', display: 'flex', flexShrink: 0 }}>
+        <IcoBalanceCoin />
+      </span>
+      <span style={{ fontSize: 13, fontWeight: 800, color: 'var(--fr-lime)', fontFamily: 'monospace', letterSpacing: '-0.02em', whiteSpace: 'nowrap' }}>
+        {balance === null ? '…' : balance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+      </span>
+      <span style={{ fontSize: 10, fontWeight: 700, color: 'rgba(204,255,0,0.6)', letterSpacing: '0.04em' }}>USDT</span>
+    </div>
+  );
+}
+
 /* ── PRO badge mini (inline) ─────────────────────────────────────────────── */
 function ProBadgeMini() {
   return (
@@ -81,11 +114,15 @@ export function UserShell({ user, children }: UserShellProps) {
   const pathname   = usePathname();
   const [dropOpen,    setDropOpen]    = useState(false);
   const [showProModal, setShowProModal] = useState(false);
-  const [isPro, setIsPro] = useState(false);
+  const [isPro, setIsPro] = useState<boolean | null>(null);
+  const [balance, setBalance] = useState<number | null>(null);
 
   useEffect(() => {
     fetch('/api/pro/status').then(r => r.json()).then(d => {
       if (d?.data) setIsPro(!!d.data.isPro);
+    }).catch(() => {});
+    fetch('/api/user/platform-wallet').then(r => r.json()).then(d => {
+      if (d?.success) setBalance(d.balance ?? 0);
     }).catch(() => {});
   }, []);
 
@@ -151,8 +188,11 @@ export function UserShell({ user, children }: UserShellProps) {
           {/* Right side: desktop user dropdown + mobile PRO button */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
 
+            {/* ── Wallet balance chip (always visible, PC + mobile) ── */}
+            <BalanceChip balance={balance} />
+
             {/* ── Mobile-only PRO crown button ── */}
-            {!isPro && (
+            {isPro === false && (
               <button
                 onClick={() => setShowProModal(true)}
                 className="user-pro-btn"
@@ -206,7 +246,7 @@ export function UserShell({ user, children }: UserShellProps) {
                       </div>
                     </div>
                     {/* PRO upsell in dropdown */}
-                    {!isPro && (
+                    {isPro === false && (
                       <button
                         onClick={() => { setDropOpen(false); setShowProModal(true); }}
                         style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '11px 16px', fontSize: 13, color: '#FFD700', background: 'rgba(255,210,0,0.04)', border: 'none', borderBottom: '1px solid var(--fr-border-subtle)', cursor: 'pointer', textAlign: 'left' }}
@@ -282,6 +322,7 @@ export function UserShell({ user, children }: UserShellProps) {
         @keyframes pro-shimmer { 0% { background-position: -200% center; } 100% { background-position: 200% center; } }
         @keyframes pro-pulse { 0%,100% { box-shadow: 0 0 0 0 rgba(255,204,0,0),0 0 7px rgba(255,200,0,.3); } 50% { box-shadow: 0 0 0 4px rgba(255,204,0,.1),0 0 18px rgba(255,200,0,.55); } }
         @media (max-width: 768px) { .user-pro-btn { display: inline-flex !important; } }
+        @media (max-width: 480px) { .user-balance-chip { min-width: 70px; padding: 6px 9px; } .user-balance-chip span:last-child { display: none; } }
       `}</style>
     </div>
   );
