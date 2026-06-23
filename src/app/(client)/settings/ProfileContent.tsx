@@ -344,32 +344,32 @@ export function ProfileContent({ user: initialUser }: { user: { name: string; em
                 <Crown size={10} weight="fill" color="#000" />PRO
               </button>
             )}
-            {/* KYC Badge */}
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 11px', borderRadius: 999, fontSize: 11, fontWeight: 700, background: kyc.bg, color: kyc.color, border: `1px solid ${kyc.border}` }}>
+            {/* KYC status */}
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 700, color: kyc.color }}>
               <span style={{ width: 5, height: 5, borderRadius: '50%', background: kyc.dot, flexShrink: 0 }} />
               KYC: {kyc.label}
             </span>
-            {/* Role Badge */}
+            {/* Role */}
             {profile.role === 'admin' && (
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 11px', borderRadius: 999, fontSize: 11, fontWeight: 700, background: 'rgba(251,191,36,0.1)', color: '#FBBF24', border: '1px solid rgba(251,191,36,0.25)' }}>
-                ⚙ Admin
+              <span style={{ fontSize: 11, fontWeight: 700, color: '#FBBF24' }}>
+                Admin
               </span>
             )}
             {/* Email verified */}
             {profile.emailVerified && (
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 11px', borderRadius: 999, fontSize: 11, fontWeight: 700, background: 'rgba(0,229,160,0.08)', color: '#00E5A0', border: '1px solid rgba(0,229,160,0.2)' }}>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 700, color: '#00E5A0' }}>
                 <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M1 5L3.5 7.5L9 2.5" stroke="#00E5A0" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
                 Email verified
               </span>
             )}
             {/* Phone verified / verify button */}
             {profile.phoneVerified && profile.phone ? (
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 11px', borderRadius: 999, fontSize: 11, fontWeight: 700, background: 'rgba(0,229,160,0.08)', color: '#00E5A0', border: '1px solid rgba(0,229,160,0.2)' }}>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 700, color: '#00E5A0' }}>
                 <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M1 5L3.5 7.5L9 2.5" stroke="#00E5A0" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
                 +91 {profile.phone} verified
               </span>
             ) : (
-              <button onClick={() => setShowPhoneModal(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 11px', borderRadius: 999, fontSize: 11, fontWeight: 700, background: 'rgba(248,113,113,0.08)', color: '#F87171', border: '1px solid rgba(248,113,113,0.25)', cursor: 'pointer' }}>
+              <button onClick={() => setShowPhoneModal(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 700, color: '#F87171', background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}>
                 <svg width="10" height="10" viewBox="0 0 24 24" fill="none"><path d="M6.6 10.8a15.4 15.4 0 006.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1C10.6 21 3 13.4 3 4c0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1L6.6 10.8z" stroke="#F87171" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
                 Verify mobile
               </button>
@@ -462,7 +462,7 @@ export function ProfileContent({ user: initialUser }: { user: { name: string; em
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M12 2L3 7V13C3 18.5 7.2 23.3 12 24C16.8 23.3 21 18.5 21 13V7L12 2Z" stroke={kyc.color} strokeWidth="1.5" strokeLinejoin="round"/><path d="M8 12L10.5 14.5L16 9" stroke={kyc.color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
             <h2 style={{ fontSize: 14, fontWeight: 800, color: '#fff', margin: 0 }}>KYC Verification</h2>
           </div>
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 12px', borderRadius: 999, fontSize: 11, fontWeight: 700, background: kyc.bg, color: kyc.color, border: `1px solid ${kyc.border}` }}>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 700, color: kyc.color }}>
             <span style={{ width: 5, height: 5, borderRadius: '50%', background: kyc.dot }} />
             {kyc.label}
           </span>

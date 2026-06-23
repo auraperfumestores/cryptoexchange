@@ -292,7 +292,7 @@ export function SellFlowModal({ network, usdtAmount, inrAmount, rate, onClose, o
 
   /* UPI */
   const [upiId,        setUpiId]        = useState('');
-  const [upiStatus,    setUpiStatus]    = useState<null | { verified: boolean; bankName?: string; message?: string }>(null);
+  const [upiStatus,    setUpiStatus]    = useState<null | { verified: boolean; message?: string }>(null);
   const [upiChecking,  setUpiChecking]  = useState(false);
 
   /* Bank */
@@ -448,7 +448,7 @@ export function SellFlowModal({ network, usdtAmount, inrAmount, rate, onClose, o
         body: JSON.stringify({ upiId: upiId.trim() }),
       });
       const data = await res.json();
-      setUpiStatus(data.valid ? { verified: data.verified, bankName: data.bankName, message: data.message } : null);
+      setUpiStatus(data.valid ? { verified: data.verified, message: data.message } : null);
       if (!data.valid) setError(data.error ?? 'Invalid UPI ID');
     } catch { setError('UPI verification failed'); }
     finally { setUpiChecking(false); }
@@ -833,13 +833,12 @@ export function SellFlowModal({ network, usdtAmount, inrAmount, rate, onClose, o
 
           {/* UPI status */}
           {upiStatus && (
-            <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 8, padding: '9px 12px', background: upiStatus.verified ? 'rgba(0,229,160,0.07)' : 'rgba(251,191,36,0.07)', border: `1px solid ${upiStatus.verified ? 'rgba(0,229,160,0.2)' : 'rgba(251,191,36,0.2)'}`, borderRadius: 9 }}>
+            <div style={{ marginTop: 7, display: 'flex', alignItems: 'center', gap: 5 }}>
               {upiStatus.verified
-                ? <IcoCheck size={14} color={C.success} />
-                : <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 3V7M7 9.5V10" stroke={C.gold} strokeWidth="1.6" strokeLinecap="round"/><circle cx="7" cy="7" r="5.5" stroke={C.gold} strokeWidth="1.3"/></svg>}
-              <span style={{ fontSize: 12, fontWeight: 700, color: upiStatus.verified ? C.success : C.gold }}>
-                {upiStatus.message}
-                {upiStatus.bankName && ` · ${upiStatus.bankName}`}
+                ? <IcoCheck size={11} color={C.success} />
+                : <svg width="11" height="11" viewBox="0 0 14 14" fill="none"><path d="M7 3V7M7 9.5V10" stroke={C.gold} strokeWidth="1.6" strokeLinecap="round"/><circle cx="7" cy="7" r="5.5" stroke={C.gold} strokeWidth="1.3"/></svg>}
+              <span style={{ fontSize: 11, fontWeight: 600, color: upiStatus.verified ? '#fff' : C.gold }}>
+                {upiStatus.verified ? upiId.trim() : upiStatus.message}
               </span>
             </div>
           )}
@@ -987,7 +986,6 @@ export function SellFlowModal({ network, usdtAmount, inrAmount, rate, onClose, o
             <>
               <Row label="Method" value="UPI" />
               <Row label="UPI ID" value={upiId} mono />
-              {upiStatus?.bankName && <Row label="Bank" value={upiStatus.bankName} />}
             </>
           ) : (
             <>
