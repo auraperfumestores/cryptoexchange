@@ -93,6 +93,11 @@ export function userToDocument(doc: any): UserDocument {
     isActive: doc.isActive,
     emailVerified: doc.emailVerified ?? false,
     phoneVerified: doc.phoneVerified ?? false,
+    proStatus: doc.proStatus ? {
+      active:      !!doc.proStatus.active,
+      activatedAt: doc.proStatus.activatedAt ? new Date(doc.proStatus.activatedAt).toISOString() : null,
+      expiresAt:   doc.proStatus.expiresAt   ? new Date(doc.proStatus.expiresAt).toISOString()   : null,
+    } : undefined,
     createdAt: (doc.createdAt instanceof Date ? doc.createdAt : new Date(doc.createdAt)).toISOString(),
     updatedAt: (doc.updatedAt instanceof Date ? doc.updatedAt : new Date(doc.updatedAt)).toISOString(),
   };

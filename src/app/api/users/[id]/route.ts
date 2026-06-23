@@ -32,6 +32,15 @@ export async function PATCH(req: Request, { params }: RouteParams) {
     if (body.kycStatus) user.kycStatus = body.kycStatus;
     if (body.role && ['client', 'admin'].includes(body.role)) user.role = body.role;
 
+    if (body.proAction === 'grant') {
+      const days = Math.max(1, Number(body.proDays) || 30);
+      const activatedAt = new Date();
+      const expiresAt   = new Date(activatedAt.getTime() + days * 24 * 60 * 60 * 1000);
+      user.proStatus = { active: true, activatedAt, expiresAt, paymentId: null };
+    } else if (body.proAction === 'revoke') {
+      user.proStatus = { active: false, activatedAt: null, expiresAt: null, paymentId: null };
+    }
+
     await user.save();
     return NextResponse.json({ success: true, data: userToDocument(user) });
   } catch (err) {

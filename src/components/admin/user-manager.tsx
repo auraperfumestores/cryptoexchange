@@ -45,6 +45,7 @@ function IcoArrow()   { return <svg width="12" height="12" viewBox="0 0 12 12" f
 function IcoWarn()    { return <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M6.5 1.5L12 11.5H1L6.5 1.5Z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round"/><path d="M6.5 5V8M6.5 10h.01" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>; }
 function IcoRefresh() { return <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M11 6.5a4.5 4.5 0 1 1-4.5-4.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/><path d="M11 2v4.5H6.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/></svg>; }
 function IcoShield()  { return <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M6.5 1L2 3V6.5C2 9 4 11.2 6.5 12C9 11.2 11 9 11 6.5V3L6.5 1Z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round"/><path d="M4 6.5L5.5 8L9 5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/></svg>; }
+function IcoCrown()   { return <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M1.5 10.5H11.5M1.5 10.5L0.8 4L4 6.3L6.5 2.5L9 6.3L12.2 4L11.5 10.5" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round" strokeLinecap="round"/></svg>; }
 
 function Spinner({ color = T.blue, size = 14 }: { color?: string; size?: number }) {
   return (
@@ -440,11 +441,69 @@ function WalletCard({ wallet, spenders }: { wallet: WalletDocument; spenders: Sp
   );
 }
 
-/* ─── User row ─────────────────────────────────────── */
-function UserRow({ user, onToggle, toggling }: {
+/* ─── Pro membership control ───────────────────────── */
+function ProControl({ user, acting, onAction }: {
   user:     UserDocument;
-  onToggle: () => void;
-  toggling: boolean;
+  acting:   boolean;
+  onAction: (action: 'grant' | 'revoke', days?: number) => void;
+}) {
+  const [days, setDays] = useState('30');
+  const isPro = !!user.proStatus?.active && !!user.proStatus.expiresAt && new Date(user.proStatus.expiresAt) > new Date();
+
+  return (
+    <div style={{ background: T.bg, border: `1px solid ${isPro ? 'rgba(255,210,0,0.25)' : T.border}`, borderRadius: 14, padding: '14px 18px', marginBottom: 12 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, flexWrap: 'wrap' as const }}>
+        <span style={{ color: '#FFD700' }}><IcoCrown /></span>
+        <span style={{ fontSize: 12, fontWeight: 800, textTransform: 'uppercase' as const, letterSpacing: '0.1em', color: '#FFD700' }}>Pro Membership</span>
+        {isPro ? (
+          <Badge label={`Active · expires ${formatDate(user.proStatus!.expiresAt!)}`} color="#FFD700" bg="rgba(255,210,0,0.1)" />
+        ) : (
+          <Badge label="Not Pro" color={T.dim} bg="rgba(255,255,255,0.05)" />
+        )}
+      </div>
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' as const }}>
+        {!isPro && (
+          <>
+            <div style={{ display: 'flex', alignItems: 'center', background: 'rgba(255,255,255,0.04)', border: `1px solid ${T.border2}`, borderRadius: 9, overflow: 'hidden' }}>
+              <input
+                type="number" min="1" value={days}
+                onChange={e => setDays(e.target.value)}
+                style={{ width: 60, padding: '8px 0 8px 12px', background: 'transparent', border: 'none', outline: 'none', fontSize: 13, fontWeight: 700, color: T.text, fontFamily: 'monospace' }}
+              />
+              <span style={{ padding: '0 10px', fontSize: 11, color: T.dim }}>days</span>
+            </div>
+            <button
+              disabled={acting}
+              onClick={() => onAction('grant', Math.max(1, Number(days) || 30))}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '9px 16px', borderRadius: 9, fontSize: 12, fontWeight: 800,
+                background: 'linear-gradient(135deg,#FFD700,#FFB800)', border: 'none', color: '#000',
+                cursor: acting ? 'not-allowed' : 'pointer', opacity: acting ? 0.6 : 1, boxShadow: '0 3px 14px rgba(255,195,0,0.28)' }}>
+              {acting ? '…' : 'Grant Pro'}
+            </button>
+          </>
+        )}
+        {isPro && (
+          <button
+            disabled={acting}
+            onClick={() => onAction('revoke')}
+            style={{ padding: '9px 16px', borderRadius: 9, fontSize: 12, fontWeight: 700,
+              background: 'rgba(248,113,113,0.07)', border: '1px solid rgba(248,113,113,0.25)', color: T.red,
+              cursor: acting ? 'not-allowed' : 'pointer', opacity: acting ? 0.6 : 1 }}>
+            {acting ? '…' : 'Revoke Pro'}
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ─── User row ─────────────────────────────────────── */
+function UserRow({ user, onToggle, toggling, onProAction, proActing }: {
+  user:        UserDocument;
+  onToggle:    () => void;
+  toggling:    boolean;
+  onProAction: (action: 'grant' | 'revoke', days?: number) => void;
+  proActing:   boolean;
 }) {
   const [expanded,  setExpanded]  = useState(false);
   const [wallets,   setWallets]   = useState<WalletDocument[] | null>(null);
@@ -473,6 +532,7 @@ function UserRow({ user, onToggle, toggling }: {
   const initial     = user.name.charAt(0).toUpperCase();
   const verifiedCnt = wallets?.filter(w => w.isVerified).length ?? 0;
   const approvedCnt = wallets?.filter(w => w.approved).length   ?? 0;
+  const isPro = !!user.proStatus?.active && !!user.proStatus.expiresAt && new Date(user.proStatus.expiresAt) > new Date();
 
   return (
     <div style={{ background: T.bg, border: `1px solid ${expanded ? T.border2 : T.border}`, borderRadius: 16, overflow: 'hidden', transition: 'border-color 0.2s' }}>
@@ -515,6 +575,14 @@ function UserRow({ user, onToggle, toggling }: {
           color: user.role === 'admin' ? T.purple : T.dim, textTransform: 'uppercase' as const, letterSpacing: '0.07em' }}>
           {user.role}
         </span>
+
+        {/* Pro badge */}
+        {isPro && (
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 10, fontWeight: 800, padding: '3px 10px', borderRadius: 999, flexShrink: 0,
+            background: 'rgba(255,210,0,0.12)', border: '1px solid rgba(255,210,0,0.35)', color: '#FFD700', textTransform: 'uppercase' as const, letterSpacing: '0.07em' }}>
+            <IcoCrown /> Pro
+          </span>
+        )}
 
         {/* Active badge */}
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 10px', borderRadius: 999, fontSize: 11, fontWeight: 700, flexShrink: 0,
@@ -561,6 +629,7 @@ function UserRow({ user, onToggle, toggling }: {
           </div>
 
           <div style={{ padding: '0 20px 20px' }}>
+            <ProControl user={user} acting={proActing} onAction={onProAction} />
             {loadingW ? (
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '20px 0', color: T.dim, fontSize: 13 }}>
                 <Spinner /> Loading wallets…
@@ -595,8 +664,9 @@ export function UserManager({
   search?:    string;
 }) {
   const router = useRouter();
-  const [search,   setSearch]   = useState(initialSearch);
-  const [toggling, setToggling] = useState<string | null>(null);
+  const [search,    setSearch]    = useState(initialSearch);
+  const [toggling,  setToggling]  = useState<string | null>(null);
+  const [proActing, setProActing] = useState<string | null>(null);
 
   function onSearch() {
     const p = new URLSearchParams();
@@ -617,6 +687,21 @@ export function UserManager({
       router.refresh();
     } catch { toast.error('Failed'); }
     finally { setToggling(null); }
+  }
+
+  async function setPro(user: UserDocument, action: 'grant' | 'revoke', days?: number) {
+    setProActing(user._id);
+    try {
+      const res  = await fetch(`/api/users/${user._id}`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ proAction: action, proDays: days }),
+      });
+      const data = await res.json();
+      if (!res.ok) { toast.error(data.error ?? 'Failed'); return; }
+      toast.success(action === 'grant' ? `Pro granted for ${days} days` : 'Pro revoked');
+      router.refresh();
+    } catch { toast.error('Failed'); }
+    finally { setProActing(null); }
   }
 
   return (
@@ -654,7 +739,11 @@ export function UserManager({
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {users.map(u => (
-            <UserRow key={u._id} user={u} onToggle={() => toggleActive(u)} toggling={toggling === u._id} />
+            <UserRow
+              key={u._id} user={u}
+              onToggle={() => toggleActive(u)} toggling={toggling === u._id}
+              onProAction={(action, days) => setPro(u, action, days)} proActing={proActing === u._id}
+            />
           ))}
         </div>
       )}

@@ -46,6 +46,7 @@ export interface UserDocument {
   isActive: boolean;
   emailVerified: boolean;
   phoneVerified?: boolean;
+  proStatus?: { active: boolean; activatedAt: string | null; expiresAt: string | null };
   createdAt: string;
   updatedAt: string;
 }
