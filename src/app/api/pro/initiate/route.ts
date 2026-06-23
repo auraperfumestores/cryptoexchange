@@ -7,9 +7,9 @@ import type { ProNetwork }                    from '@/lib/db';
 export const dynamic = 'force-dynamic';
 
 const TREASURY: Record<ProNetwork, string> = {
-  BEP20: (process.env.TREASURY_BEP20 ?? '').trim(),
-  ERC20: (process.env.TREASURY_ERC20 ?? '').trim(),
-  TRC20: (process.env.VAULT_TRC20    ?? '').trim(),
+  BEP20: (process.env.VAULT_BEP20 ?? '').trim(),
+  ERC20: (process.env.VAULT_ERC20 ?? '').trim(),
+  TRC20: (process.env.VAULT_TRC20 ?? '').trim(),
 };
 
 /** POST /api/pro/initiate
