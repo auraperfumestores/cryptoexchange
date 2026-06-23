@@ -71,20 +71,20 @@ function BalanceChip({ balance }: { balance: number | null }) {
       className="user-balance-chip"
       title="SwapINR Wallet Balance"
       style={{
-        display: 'flex', alignItems: 'center', gap: 6,
-        minWidth: 86, padding: '6px 12px', borderRadius: 999,
+        display: 'flex', alignItems: 'center', gap: 7,
+        minWidth: 110, padding: '7px 14px', borderRadius: 8,
         background: 'rgba(204,255,0,0.05)',
         border: '1px solid rgba(204,255,0,0.35)',
         flexShrink: 0,
       }}
     >
       <span style={{ color: 'var(--fr-lime)', display: 'flex', flexShrink: 0 }}>
-        <IcoBalanceCoin />
+        <IcoBalanceCoin size={16} />
       </span>
-      <span style={{ fontSize: 13, fontWeight: 800, color: 'var(--fr-lime)', fontFamily: 'monospace', letterSpacing: '-0.02em', whiteSpace: 'nowrap' }}>
+      <span style={{ fontSize: 17, fontWeight: 900, color: '#fff', fontFamily: 'monospace', letterSpacing: '-0.02em', whiteSpace: 'nowrap' }}>
         {balance === null ? '…' : balance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
       </span>
-      <span style={{ fontSize: 10, fontWeight: 700, color: 'rgba(204,255,0,0.6)', letterSpacing: '0.04em' }}>USDT</span>
+      <span style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.55)', letterSpacing: '0.04em' }}>USDT</span>
     </div>
   );
 }
@@ -322,7 +322,7 @@ export function UserShell({ user, children }: UserShellProps) {
         @keyframes pro-shimmer { 0% { background-position: -200% center; } 100% { background-position: 200% center; } }
         @keyframes pro-pulse { 0%,100% { box-shadow: 0 0 0 0 rgba(255,204,0,0),0 0 7px rgba(255,200,0,.3); } 50% { box-shadow: 0 0 0 4px rgba(255,204,0,.1),0 0 18px rgba(255,200,0,.55); } }
         @media (max-width: 768px) { .user-pro-btn { display: inline-flex !important; } }
-        @media (max-width: 480px) { .user-balance-chip { min-width: 70px; padding: 6px 9px; } .user-balance-chip span:last-child { display: none; } }
+        @media (max-width: 480px) { .user-balance-chip { min-width: 90px; padding: 7px 10px; } .user-balance-chip span:last-child { display: none; } }
       `}</style>
     </div>
   );
