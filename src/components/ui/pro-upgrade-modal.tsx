@@ -2,12 +2,12 @@
 
 import { useState, useEffect, useRef, Fragment } from 'react';
 import {
-  Crown, Check, X, ArrowRight, Phone, Wallet,
+  Crown, Check, X, ArrowRight, ArrowLeft, Phone, Wallet,
 } from '@phosphor-icons/react';
 import { QRCodeSVG } from 'qrcode.react';
 
 type ProNetwork = 'BEP20' | 'ERC20' | 'TRC20';
-type Screen = 'loading' | 'alreadyPro' | 'prereq' | 'payment' | 'verifying' | 'success';
+type Screen = 'loading' | 'alreadyPro' | 'prereq' | 'payment' | 'checkout' | 'verifying' | 'success';
 
 interface PendingPayment {
   id?: string;
@@ -84,17 +84,20 @@ function FeatureCell({ value, accent }: { value: FeatureValue; accent: boolean }
 
 function ComparisonTable({ compact = false }: { compact?: boolean }) {
   const pad = compact ? '7px 6px' : '11px 8px';
+  const headPad = compact ? '10px 6px' : '13px 8px';
   const labelSize = compact ? 10.5 : 12;
-  const headSize  = compact ? 9 : 10;
+  const headSize  = compact ? 9.5 : 10.5;
   return (
     <div style={{ borderRadius: 14, border: '1px solid rgba(255,255,255,0.08)', overflow: 'hidden' }}>
       <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 0.8fr 0.95fr' }}>
         {/* Header row */}
-        <div style={{ padding: pad, background: T.card2 }} />
-        <div style={{ padding: pad, background: T.card2, borderLeft: '1px solid rgba(255,255,255,0.06)', textAlign: 'center', fontSize: headSize, fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase', color: T.dim }}>
+        <div style={{ padding: headPad, background: T.card2, display: 'flex', alignItems: 'center', fontSize: headSize - 1, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: T.dim }}>
+          Feature
+        </div>
+        <div style={{ padding: headPad, background: T.card2, borderLeft: '1px solid rgba(255,255,255,0.06)', textAlign: 'center', fontSize: headSize, fontWeight: 750, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.62)' }}>
           Free
         </div>
-        <div style={{ padding: pad, background: 'linear-gradient(135deg,rgba(255,210,0,0.18),rgba(255,150,0,0.09))', borderLeft: `1px solid ${T.goldBdr}`, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, fontSize: headSize, fontWeight: 900, letterSpacing: '0.08em', textTransform: 'uppercase', color: T.gold }}>
+        <div style={{ padding: headPad, background: 'linear-gradient(135deg,rgba(255,210,0,0.2),rgba(255,150,0,0.1))', borderLeft: `1px solid ${T.goldBdr}`, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, fontSize: headSize, fontWeight: 900, letterSpacing: '0.07em', textTransform: 'uppercase', color: T.gold }}>
           <Crown size={compact ? 10 : 11} weight="fill" />Pro
         </div>
 
@@ -193,7 +196,7 @@ export function ProUpgradeModal({ onClose }: { onClose: () => void }) {
         } else if (json.status === 'expired') {
           clearInterval(pollRef.current!);
           setPayment(null);
-          setScreen('payment');
+          setScreen('checkout');
         }
       } catch { /* keep polling */ }
     }, 10_000);
@@ -239,8 +242,6 @@ export function ProUpgradeModal({ onClose }: { onClose: () => void }) {
         @keyframes pm-orb1 { 0%,100%{transform:translate(0,0) scale(1)} 50%{transform:translate(-20px,20px) scale(1.1)} }
         @keyframes pm-orb2 { 0%,100%{transform:translate(0,0) scale(1)} 50%{transform:translate(16px,-16px) scale(1.08)} }
         @keyframes pb-bar  { 0%,100%{transform:scaleY(.3);opacity:.3} 50%{transform:scaleY(1);opacity:1} }
-        @keyframes pm-shimmer { 0%{background-position:-200% center} 100%{background-position:200% center} }
-        @keyframes pm-pulse { 0%,100%{box-shadow:0 0 0 0 rgba(255,204,0,0)} 50%{box-shadow:0 0 0 6px rgba(255,204,0,0.08)} }
       `}</style>
     </div>
   );
@@ -363,95 +364,126 @@ export function ProUpgradeModal({ onClose }: { onClose: () => void }) {
   );
 
   /* ═══════════════════════════════════════════════════════════════
-     PAYMENT  — benefits first, then network + proceed
+     PAYMENT  — heading, pricing, feature comparison, single CTA
   ════════════════════════════════════════════════════════════════ */
   if (screen === 'payment' && proStatus) return shell(
     <div>
       {/* ── Hero ── */}
-      <div style={{ padding: '24px 24px 20px' }}>
+      <div style={{ padding: '26px 24px 20px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 22 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
-            <div style={{ width: 46, height: 46, borderRadius: 15, background: 'linear-gradient(135deg,rgba(255,215,0,0.22),rgba(255,140,0,0.14))', border: '1.5px solid rgba(255,210,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', animation: 'pm-pulse 3s ease-in-out infinite' }}>
-              <Crown size={24} weight="fill" color={T.gold} />
+            <div style={{ width: 44, height: 44, borderRadius: 14, background: 'linear-gradient(135deg,rgba(255,215,0,0.2),rgba(255,140,0,0.1))', border: '1.5px solid rgba(255,210,0,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Crown size={22} weight="fill" color={T.gold} />
             </div>
             <div>
-              <p style={{ fontSize: 19, fontWeight: 900, margin: 0, letterSpacing: '-0.025em', color: T.text }}>
-                SwapINR <span style={{ color: T.gold }}>PRO</span>
+              <p style={{ fontSize: 18, fontWeight: 900, margin: 0, letterSpacing: '-0.02em', color: T.text }}>
+                SwapINR <span style={{ color: T.gold }}>Pro</span>
               </p>
-              <p style={{ fontSize: 11, color: T.dim, margin: '2px 0 0' }}>One-time · {proStatus.durationDays} days</p>
+              <p style={{ fontSize: 11.5, color: T.sub, margin: '3px 0 0', fontWeight: 500 }}>Premium trading membership</p>
             </div>
           </div>
           {closeBtn}
         </div>
 
-        {/* Price display */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', background: 'linear-gradient(135deg,rgba(255,210,0,0.09),rgba(255,140,0,0.05))', border: '1px solid rgba(255,210,0,0.2)', borderRadius: 16, marginBottom: 22 }}>
-          <div>
-            <p style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: T.dim, margin: '0 0 4px' }}>Membership fee</p>
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
-              <span style={{ fontSize: 36, fontWeight: 900, color: T.gold, letterSpacing: '-0.04em', lineHeight: 1, fontFamily: 'monospace' }}>{proStatus.priceUsdt}</span>
-              <span style={{ fontSize: 16, fontWeight: 700, color: 'rgba(255,210,0,0.6)' }}>USDT</span>
+        {/* Price card */}
+        <div style={{ position: 'relative', overflow: 'hidden', padding: '18px 20px', background: T.card2, border: '1px solid rgba(255,255,255,0.08)', borderRadius: 18, marginBottom: 4 }}>
+          <div aria-hidden style={{ position: 'absolute', top: -44, right: -44, width: 150, height: 150, borderRadius: '50%', background: 'radial-gradient(circle,rgba(255,210,0,0.12) 0%,transparent 70%)' }} />
+          <div style={{ position: 'relative', display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 12 }}>
+            <div>
+              <p style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: T.dim, margin: '0 0 6px' }}>Membership fee</p>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 5 }}>
+                <span style={{ fontSize: 14, fontWeight: 700, color: T.sub }}>$</span>
+                <span style={{ fontSize: 38, fontWeight: 900, color: T.text, letterSpacing: '-0.03em', lineHeight: 1, fontFamily: 'monospace' }}>{proStatus.priceUsdt.toFixed(2)}</span>
+                <span style={{ fontSize: 13, fontWeight: 700, color: T.dim }}>USDT</span>
+              </div>
             </div>
-          </div>
-          <div style={{ textAlign: 'right' }}>
-            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '5px 12px', borderRadius: 99, background: 'rgba(255,210,0,0.12)', border: '1px solid rgba(255,210,0,0.3)', fontSize: 11, fontWeight: 800, color: T.gold, letterSpacing: '0.04em', animation: 'pm-shimmer 6s linear infinite', backgroundSize: '300% 100%' }}>
-              <Crown size={11} weight="fill" />30-DAY ACCESS
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '7px 13px', borderRadius: 99, background: T.goldBg, border: `1px solid ${T.goldBdr}`, whiteSpace: 'nowrap' }}>
+              <span style={{ fontSize: 11, fontWeight: 800, color: T.gold, letterSpacing: '0.02em' }}>{proStatus.durationDays}-day access</span>
             </div>
-            <p style={{ fontSize: 10, color: T.dim, margin: '6px 0 0' }}>Activates instantly on payment</p>
           </div>
         </div>
       </div>
 
       {/* ── Feature comparison ── */}
-      <div style={{ padding: '0 24px 20px' }}>
-        <p style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.12em', color: T.dim, margin: '0 0 12px' }}>Free vs Pro</p>
+      <div style={{ padding: '0 24px 22px' }}>
+        <p style={{ fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', color: T.sub, margin: '0 0 12px' }}>Free vs Pro</p>
         <ComparisonTable />
       </div>
 
-      {/* ── Network selector ── */}
-      <div style={{ padding: '0 24px 24px' }}>
-        <div style={{ height: 1, background: 'rgba(255,255,255,0.05)', marginBottom: 20 }} />
-        <p style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.12em', color: T.dim, margin: '0 0 10px' }}>Select payment network</p>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 18 }}>
-          {(['BEP20','ERC20','TRC20'] as ProNetwork[]).map(n => {
-            const active = network === n;
-            const col    = NET_COLOR[n];
-            return (
-              <button key={n} onClick={() => setNetwork(n)} style={{ padding: '11px 6px', borderRadius: 12, border: `1.5px solid ${active ? col : 'rgba(255,255,255,0.08)'}`, background: active ? `${col}14` : T.card2, cursor: 'pointer', textAlign: 'center', transition: 'all 0.15s' }}>
-                <div style={{ fontSize: 12, fontWeight: 900, color: active ? col : T.sub, letterSpacing: '0.04em' }}>{n}</div>
-                <div style={{ fontSize: 9, color: T.dim, marginTop: 3, fontWeight: 600 }}>{NET_LABEL[n].split(' ')[0]}</div>
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Summary line */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', background: T.card2, border: '1px solid rgba(255,255,255,0.07)', borderRadius: 12, marginBottom: 16 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <div style={{ width: 8, height: 8, borderRadius: '50%', background: NET_COLOR[network] }} />
-            <span style={{ fontSize: 12, color: T.sub }}>{NET_TOKEN[network]}</span>
-          </div>
-          <span style={{ fontSize: 12, fontWeight: 800, color: T.text, fontFamily: 'monospace' }}>{proStatus.priceUsdt} USDT</span>
-        </div>
-
-        {error && (
-          <div style={{ marginBottom: 14, padding: '10px 14px', background: 'rgba(248,113,113,0.08)', border: '1px solid rgba(248,113,113,0.25)', borderRadius: 10, fontSize: 12, color: T.danger }}>{error}</div>
-        )}
-
+      {/* ── CTA ── */}
+      <div style={{ padding: '0 24px 26px' }}>
         <button
-          onClick={initiatePayment}
-          disabled={initiating}
-          style={{ width: '100%', padding: '16px', borderRadius: 14, background: initiating ? 'rgba(255,210,0,0.18)' : 'linear-gradient(135deg,#FFD700 0%,#FFB800 100%)', color: '#000', fontSize: 15, fontWeight: 900, border: 'none', cursor: initiating ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 9, boxShadow: initiating ? 'none' : '0 6px 24px rgba(255,195,0,0.35)', letterSpacing: '-0.01em', transition: 'all 0.2s' }}
+          onClick={() => setScreen('checkout')}
+          style={{ width: '100%', padding: '16px', borderRadius: 14, background: 'linear-gradient(135deg,#FFD700 0%,#FFB800 100%)', color: '#000', fontSize: 15, fontWeight: 900, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 9, boxShadow: '0 6px 20px rgba(255,195,0,0.28)', letterSpacing: '-0.01em', transition: 'transform 0.15s, box-shadow 0.15s' }}
+          onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 8px 26px rgba(255,195,0,0.4)'; }}
+          onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = '0 6px 20px rgba(255,195,0,0.28)'; }}
         >
-          {initiating
-            ? <><Bars color="#6b5200" />Preparing payment…</>
-            : <><Crown size={17} weight="fill" />Proceed to Payment →</>}
+          <Crown size={16} weight="fill" />Upgrade Now
         </button>
-        <p style={{ fontSize: 11, color: T.dim, textAlign: 'center', margin: '10px 0 0', lineHeight: 1.6 }}>
-          A QR code with the deposit address will appear next.
-          <br />Payment window is valid for <strong style={{ color: T.sub }}>60 minutes</strong>.
-        </p>
       </div>
+    </div>
+  , true);
+
+  /* ═══════════════════════════════════════════════════════════════
+     CHECKOUT — network selection + amount + complete payment
+  ════════════════════════════════════════════════════════════════ */
+  if (screen === 'checkout' && proStatus) return shell(
+    <div style={{ padding: '22px 24px 26px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 22 }}>
+        <button onClick={() => setScreen('payment')} style={{ width: 34, height: 34, borderRadius: 11, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', color: T.sub, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+          <ArrowLeft size={15} weight="bold" />
+        </button>
+        <div style={{ flex: 1 }}>
+          <p style={{ fontSize: 16, fontWeight: 900, color: T.text, margin: 0, letterSpacing: '-0.02em' }}>Complete your upgrade</p>
+          <p style={{ fontSize: 11, color: T.dim, margin: '2px 0 0' }}>Select a network and confirm payment</p>
+        </div>
+        {closeBtn}
+      </div>
+
+      <p style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', color: T.sub, margin: '0 0 10px' }}>Payment network</p>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 18 }}>
+        {(['BEP20','ERC20','TRC20'] as ProNetwork[]).map(n => {
+          const active = network === n;
+          const col    = NET_COLOR[n];
+          return (
+            <button key={n} onClick={() => setNetwork(n)} style={{ padding: '11px 6px', borderRadius: 12, border: `1.5px solid ${active ? col : 'rgba(255,255,255,0.08)'}`, background: active ? `${col}14` : T.card2, cursor: 'pointer', textAlign: 'center', transition: 'all 0.15s' }}>
+              <div style={{ fontSize: 12, fontWeight: 900, color: active ? col : T.sub, letterSpacing: '0.04em' }}>{n}</div>
+              <div style={{ fontSize: 9, color: T.dim, marginTop: 3, fontWeight: 600 }}>{NET_LABEL[n].split(' ')[0]}</div>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Amount summary */}
+      <div style={{ padding: '15px 18px', background: T.card2, border: '1px solid rgba(255,255,255,0.07)', borderRadius: 14, marginBottom: 18 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+          <span style={{ fontSize: 11.5, color: T.dim }}>Network</span>
+          <span style={{ fontSize: 12, fontWeight: 700, color: T.text }}>{NET_TOKEN[network]}</span>
+        </div>
+        <div style={{ height: 1, background: 'rgba(255,255,255,0.06)', margin: '0 0 10px' }} />
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <span style={{ fontSize: 11.5, color: T.dim }}>Amount to pay</span>
+          <span style={{ fontSize: 16, fontWeight: 900, color: T.gold, fontFamily: 'monospace' }}>{proStatus.priceUsdt.toFixed(2)} USDT</span>
+        </div>
+      </div>
+
+      {error && (
+        <div style={{ marginBottom: 14, padding: '10px 14px', background: 'rgba(248,113,113,0.08)', border: '1px solid rgba(248,113,113,0.25)', borderRadius: 10, fontSize: 12, color: T.danger }}>{error}</div>
+      )}
+
+      <button
+        onClick={initiatePayment}
+        disabled={initiating}
+        style={{ width: '100%', padding: '16px', borderRadius: 14, background: initiating ? 'rgba(255,210,0,0.18)' : 'linear-gradient(135deg,#FFD700 0%,#FFB800 100%)', color: '#000', fontSize: 15, fontWeight: 900, border: 'none', cursor: initiating ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 9, boxShadow: initiating ? 'none' : '0 6px 20px rgba(255,195,0,0.28)', letterSpacing: '-0.01em', transition: 'all 0.2s' }}
+      >
+        {initiating
+          ? <><Bars color="#6b5200" />Preparing payment…</>
+          : <><Check size={17} weight="bold" />Complete Payment</>}
+      </button>
+      <p style={{ fontSize: 11, color: T.dim, textAlign: 'center', margin: '10px 0 0', lineHeight: 1.6 }}>
+        A QR code with the deposit address will appear next.
+        <br />Payment window is valid for <strong style={{ color: T.sub }}>60 minutes</strong>.
+      </p>
     </div>
   , true);
 
@@ -513,7 +545,7 @@ export function ProUpgradeModal({ onClose }: { onClose: () => void }) {
           {(['BEP20','ERC20','TRC20'] as ProNetwork[]).map(n => {
             const active = payment.network === n;
             return (
-              <button key={n} disabled={active} onClick={() => { if (pollRef.current) clearInterval(pollRef.current); setPayment(null); setNetwork(n); setScreen('payment'); }}
+              <button key={n} disabled={active} onClick={() => { if (pollRef.current) clearInterval(pollRef.current); setPayment(null); setNetwork(n); setScreen('checkout'); }}
                 style={{ flex: 1, padding: '7px', borderRadius: 9, border: `1px solid ${active ? NET_COLOR[n] : 'rgba(255,255,255,0.08)'}`, background: active ? `${NET_COLOR[n]}14` : 'transparent', color: active ? NET_COLOR[n] : T.dim, fontSize: 10, fontWeight: 800, cursor: active ? 'default' : 'pointer' }}>
                 {n}
               </button>
