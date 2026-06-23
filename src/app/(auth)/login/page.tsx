@@ -25,10 +25,10 @@ const REVIEWERS = [
 ];
 
 const TRUST_STATS = [
-  { value: '₹83 Cr+', label: 'Volume Processed' },
-  { value: '10K+',    label: 'Happy Traders' },
+  { value: '₹58L+',   label: 'Volume Processed' },
+  { value: '3.1K+',   label: 'Verified Traders' },
   { value: '< 15 min',label: 'Avg Settlement' },
-  { value: '4.9★',   label: 'User Rating' },
+  { value: '4.9★',    label: 'Trader Rating' },
 ];
 
 export default function LoginPage() {

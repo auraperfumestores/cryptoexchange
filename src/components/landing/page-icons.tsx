@@ -20,7 +20,8 @@ export const IconStar   = () => <Star size={13} weight="fill" />;
 export const IconCheck  = () => <Check size={14} weight="bold" />;
 export const IconPlay   = () => <Play size={18} weight="fill" />;
 export const IconX      = () => <X size={18} />;
-export const IconPro    = () => <Crown size={16} />;
+export const IconPro    = ({ size = 16, color, weight }: { size?: number; color?: string; weight?: 'regular' | 'bold' | 'fill' | 'duotone' } = {}) =>
+  <Crown size={size} color={color} weight={weight ?? 'fill'} />;
 export const IconTrend  = ({ up }: { up: boolean }) =>
   up ? <TrendUp size={12} color="#4ADE80" /> : <TrendDown size={12} color="#F87171" />;
 

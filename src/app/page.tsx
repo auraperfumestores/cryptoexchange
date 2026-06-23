@@ -196,7 +196,7 @@ export default async function LandingPage() {
         </div>
         {[['How it Works','#how'],['Features','#features'],['Networks','#networks'],['PRO','#pro'],['FAQ','#faq']].map(([l, h]) => (
           l === 'PRO'
-            ? <Link key={l} href={h} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '9px 18px', margin: '8px 0 18px', borderRadius: 999, background: 'linear-gradient(135deg,rgba(204,255,0,0.10) 0%,rgba(0,212,200,0.10) 100%)', border: '1px solid rgba(204,255,0,0.30)', fontSize: 16, fontWeight: 800, letterSpacing: '0.06em', color: 'var(--fr-lime)', textDecoration: 'none' }}><IconPro /> PRO</Link>
+            ? <Link key={l} href={h} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '9px 18px', margin: '8px 0 18px', borderRadius: 999, background: 'linear-gradient(135deg,#FFD700 0%,#FFE066 45%,#FFB800 100%)', border: '1px solid rgba(255,210,0,0.7)', boxShadow: '0 4px 16px rgba(255,195,0,0.25)', fontSize: 15, fontWeight: 900, letterSpacing: '0.08em', color: '#000', textDecoration: 'none' }}><IconPro size={17} color="#000" /> PRO</Link>
             : <Link key={l} href={h} className="fr-mobile-menu__item">{l}</Link>
         ))}
         <div style={{ marginTop: 32, display: 'flex', flexDirection: 'column', gap: 12 }}>
