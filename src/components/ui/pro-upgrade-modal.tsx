@@ -2,19 +2,20 @@
 
 import { useState, useEffect, useRef, Fragment } from 'react';
 import {
-  Crown, Check, X, ArrowRight, ArrowLeft, Phone, Wallet,
+  Crown, Check, X, ArrowRight, ArrowLeft, Phone, ShieldCheck,
 } from '@phosphor-icons/react';
 import { QRCodeSVG } from 'qrcode.react';
 
 type ProNetwork = 'BEP20' | 'ERC20' | 'TRC20';
-type Screen = 'loading' | 'alreadyPro' | 'prereq' | 'payment' | 'checkout' | 'verifying' | 'success';
+type PaymentStatus = 'pending' | 'awaiting_phone';
+type Screen = 'loading' | 'alreadyPro' | 'payment' | 'checkout' | 'verifying' | 'needPhone' | 'success';
 
 interface PendingPayment {
   id?: string;
+  status?: PaymentStatus;
   network: ProNetwork;
   depositAddress: string;
   amountUsdt: number;
-  fromAddress: string;
   expiresAt: string;
 }
 
@@ -22,7 +23,6 @@ interface ProStatus {
   isPro: boolean;
   expiresAt: string | null;
   phoneVerified: boolean;
-  hasWallet: boolean;
   priceUsdt: number;
   durationDays: number;
   managerTelegram: string;
@@ -77,9 +77,21 @@ function CopyButton({ text }: { text: string }) {
 }
 
 function FeatureCell({ value, accent }: { value: FeatureValue; accent: boolean }) {
-  if (value === true)  return <Check size={13} weight="bold" color={accent ? T.gold : T.success} />;
-  if (value === false) return <X size={12} weight="bold" color={accent ? 'rgba(255,210,0,0.3)' : 'rgba(255,255,255,0.18)'} />;
-  return <span style={{ fontSize: 10.5, fontWeight: 800, color: accent ? T.gold : T.dim, lineHeight: 1.3 }}>{value}</span>;
+  if (value === true) {
+    return (
+      <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 21, height: 21, borderRadius: '50%', background: accent ? 'rgba(255,210,0,0.2)' : 'rgba(74,222,128,0.16)', flexShrink: 0 }}>
+        <Check size={13} weight="bold" color={accent ? T.gold : T.success} />
+      </span>
+    );
+  }
+  if (value === false) {
+    return (
+      <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 21, height: 21, borderRadius: '50%', background: accent ? 'rgba(255,210,0,0.08)' : 'rgba(255,255,255,0.07)', flexShrink: 0 }}>
+        <X size={12} weight="bold" color={accent ? 'rgba(255,210,0,0.5)' : 'rgba(255,255,255,0.32)'} />
+      </span>
+    );
+  }
+  return <span style={{ display: 'block', width: '100%', textAlign: 'center', fontSize: 10.5, fontWeight: 800, color: accent ? T.gold : T.dim, lineHeight: 1.3 }}>{value}</span>;
 }
 
 function ComparisonTable({ compact = false }: { compact?: boolean }) {
@@ -160,12 +172,11 @@ export function ProUpgradeModal({ onClose }: { onClose: () => void }) {
         setPayment(data.pendingPayment);
         setNetwork(data.pendingPayment.network);
         startPolling();
-        setScreen('verifying');
+        setScreen(data.pendingPayment.status === 'awaiting_phone' ? 'needPhone' : 'verifying');
         return;
       }
-      if (!data.phoneVerified || !data.hasWallet) { setScreen('prereq'); return; }
       setScreen('payment');
-    } catch { setScreen('prereq'); }
+    } catch { setScreen('payment'); }
   }
 
   useEffect(() => {
@@ -193,6 +204,9 @@ export function ProUpgradeModal({ onClose }: { onClose: () => void }) {
           clearInterval(pollRef.current!);
           setTxHash(json.txHash ?? '');
           setScreen('success');
+        } else if (json.status === 'awaiting_phone') {
+          setTxHash(json.txHash ?? '');
+          setScreen('needPhone');
         } else if (json.status === 'expired') {
           clearInterval(pollRef.current!);
           setPayment(null);
@@ -316,54 +330,6 @@ export function ProUpgradeModal({ onClose }: { onClose: () => void }) {
   );
 
   /* ═══════════════════════════════════════════════════════════════
-     PREREQUISITES
-  ════════════════════════════════════════════════════════════════ */
-  if (screen === 'prereq' && proStatus) return shell(
-    <div style={{ padding: '24px 24px 28px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <Crown size={20} weight="fill" color={T.gold} />
-          <p style={{ fontSize: 17, fontWeight: 900, color: T.text, margin: 0, letterSpacing: '-0.02em' }}>Upgrade to <span style={{ color: T.gold }}>PRO</span></p>
-        </div>
-        {closeBtn}
-      </div>
-      <p style={{ fontSize: 12, color: T.dim, margin: '0 0 22px' }}>Complete these steps to unlock the payment page</p>
-
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 20 }}>
-        {[
-          { done: proStatus.phoneVerified, Icon: Phone, label: 'Verify your phone number', sub: proStatus.phoneVerified ? 'Completed' : 'Go to Settings → Profile', href: '/settings' },
-          { done: proStatus.hasWallet,     Icon: Wallet, label: 'Connect a verified wallet',  sub: proStatus.hasWallet ? 'Completed' : 'Go to Wallets and verify one', href: '/wallets' },
-        ].map((step, i) => (
-          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 16px', background: step.done ? 'rgba(74,222,128,0.04)' : T.card2, border: `1.5px solid ${step.done ? 'rgba(74,222,128,0.25)' : 'rgba(255,255,255,0.07)'}`, borderRadius: 14 }}>
-            <div style={{ width: 40, height: 40, borderRadius: 12, background: step.done ? 'rgba(74,222,128,0.1)' : 'rgba(255,255,255,0.05)', border: `1px solid ${step.done ? 'rgba(74,222,128,0.3)' : 'rgba(255,255,255,0.1)'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-              {step.done ? <Check size={18} weight="bold" color={T.success} /> : <step.Icon size={18} weight="fill" color={T.dim} />}
-            </div>
-            <div style={{ flex: 1 }}>
-              <p style={{ fontSize: 13, fontWeight: 700, color: step.done ? T.success : T.text, margin: 0 }}>{step.label}</p>
-              <p style={{ fontSize: 11, color: T.dim, margin: '3px 0 0' }}>{step.sub}</p>
-            </div>
-            {!step.done && (
-              <a href={step.href} onClick={onClose} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 12px', borderRadius: 8, background: T.goldBg, border: `1px solid ${T.goldBdr}`, fontSize: 11, fontWeight: 800, color: T.gold, textDecoration: 'none' }}>
-                Go <ArrowRight size={11} weight="bold" />
-              </a>
-            )}
-          </div>
-        ))}
-      </div>
-
-      {/* Mini comparison teaser */}
-      <div style={{ marginBottom: 16 }}>
-        <p style={{ fontSize: 10, fontWeight: 800, color: T.gold, letterSpacing: '0.1em', textTransform: 'uppercase', margin: '0 0 10px' }}>What you unlock</p>
-        <ComparisonTable compact />
-      </div>
-
-      <button onClick={onClose} style={{ width: '100%', padding: '12px', borderRadius: 12, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', color: T.dim, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
-        Maybe Later
-      </button>
-    </div>
-  );
-
-  /* ═══════════════════════════════════════════════════════════════
      PAYMENT  — heading, pricing, feature comparison, single CTA
   ════════════════════════════════════════════════════════════════ */
   if (screen === 'payment' && proStatus) return shell(
@@ -463,9 +429,13 @@ export function ProUpgradeModal({ onClose }: { onClose: () => void }) {
         <div style={{ height: 1, background: 'rgba(255,255,255,0.06)', margin: '0 0 10px' }} />
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <span style={{ fontSize: 11.5, color: T.dim }}>Amount to pay</span>
-          <span style={{ fontSize: 16, fontWeight: 900, color: T.gold, fontFamily: 'monospace' }}>{proStatus.priceUsdt.toFixed(2)} USDT</span>
+          <span style={{ fontSize: 16, fontWeight: 900, color: T.gold, fontFamily: 'monospace' }}>~{proStatus.priceUsdt.toFixed(2)} USDT</span>
         </div>
       </div>
+
+      <p style={{ fontSize: 10.5, color: T.dim, margin: '0 0 16px', lineHeight: 1.6 }}>
+        A few verification cents are added to this amount — pay from <strong style={{ color: T.sub }}>any wallet</strong> on the selected network. The exact figure appears on the next screen.
+      </p>
 
       {error && (
         <div style={{ marginBottom: 14, padding: '10px 14px', background: 'rgba(248,113,113,0.08)', border: '1px solid rgba(248,113,113,0.25)', borderRadius: 10, fontSize: 12, color: T.danger }}>{error}</div>
@@ -495,7 +465,7 @@ export function ProUpgradeModal({ onClose }: { onClose: () => void }) {
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
         <div>
-          <p style={{ fontSize: 17, fontWeight: 900, color: T.text, margin: 0, letterSpacing: '-0.02em' }}>Send <span style={{ color: T.gold }}>{payment.amountUsdt} USDT</span></p>
+          <p style={{ fontSize: 17, fontWeight: 900, color: T.text, margin: 0, letterSpacing: '-0.02em' }}>Send <span style={{ color: T.gold }}>{payment.amountUsdt.toFixed(3)} USDT</span></p>
           <p style={{ fontSize: 11, color: T.dim, margin: '3px 0 0' }}>{NET_TOKEN[payment.network]} · {NET_LABEL[payment.network]}</p>
         </div>
         {closeBtn}
@@ -519,7 +489,7 @@ export function ProUpgradeModal({ onClose }: { onClose: () => void }) {
 
       {/* Amount badge */}
       <div style={{ textAlign: 'center', marginBottom: 18 }}>
-        <span style={{ fontSize: 30, fontWeight: 900, color: T.gold, fontFamily: 'monospace', letterSpacing: '-0.04em' }}>{payment.amountUsdt} USDT</span>
+        <span style={{ fontSize: 28, fontWeight: 900, color: T.gold, fontFamily: 'monospace', letterSpacing: '-0.03em' }}>{payment.amountUsdt.toFixed(3)} USDT</span>
         <p style={{ fontSize: 11, color: T.dim, margin: '4px 0 0' }}>Send exactly this amount — no more, no less</p>
       </div>
 
@@ -532,10 +502,10 @@ export function ProUpgradeModal({ onClose }: { onClose: () => void }) {
         </div>
       </div>
 
-      {/* From wallet notice */}
+      {/* Any-wallet notice */}
       <div style={{ padding: '11px 14px', background: T.goldBg, border: `1px solid ${T.goldBdr}`, borderRadius: 12, marginBottom: 18 }}>
-        <p style={{ fontSize: 11, color: T.gold, margin: '0 0 4px', fontWeight: 800 }}>Send from your verified wallet only</p>
-        <p style={{ fontSize: 10, fontFamily: 'monospace', color: 'rgba(255,210,0,0.5)', margin: 0, wordBreak: 'break-all', lineHeight: 1.6 }}>{payment.fromAddress}</p>
+        <p style={{ fontSize: 11, color: T.gold, margin: '0 0 3px', fontWeight: 800 }}>Pay from any wallet on this network</p>
+        <p style={{ fontSize: 10.5, color: 'rgba(255,210,0,0.6)', margin: 0, lineHeight: 1.6 }}>The exact decimal amount above is how we identify your payment — send it precisely.</p>
       </div>
 
       {/* Switch network */}
@@ -556,6 +526,48 @@ export function ProUpgradeModal({ onClose }: { onClose: () => void }) {
 
       <button onClick={onClose} style={{ width: '100%', padding: '13px', borderRadius: 13, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: T.sub, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
         Close — verification continues in background
+      </button>
+    </div>
+  );
+
+  /* ═══════════════════════════════════════════════════════════════
+     NEED PHONE — payment detected on-chain, activation held pending
+     phone verification
+  ════════════════════════════════════════════════════════════════ */
+  if (screen === 'needPhone') return shell(
+    <div style={{ padding: '28px 24px 28px', textAlign: 'center' }}>
+      <div style={{ position: 'relative', width: 78, height: 78, margin: '0 auto 20px' }}>
+        <div style={{ position: 'absolute', inset: -10, borderRadius: '50%', background: 'radial-gradient(circle,rgba(74,222,128,0.18) 0%,transparent 70%)' }} />
+        <div style={{ width: 78, height: 78, borderRadius: 24, background: 'linear-gradient(135deg,rgba(74,222,128,0.18),rgba(74,222,128,0.08))', border: '1.5px solid rgba(74,222,128,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
+          <Check size={34} weight="bold" color={T.success} />
+        </div>
+      </div>
+
+      <p style={{ fontSize: 19, fontWeight: 900, color: T.text, margin: '0 0 6px', letterSpacing: '-0.02em' }}>Payment received</p>
+      <p style={{ fontSize: 12.5, color: T.sub, margin: '0 0 22px', lineHeight: 1.7 }}>
+        Your payment was confirmed on-chain. Verify your phone number to activate <span style={{ color: T.gold, fontWeight: 700 }}>Pro</span> — this keeps your account secure.
+      </p>
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px', background: T.card2, border: `1.5px solid ${T.goldBdr}`, borderRadius: 14, marginBottom: 18, textAlign: 'left' }}>
+        <div style={{ width: 38, height: 38, borderRadius: 11, background: T.goldBg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+          <Phone size={18} weight="fill" color={T.gold} />
+        </div>
+        <div style={{ flex: 1 }}>
+          <p style={{ fontSize: 13, fontWeight: 700, color: T.text, margin: 0 }}>Phone verification required</p>
+          <p style={{ fontSize: 11, color: T.dim, margin: '2px 0 0' }}>One-time check, takes under a minute</p>
+        </div>
+      </div>
+
+      <a href="/settings" onClick={onClose} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, width: '100%', padding: '15px', borderRadius: 14, background: 'linear-gradient(135deg,#FFD700,#FFB800)', color: '#000', fontSize: 14.5, fontWeight: 900, textDecoration: 'none', letterSpacing: '-0.01em', boxShadow: '0 6px 20px rgba(255,195,0,0.28)', marginBottom: 12 }}>
+        <ShieldCheck size={17} weight="fill" />Verify Phone Number
+      </a>
+
+      <p style={{ fontSize: 11, color: T.dim, margin: '0 0 14px', lineHeight: 1.6 }}>
+        Pro activates automatically the moment your number is verified — no need to pay again.
+      </p>
+
+      <button onClick={onClose} style={{ width: '100%', padding: '12px', borderRadius: 12, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', color: T.dim, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
+        Close — we'll keep checking in the background
       </button>
     </div>
   );

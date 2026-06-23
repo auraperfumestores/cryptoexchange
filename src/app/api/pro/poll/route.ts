@@ -4,7 +4,6 @@ import { bsc, mainnet }                              from 'viem/chains';
 import { requireAuth }                               from '@/lib/auth/require-auth';
 import { connectToDatabase, User, ProPayment, getProSettings } from '@/lib/db';
 import { errorResponse }                             from '@/lib/utils/errors';
-import type { ProNetwork }                           from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 
@@ -22,14 +21,16 @@ const EVM_CFG = {
 };
 
 const TRANSFER_ABI = parseAbi(['event Transfer(address indexed from, address indexed to, uint256 value)']);
-const TRON_USDT    = 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t';
+const TRON_USDT     = 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t';
+const AMOUNT_EPSILON = 0.0008; // tight match against the decorated unique amount
 
+/** Scans incoming USDT transfers to the shared treasury address and matches the
+ *  exact decorated amount — sender address is not known/required in advance. */
 async function checkEvmPayment(
   net: 'BEP20' | 'ERC20',
-  fromAddress: string,
   toAddress: string,
-  minUsdt: number,
-): Promise<{ found: boolean; txHash?: string; amount?: number }> {
+  exactUsdt: number,
+): Promise<{ found: boolean; txHash?: string; fromAddress?: string }> {
   const cfg = EVM_CFG[net];
   const transport = fallback(cfg.rpcs.map(r => http(r, { timeout: 12_000 })));
   const client = createPublicClient({ chain: cfg.chain, transport });
@@ -41,34 +42,30 @@ async function checkEvmPayment(
   const logs = await client.getLogs({
     address: cfg.token,
     event: TRANSFER_ABI[0],
-    args: {
-      from: getAddress(fromAddress) as `0x${string}`,
-      to:   getAddress(toAddress)   as `0x${string}`,
-    },
+    args: { to: getAddress(toAddress) as `0x${string}` },
     fromBlock,
     toBlock: 'latest',
   });
 
   for (const log of logs) {
     const amount = parseFloat(formatUnits((log.args as any).value ?? 0n, cfg.decimals));
-    if (amount >= minUsdt * 0.95) { // allow 5% tolerance
-      return { found: true, txHash: log.transactionHash ?? undefined, amount };
+    if (Math.abs(amount - exactUsdt) <= AMOUNT_EPSILON) {
+      return { found: true, txHash: log.transactionHash ?? undefined, fromAddress: (log.args as any).from };
     }
   }
   return { found: false };
 }
 
 async function checkTrc20Payment(
-  fromAddress: string,
   toAddress: string,
-  minUsdt: number,
+  exactUsdt: number,
   sinceTimestamp: number,
-): Promise<{ found: boolean; txHash?: string; amount?: number }> {
+): Promise<{ found: boolean; txHash?: string; fromAddress?: string }> {
   const headers: Record<string, string> = {};
   if (process.env.TRONGRID_API_KEY) headers['TRON-PRO-API-KEY'] = process.env.TRONGRID_API_KEY;
 
-  const url = `https://api.trongrid.io/v1/accounts/${fromAddress}/transactions/trc20` +
-    `?contract_address=${TRON_USDT}&limit=50&min_timestamp=${sinceTimestamp}`;
+  const url = `https://api.trongrid.io/v1/accounts/${toAddress}/transactions/trc20` +
+    `?contract_address=${TRON_USDT}&limit=50&only_to=true&min_timestamp=${sinceTimestamp}`;
   const res  = await fetch(url, { headers });
   const json = await res.json();
   const txs: any[] = json?.data ?? [];
@@ -76,14 +73,16 @@ async function checkTrc20Payment(
   for (const tx of txs) {
     if (tx.to !== toAddress) continue;
     const amount = Number(tx.value ?? 0) / 1e6;
-    if (amount >= minUsdt * 0.95) {
-      return { found: true, txHash: tx.transaction_id, amount };
+    if (Math.abs(amount - exactUsdt) <= AMOUNT_EPSILON) {
+      return { found: true, txHash: tx.transaction_id, fromAddress: tx.from };
     }
   }
   return { found: false };
 }
 
-/** GET /api/pro/poll — checks blockchain for payment, activates Pro on success */
+/** GET /api/pro/poll — checks blockchain for payment, activates Pro on success.
+ *  If payment is detected but the user's phone isn't verified yet, activation is
+ *  held (status: 'awaiting_phone') until they verify — checked again on each poll. */
 export async function GET() {
   try {
     const auth = await requireAuth();
@@ -91,39 +90,52 @@ export async function GET() {
 
     const payment = await ProPayment.findOne({
       userId: String(auth.id),
-      status: 'pending',
+      status: { $in: ['pending', 'awaiting_phone'] },
     }).lean();
 
     if (!payment) {
-      // Check if already confirmed
       const user = await User.findById(auth.id).select('proStatus').lean();
       const ps   = (user as any)?.proStatus ?? {};
       const active = ps.active && ps.expiresAt && new Date(ps.expiresAt) > new Date();
       return NextResponse.json({ status: active ? 'confirmed' : 'none' });
     }
 
+    const pid = (payment as any)._id;
+
+    /* Payment already detected on-chain — just waiting on phone verification */
+    if (payment.status === 'awaiting_phone') {
+      const user = await User.findById(auth.id).select('phoneVerified').lean();
+      if (!(user as any)?.phoneVerified) {
+        return NextResponse.json({ status: 'awaiting_phone', txHash: payment.txHash });
+      }
+      const proSettings = await getProSettings();
+      const activatedAt = new Date();
+      const expiresAt   = new Date(activatedAt.getTime() + proSettings.durationDays * 24 * 60 * 60 * 1000);
+      await Promise.all([
+        ProPayment.updateOne({ _id: pid }, { $set: { status: 'confirmed', confirmedAt: activatedAt } }),
+        User.updateOne({ _id: auth.id }, { $set: { proStatus: { active: true, activatedAt, expiresAt, paymentId: String(pid) } } }),
+      ]);
+      return NextResponse.json({ status: 'confirmed', txHash: payment.txHash, expiresAt });
+    }
+
     // Expired
     if (new Date() > payment.expiresAt) {
-      await ProPayment.updateOne({ _id: (payment as any)._id }, { $set: { status: 'expired' } });
+      await ProPayment.updateOne({ _id: pid }, { $set: { status: 'expired' } });
       return NextResponse.json({ status: 'expired' });
     }
 
     // Check blockchain
-    const proSettings = await getProSettings();
-    let result: { found: boolean; txHash?: string; amount?: number } = { found: false };
-
+    let result: { found: boolean; txHash?: string; fromAddress?: string } = { found: false };
     try {
       if (payment.network === 'TRC20') {
         result = await checkTrc20Payment(
-          payment.fromAddress, payment.depositAddress,
-          proSettings.priceUsdt,
+          payment.depositAddress, payment.amountUsdt,
           (payment as any).createdAt.getTime(),
         );
       } else {
         result = await checkEvmPayment(
           payment.network as 'BEP20' | 'ERC20',
-          payment.fromAddress, payment.depositAddress,
-          proSettings.priceUsdt,
+          payment.depositAddress, payment.amountUsdt,
         );
       }
     } catch {
@@ -132,17 +144,29 @@ export async function GET() {
     }
 
     if (result.found) {
+      const user = await User.findById(auth.id).select('phoneVerified').lean();
+      const phoneVerified = !!(user as any)?.phoneVerified;
+
+      if (!phoneVerified) {
+        await ProPayment.updateOne(
+          { _id: pid },
+          { $set: { status: 'awaiting_phone', txHash: result.txHash ?? null, fromAddress: result.fromAddress ?? '' } },
+        );
+        return NextResponse.json({ status: 'awaiting_phone', txHash: result.txHash });
+      }
+
+      const proSettings = await getProSettings();
       const activatedAt = new Date();
       const expiresAt   = new Date(activatedAt.getTime() + proSettings.durationDays * 24 * 60 * 60 * 1000);
 
       await Promise.all([
         ProPayment.updateOne(
-          { _id: (payment as any)._id },
-          { $set: { status: 'confirmed', txHash: result.txHash ?? null, confirmedAt: activatedAt } },
+          { _id: pid },
+          { $set: { status: 'confirmed', txHash: result.txHash ?? null, fromAddress: result.fromAddress ?? '', confirmedAt: activatedAt } },
         ),
         User.updateOne(
           { _id: auth.id },
-          { $set: { proStatus: { active: true, activatedAt, expiresAt, paymentId: String((payment as any)._id) } } },
+          { $set: { proStatus: { active: true, activatedAt, expiresAt, paymentId: String(pid) } } },
         ),
       ]);
 
@@ -153,7 +177,6 @@ export async function GET() {
       status:         'pending',
       depositAddress: payment.depositAddress,
       amountUsdt:     payment.amountUsdt,
-      fromAddress:    payment.fromAddress,
       network:        payment.network,
       expiresAt:      payment.expiresAt,
     });

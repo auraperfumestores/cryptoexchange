@@ -1,11 +1,12 @@
 import { NextResponse }            from 'next/server';
 import { requireAuth }             from '@/lib/auth/require-auth';
-import { connectToDatabase, User, ProPayment, getProSettings, Wallet } from '@/lib/db';
+import { connectToDatabase, User, ProPayment, getProSettings } from '@/lib/db';
 import { errorResponse }           from '@/lib/utils/errors';
 
 export const dynamic = 'force-dynamic';
 
-/** GET /api/pro/status — returns current pro status + any pending payment */
+/** GET /api/pro/status — returns current pro status + any pending/awaiting payment.
+ *  Pro can be paid from any wallet — no wallet connection is required to upgrade. */
 export async function GET() {
   try {
     const auth = await requireAuth();
@@ -19,18 +20,14 @@ export async function GET() {
 
     const ps = (user as any).proStatus ?? {};
     const isActive = ps.active && ps.expiresAt && new Date(ps.expiresAt) > new Date();
+    const phoneVerified = !!(user as any).phoneVerified;
 
-    // Check for a pending payment (not expired, not confirmed)
+    // Check for a pending or phone-pending payment (not expired)
     const pending = await ProPayment.findOne({
       userId: String(auth.id),
-      status: 'pending',
+      status: { $in: ['pending', 'awaiting_phone'] },
       expiresAt: { $gt: new Date() },
     }).lean();
-
-    // Check prerequisites
-    const wallets = await Wallet.find({ userId: String(auth.id), isVerified: true }).lean();
-    const phoneVerified = !!(user as any).phoneVerified;
-    const hasWallet = wallets.length > 0;
 
     return NextResponse.json({
       success: true,
@@ -39,16 +36,15 @@ export async function GET() {
         activatedAt:   ps.activatedAt ?? null,
         expiresAt:     ps.expiresAt   ?? null,
         phoneVerified,
-        hasWallet,
         priceUsdt:     proSettings.priceUsdt,
         durationDays:  proSettings.durationDays,
         managerTelegram: proSettings.managerTelegram,
         pendingPayment: pending ? {
           id:             String((pending as any)._id),
+          status:         pending.status,
           network:        pending.network,
           depositAddress: pending.depositAddress,
           amountUsdt:     pending.amountUsdt,
-          fromAddress:    pending.fromAddress,
           expiresAt:      pending.expiresAt,
         } : null,
       },

@@ -1,6 +1,6 @@
 import { NextResponse }                       from 'next/server';
 import { requireAuth }                        from '@/lib/auth/require-auth';
-import { connectToDatabase, User, ProPayment, Wallet, getProSettings } from '@/lib/db';
+import { connectToDatabase, User, ProPayment, getProSettings } from '@/lib/db';
 import { errorResponse }                      from '@/lib/utils/errors';
 import type { ProNetwork }                    from '@/lib/db';
 
@@ -12,9 +12,24 @@ const TREASURY: Record<ProNetwork, string> = {
   TRC20: (process.env.VAULT_TRC20 ?? '').trim(),
 };
 
+/** Decorate the base price with a small unique cents offset so a payment can be
+ *  identified on a shared treasury address regardless of which wallet sent it. */
+async function uniqueAmount(network: ProNetwork, depositAddress: string, basePrice: number): Promise<number> {
+  for (let attempt = 0; attempt < 8; attempt++) {
+    const offset = Math.floor(Math.random() * 99) + 1; // 0.01 – 0.99
+    const amount = Math.round((basePrice + offset / 100) * 1000) / 1000;
+    const clash = await ProPayment.findOne({
+      network, depositAddress, amountUsdt: amount,
+      status: { $in: ['pending', 'awaiting_phone'] },
+    }).lean();
+    if (!clash) return amount;
+  }
+  return Math.round((basePrice + Math.random()) * 1000) / 1000;
+}
+
 /** POST /api/pro/initiate
  *  Body: { network: 'BEP20' | 'ERC20' | 'TRC20' }
- *  Prerequisites: phoneVerified + at least one isVerified wallet on that network
+ *  No wallet connection required — Pro can be paid from any address.
  *  Returns: { paymentId, depositAddress, amountUsdt, network, expiresAt }
  */
 export async function POST(req: Request) {
@@ -45,37 +60,22 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Already a Pro member' }, { status: 409 });
     }
 
-    // Check prerequisites
-    if (!(user as any).phoneVerified) {
-      return NextResponse.json({ error: 'Phone verification required' }, { status: 403 });
-    }
-
-    // Find verified wallet on requested network
-    const CHAIN_IDS: Record<ProNetwork, number> = { BEP20: 56, ERC20: 1, TRC20: 195 };
-    const wallet = await Wallet.findOne({
-      userId:     String(auth.id),
-      isVerified: true,
-      chainId:    CHAIN_IDS[net],
-    }).lean();
-
-    if (!wallet) {
-      return NextResponse.json({ error: `No verified ${net} wallet found` }, { status: 403 });
-    }
-
-    // Cancel any existing pending payments for this user
+    // Cancel any existing pending/awaiting payments for this user
     await ProPayment.updateMany(
-      { userId: String(auth.id), status: 'pending' },
+      { userId: String(auth.id), status: { $in: ['pending', 'awaiting_phone'] } },
       { $set: { status: 'expired' } },
     );
+
+    const amountUsdt = await uniqueAmount(net, treasury, proSettings.priceUsdt);
 
     // Create new payment
     const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
     const payment = await ProPayment.create({
       userId:         String(auth.id),
       network:        net,
-      fromAddress:    wallet.address,
+      fromAddress:    '',
       depositAddress: treasury,
-      amountUsdt:     proSettings.priceUsdt,
+      amountUsdt,
       status:         'pending',
       expiresAt,
     });
@@ -85,8 +85,8 @@ export async function POST(req: Request) {
       data: {
         paymentId:      String(payment._id),
         depositAddress: treasury,
-        amountUsdt:     proSettings.priceUsdt,
-        fromAddress:    wallet.address,
+        amountUsdt,
+        fromAddress:    '',
         network:        net,
         expiresAt,
       },
