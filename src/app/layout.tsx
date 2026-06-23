@@ -1,11 +1,8 @@
 import type { Metadata, Viewport } from 'next';
 import { Inter, JetBrains_Mono } from 'next/font/google';
-import { cookies } from 'next/headers';
 import './globals.css';
 import { Providers } from '@/components/providers';
 import PageLoader from '@/components/ui/page-loader';
-import TurnstileGate from '@/components/ui/turnstile-gate';
-import { COOKIE_NAME, isCookieValid } from '@/lib/turnstile/verify';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter', display: 'swap' });
 const jetbrainsMono = JetBrains_Mono({ subsets: ['latin'], variable: '--font-mono', weight: ['400','500','600','700','800'], display: 'swap' });
@@ -22,14 +19,11 @@ export const viewport: Viewport = {
   maximumScale: 1,
 };
 
-export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  const verified = await isCookieValid(cookies().get(COOKIE_NAME)?.value);
-
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={`${inter.variable} ${jetbrainsMono.variable}`}>
       <body style={{ background: 'var(--fr-black)', color: 'var(--fr-text-primary)', minHeight: '100vh', fontFamily: "var(--font-inter), system-ui, -apple-system, sans-serif" }}>
         <PageLoader />
-        <TurnstileGate initiallyVerified={verified} />
         {/* Noise texture overlay — film-grain depth at 3% opacity */}
         <div aria-hidden="true" style={{
           position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 99997,
