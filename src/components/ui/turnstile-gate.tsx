@@ -42,7 +42,8 @@ export default function TurnstileGate() {
       if (!mounted || !window.turnstile || !elRef.current) return;
       widgetIdRef.current = window.turnstile.render(elRef.current, {
         sitekey: siteKey,
-        size: 'invisible',
+        size: 'normal',
+        appearance: 'interaction-only',
         callback: (token: string) => {
           fetch('/api/turnstile/verify', {
             method: 'POST',
