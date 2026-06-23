@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 declare global {
   interface Window {
@@ -26,32 +26,49 @@ function loadTurnstileScript(): Promise<void> {
   return scriptPromise;
 }
 
-/** Runs an invisible Cloudflare Turnstile check on every fresh page load and
- *  stores the result as a signed cookie that middleware checks before allowing
- *  login, registration, or OTP requests through. Renders nothing visible unless
- *  Cloudflare decides the visitor needs an interactive challenge. */
-export default function TurnstileGate() {
-  const elRef      = useRef<HTMLDivElement>(null);
+const SESSION_FLAG = 'cf_verified_session';
+
+/** Runs a Cloudflare Turnstile bot check in the background once per session.
+ *  Stays completely invisible — zero footprint, no script even loaded — for
+ *  visitors who already hold a valid `cf_v` cookie (checked server-side in
+ *  layout.tsx). For everyone else it executes silently and only expands into
+ *  a centered overlay if Cloudflare's own before/after-interactive callbacks
+ *  signal that a real challenge is required, instead of sitting as a
+ *  permanent corner widget. */
+export default function TurnstileGate({ initiallyVerified }: { initiallyVerified: boolean }) {
+  const elRef       = useRef<HTMLDivElement>(null);
   const widgetIdRef = useRef<string | null>(null);
+  const [needsInteraction, setNeedsInteraction] = useState(false);
+  const [done, setDone] = useState(initiallyVerified);
   const siteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
 
   useEffect(() => {
-    if (!siteKey || !elRef.current) return;
+    if (initiallyVerified || sessionStorage.getItem(SESSION_FLAG) === '1') {
+      setDone(true);
+    }
+  }, [initiallyVerified]);
+
+  useEffect(() => {
+    if (!siteKey || done || !elRef.current) return;
     let mounted = true;
 
     loadTurnstileScript().then(() => {
       if (!mounted || !window.turnstile || !elRef.current) return;
       widgetIdRef.current = window.turnstile.render(elRef.current, {
         sitekey: siteKey,
-        size: 'normal',
         appearance: 'execute',
         execution: 'execute',
+        'before-interactive-callback': () => setNeedsInteraction(true),
+        'after-interactive-callback':  () => setNeedsInteraction(false),
         callback: (token: string) => {
           fetch('/api/turnstile/verify', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ token }),
-          }).catch(() => {});
+          }).catch(() => {}).finally(() => {
+            sessionStorage.setItem(SESSION_FLAG, '1');
+            setDone(true);
+          });
         },
       });
       window.turnstile.execute(elRef.current);
@@ -63,8 +80,22 @@ export default function TurnstileGate() {
         try { window.turnstile.remove(widgetIdRef.current); } catch {}
       }
     };
-  }, [siteKey]);
+  }, [siteKey, done]);
 
-  if (!siteKey) return null;
-  return <div ref={elRef} style={{ position: 'fixed', bottom: 12, right: 12, zIndex: 100000 }} />;
+  if (!siteKey || done) return null;
+
+  return (
+    <div
+      style={needsInteraction ? {
+        position: 'fixed', inset: 0, zIndex: 100000,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)',
+      } : {
+        position: 'fixed', width: 0, height: 0, overflow: 'hidden',
+        opacity: 0, pointerEvents: 'none',
+      }}
+    >
+      <div ref={elRef} />
+    </div>
+  );
 }
