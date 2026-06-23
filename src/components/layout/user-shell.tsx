@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { signOut } from 'next-auth/react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Crown } from '@phosphor-icons/react';
 import type { SessionUser } from '@/types';
 import { ProUpgradeModal } from '@/components/ui/pro-upgrade-modal';
@@ -81,6 +81,13 @@ export function UserShell({ user, children }: UserShellProps) {
   const pathname   = usePathname();
   const [dropOpen,    setDropOpen]    = useState(false);
   const [showProModal, setShowProModal] = useState(false);
+  const [isPro, setIsPro] = useState(false);
+
+  useEffect(() => {
+    fetch('/api/pro/status').then(r => r.json()).then(d => {
+      if (d?.data) setIsPro(!!d.data.isPro);
+    }).catch(() => {});
+  }, []);
 
   function isActive(href: string) {
     return href === '/dashboard' ? pathname === href : pathname.startsWith(href);
@@ -145,25 +152,27 @@ export function UserShell({ user, children }: UserShellProps) {
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
 
             {/* ── Mobile-only PRO crown button ── */}
-            <button
-              onClick={() => setShowProModal(true)}
-              className="user-pro-btn"
-              title="SwapINR PRO"
-              style={{
-                display: 'none', /* shown via CSS on mobile */
-                alignItems: 'center', gap: 5,
-                padding: '6px 12px', borderRadius: 99,
-                background: 'linear-gradient(270deg,#FFD700 0%,#FFF176 45%,#FFB800 75%,#FFD700 100%)',
-                backgroundSize: '300% 100%',
-                border: '1px solid rgba(255,210,0,0.5)',
-                fontSize: 11, fontWeight: 900, letterSpacing: '0.1em', color: '#000',
-                cursor: 'pointer',
-                animation: 'pro-shimmer 6s linear infinite, pro-pulse 5s ease-in-out infinite',
-              }}
-            >
-              <Crown size={13} weight="fill" color="#000" />
-              PRO
-            </button>
+            {!isPro && (
+              <button
+                onClick={() => setShowProModal(true)}
+                className="user-pro-btn"
+                title="SwapINR PRO"
+                style={{
+                  display: 'none', /* shown via CSS on mobile */
+                  alignItems: 'center', gap: 5,
+                  padding: '6px 12px', borderRadius: 99,
+                  background: 'linear-gradient(270deg,#FFD700 0%,#FFF176 45%,#FFB800 75%,#FFD700 100%)',
+                  backgroundSize: '300% 100%',
+                  border: '1px solid rgba(255,210,0,0.5)',
+                  fontSize: 11, fontWeight: 900, letterSpacing: '0.1em', color: '#000',
+                  cursor: 'pointer',
+                  animation: 'pro-shimmer 6s linear infinite, pro-pulse 5s ease-in-out infinite',
+                }}
+              >
+                <Crown size={13} weight="fill" color="#000" />
+                PRO
+              </button>
+            )}
 
             {/* Desktop user dropdown */}
             <div className="user-header-avatar-btn" style={{ position: 'relative' }}>
@@ -176,7 +185,7 @@ export function UserShell({ user, children }: UserShellProps) {
                 </div>
                 <div className="user-header-uname" style={{ flexDirection: 'column', textAlign: 'left' }}>
                   <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--fr-text-primary)', lineHeight: 1, maxWidth: 90, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user.name.split(' ')[0]}</div>
-                  <ProBadgeMini />
+                  {isPro && <ProBadgeMini />}
                 </div>
                 <svg width="12" height="12" viewBox="0 0 12 12" fill="none" style={{ color: 'var(--fr-text-tertiary)' }}>
                   <path d="M2 4L6 8L10 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
@@ -197,13 +206,15 @@ export function UserShell({ user, children }: UserShellProps) {
                       </div>
                     </div>
                     {/* PRO upsell in dropdown */}
-                    <button
-                      onClick={() => { setDropOpen(false); setShowProModal(true); }}
-                      style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '11px 16px', fontSize: 13, color: '#FFD700', background: 'rgba(255,210,0,0.04)', border: 'none', borderBottom: '1px solid var(--fr-border-subtle)', cursor: 'pointer', textAlign: 'left' }}
-                    >
-                      <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M1 12H13M1 12L3 5L7 8.5L11 2L13 5L13 12H1Z" fill="rgba(255,210,0,0.15)" stroke="#FFD700" strokeWidth="1.2" strokeLinejoin="round"/></svg>
-                      Upgrade to PRO
-                    </button>
+                    {!isPro && (
+                      <button
+                        onClick={() => { setDropOpen(false); setShowProModal(true); }}
+                        style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '11px 16px', fontSize: 13, color: '#FFD700', background: 'rgba(255,210,0,0.04)', border: 'none', borderBottom: '1px solid var(--fr-border-subtle)', cursor: 'pointer', textAlign: 'left' }}
+                      >
+                        <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M1 12H13M1 12L3 5L7 8.5L11 2L13 5L13 12H1Z" fill="rgba(255,210,0,0.15)" stroke="#FFD700" strokeWidth="1.2" strokeLinejoin="round"/></svg>
+                        Upgrade to PRO
+                      </button>
+                    )}
                     {NAV.map(({ href, label, Icon }) => (
                       <Link key={href} href={href} onClick={() => setDropOpen(false)} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '11px 16px', fontSize: 13, color: 'var(--fr-text-secondary)', textDecoration: 'none', borderBottom: '1px solid var(--fr-border-subtle)' }}>
                         <span style={{ color: 'var(--fr-text-tertiary)', display: 'flex' }}><Icon size={15} /></span>

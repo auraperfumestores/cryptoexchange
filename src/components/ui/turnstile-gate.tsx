@@ -7,6 +7,7 @@ declare global {
     turnstile?: {
       render: (el: string | HTMLElement, opts: Record<string, unknown>) => string;
       remove: (id: string) => void;
+      execute: (el: string | HTMLElement, opts?: Record<string, unknown>) => void;
     };
   }
 }
@@ -43,7 +44,8 @@ export default function TurnstileGate() {
       widgetIdRef.current = window.turnstile.render(elRef.current, {
         sitekey: siteKey,
         size: 'normal',
-        appearance: 'interaction-only',
+        appearance: 'execute',
+        execution: 'execute',
         callback: (token: string) => {
           fetch('/api/turnstile/verify', {
             method: 'POST',
@@ -52,6 +54,7 @@ export default function TurnstileGate() {
           }).catch(() => {});
         },
       });
+      window.turnstile.execute(elRef.current);
     });
 
     return () => {
