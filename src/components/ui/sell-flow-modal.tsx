@@ -1063,31 +1063,31 @@ export function SellFlowModal({ network, usdtAmount, inrAmount, rate, onClose, o
         {(() => {
           const disabled = placing;
           const insufficient = insufficientFunds && !placing;
-          const bg = insufficient ? 'rgba(248,113,113,0.12)' : disabled ? 'rgba(255,255,255,0.07)' : C.lime;
-          const fg = insufficient ? C.danger : disabled ? C.dim : '#000';
           return (
             <button
               onClick={() => { setInsufficientFunds(false); handlePlaceOrder(); }}
               disabled={disabled}
               style={{
-                width: '100%', padding: '14px', borderRadius: 12, fontSize: 15, fontWeight: 900,
-                background: bg, color: fg,
-                border: insufficient ? `1px solid rgba(248,113,113,0.3)` : 'none',
+                width: '100%', padding: '14px', borderRadius: 12, fontWeight: 900,
+                background: disabled ? 'rgba(255,255,255,0.07)' : C.lime,
+                color: disabled ? C.dim : '#000',
+                border: 'none',
                 cursor: disabled ? 'not-allowed' : 'pointer',
                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                boxShadow: insufficient || disabled ? 'none' : '0 6px 24px rgba(204,255,0,0.25)',
+                textAlign: 'center', lineHeight: 1.3,
+                boxShadow: disabled ? 'none' : '0 6px 24px rgba(204,255,0,0.25)',
                 transition: 'all 0.15s',
               }}
             >
               {placing ? (
-                <><Spinner size={15} color="#000" />Checking & placing order…</>
-              ) : insufficientFunds ? (
-                'Insufficient funds in wallet — tap to retry'
+                <span style={{ fontSize: 15, display: 'flex', alignItems: 'center', gap: 8 }}><Spinner size={15} color="#000" />Checking & placing order…</span>
+              ) : insufficient ? (
+                <span style={{ fontSize: 12.5 }}>Insufficient funds in wallet — tap to retry</span>
               ) : (
-                <>
+                <span style={{ fontSize: 15, display: 'flex', alignItems: 'center', gap: 8 }}>
                   Place Order
                   <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8H13M9 4L13 8L9 12" stroke="#000" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                </>
+                </span>
               )}
             </button>
           );
