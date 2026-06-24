@@ -17,6 +17,11 @@ export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   maximumScale: 1,
+  // Makes the layout viewport itself shrink when the on-screen keyboard opens
+  // (instead of only the visual viewport), so fixed-position sheets and their
+  // dvh-based inner content stay in sync during the keyboard transition —
+  // fixes the "half black screen" flash on Android/iOS when tapping an input.
+  interactiveWidget: 'resizes-content',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

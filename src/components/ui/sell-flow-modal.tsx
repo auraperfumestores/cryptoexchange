@@ -292,9 +292,7 @@ export function SellFlowModal({ network, usdtAmount, inrAmount, rate, onClose, o
   const [showProModal, setShowProModal] = useState(false);
 
   /* UPI */
-  const [upiId,        setUpiId]        = useState('');
-  const [upiStatus,    setUpiStatus]    = useState<null | { verified: boolean; message?: string }>(null);
-  const [upiChecking,  setUpiChecking]  = useState(false);
+  const [upiId, setUpiId] = useState('');
 
   /* Bank */
   const [benefName,    setBenefName]    = useState('');
@@ -446,23 +444,6 @@ export function SellFlowModal({ network, usdtAmount, inrAmount, rate, onClose, o
     if (digits.length === 6) setOtp(digits.split(''));
   }
 
-  /* ── UPI verify ── */
-  async function verifyUpi() {
-    if (!upiId.trim()) return;
-    setUpiChecking(true); setUpiStatus(null);
-    try {
-      const res  = await fetch('/api/upi/verify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ upiId: upiId.trim() }),
-      });
-      const data = await res.json();
-      setUpiStatus(data.valid ? { verified: data.verified, message: data.message } : null);
-      if (!data.valid) setError(data.error ?? 'Invalid UPI ID');
-    } catch { setError('UPI verification failed'); }
-    finally { setUpiChecking(false); }
-  }
-
   /* ── bank validation ── */
   function bankDetailsValid(): string | null {
     if (!benefName.trim())           return 'Beneficiary name is required';
@@ -485,7 +466,6 @@ export function SellFlowModal({ network, usdtAmount, inrAmount, rate, onClose, o
 
   function handleProceedFromUpi() {
     if (!upiId.trim()) { setError('Enter your UPI ID'); return; }
-    if (!upiStatus)    { setError('Please verify your UPI ID first'); return; }
     setError(''); setStep('review');
   }
 
@@ -858,7 +838,7 @@ export function SellFlowModal({ network, usdtAmount, inrAmount, rate, onClose, o
   function renderUpiDetails() {
     return (
       <>
-        {header('UPI Payment', 'Enter the UPI ID where you want to receive INR.', () => { setStep('payMethod'); setError(''); setUpiStatus(null); }, 3)}
+        {header('UPI Payment', 'Enter the UPI ID where you want to receive INR.', () => { setStep('payMethod'); setError(''); }, 3)}
         {orderStrip()}
         {errorBanner()}
 
@@ -866,38 +846,17 @@ export function SellFlowModal({ network, usdtAmount, inrAmount, rate, onClose, o
           <label style={{ display: 'block', fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: C.dim, marginBottom: 6 }}>
             UPI ID
           </label>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <div style={{ flex: 1, display: 'flex', alignItems: 'center', background: C.faint, border: `1px solid ${upiStatus?.verified ? 'rgba(0,229,160,0.3)' : C.border}`, borderRadius: 10, overflow: 'hidden' }}>
-              <div style={{ padding: '0 12px', color: C.dim, borderRight: `1px solid ${C.border}`, alignSelf: 'stretch', display: 'flex', alignItems: 'center' }}>
-                <IcoUpi />
-              </div>
-              <input
-                type="text" value={upiId}
-                onChange={e => { setUpiId(e.target.value); setUpiStatus(null); setError(''); }}
-                placeholder="yourname@bankhandle"
-                style={{ flex: 1, padding: '12px 14px', background: 'transparent', border: 'none', outline: 'none', fontSize: 14, color: C.text, fontFamily: 'inherit' }}
-              />
+          <div style={{ display: 'flex', alignItems: 'center', background: C.faint, border: `1px solid ${C.border}`, borderRadius: 10, overflow: 'hidden' }}>
+            <div style={{ padding: '0 12px', color: C.dim, borderRight: `1px solid ${C.border}`, alignSelf: 'stretch', display: 'flex', alignItems: 'center' }}>
+              <IcoUpi />
             </div>
-            <button
-              onClick={verifyUpi}
-              disabled={upiChecking || !upiId.trim()}
-              style={{ padding: '0 16px', borderRadius: 10, fontSize: 12, fontWeight: 800, border: 'none', cursor: upiChecking || !upiId.trim() ? 'not-allowed' : 'pointer', background: upiChecking || !upiId.trim() ? 'rgba(255,255,255,0.05)' : 'rgba(204,255,0,0.12)', color: upiChecking || !upiId.trim() ? C.dim : C.lime, whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 6, borderWidth: 1, borderStyle: 'solid', borderColor: upiChecking || !upiId.trim() ? C.border : 'rgba(204,255,0,0.22)' }}
-            >
-              {upiChecking ? <><Spinner size={12} />Checking</> : 'Verify'}
-            </button>
+            <input
+              type="text" value={upiId}
+              onChange={e => { setUpiId(e.target.value); setError(''); }}
+              placeholder="yourname@bankhandle"
+              style={{ flex: 1, padding: '12px 14px', background: 'transparent', border: 'none', outline: 'none', fontSize: 14, color: C.text, fontFamily: 'inherit' }}
+            />
           </div>
-
-          {/* UPI status */}
-          {upiStatus && (
-            <div style={{ marginTop: 7, display: 'flex', alignItems: 'center', gap: 5 }}>
-              {upiStatus.verified
-                ? <IcoCheck size={11} color={C.success} />
-                : <svg width="11" height="11" viewBox="0 0 14 14" fill="none"><path d="M7 3V7M7 9.5V10" stroke={C.gold} strokeWidth="1.6" strokeLinecap="round"/><circle cx="7" cy="7" r="5.5" stroke={C.gold} strokeWidth="1.3"/></svg>}
-              <span style={{ fontSize: 11, fontWeight: 600, color: upiStatus.verified ? '#fff' : C.gold }}>
-                {upiStatus.verified ? upiId.trim() : upiStatus.message}
-              </span>
-            </div>
-          )}
 
           <p style={{ fontSize: 11, color: C.dim, margin: '8px 0 0', lineHeight: 1.5 }}>
             Example: <span style={{ fontFamily: C.mono }}>98765@okicici</span>, <span style={{ fontFamily: C.mono }}>yourname@paytm</span>

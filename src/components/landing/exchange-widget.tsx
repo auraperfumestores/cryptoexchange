@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { useSession } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
 import { TokenIcon, NetworkIcon } from '@/components/ui/token-icon';
 import { SellFlowModal } from '@/components/ui/sell-flow-modal';
 
@@ -73,6 +75,8 @@ function InrIcon({ size=26 }:{ size?:number }) {
 
 /* ── Main Widget ── */
 export default function ExchangeWidget() {
+  const { status } = useSession();
+  const router = useRouter();
   const [mode, setMode]       = useState<Mode>('sell');
   const [network, setNetwork] = useState<Network>('BEP20');
   const [amount, setAmount]   = useState('1000');
@@ -120,6 +124,12 @@ export default function ExchangeWidget() {
   const outputAmount = rate
     ? (mode === 'buy' ? (numAmt / rate).toFixed(4) : (numAmt * rate).toFixed(2))
     : null;
+
+  const isAuthed = status === 'authenticated';
+
+  function goToLogin(callbackUrl: string) {
+    router.push(`/login?callbackUrl=${encodeURIComponent(callbackUrl)}`);
+  }
 
   const payCurrency  = mode === 'buy' ? 'INR' : 'USDT';
   const recvCurrency = mode === 'buy' ? 'USDT' : 'INR';
@@ -387,7 +397,11 @@ export default function ExchangeWidget() {
         {/* ── CTA Button ── */}
         {mode === 'sell' ? (
           <button
-            onClick={() => !belowMin && setShowSellFlow(true)}
+            onClick={() => {
+              if (belowMin || status === 'loading') return;
+              if (!isAuthed) { goToLogin('/dashboard'); return; }
+              setShowSellFlow(true);
+            }}
             className={belowMin ? '' : 'ew-cta'}
             disabled={belowMin}
             style={{
@@ -410,7 +424,13 @@ export default function ExchangeWidget() {
         ) : (
           <a
             href={belowMin ? undefined : `/checkout?amount=${encodeURIComponent(amount)}&mode=${mode}&network=${network}`}
-            onClick={e => { if (belowMin) e.preventDefault(); }}
+            onClick={e => {
+              if (belowMin || status === 'loading') { e.preventDefault(); return; }
+              if (!isAuthed) {
+                e.preventDefault();
+                goToLogin(`/checkout?amount=${encodeURIComponent(amount)}&mode=${mode}&network=${network}`);
+              }
+            }}
             className={belowMin ? '' : 'ew-cta'}
             style={{
               display:'flex', alignItems:'center', justifyContent:'center', gap:8,

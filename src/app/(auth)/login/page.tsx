@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { signIn } from 'next-auth/react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import StaticMesh from '@/components/ui/static-mesh';
 import {
@@ -33,6 +33,8 @@ const TRUST_STATS = [
 
 export default function LoginPage() {
   const router   = useRouter();
+  const searchParams = useSearchParams();
+  const callbackUrl = searchParams.get('callbackUrl');
   const [email,    setEmail]    = useState('');
   const [password, setPassword] = useState('');
   const [showPass, setShowPass] = useState(false);
@@ -67,7 +69,9 @@ export default function LoginPage() {
       }
       const sessionRes  = await fetch('/api/auth/me');
       const sessionData = await sessionRes.json();
-      router.push(sessionData.data?.role === 'admin' ? '/admin' : '/dashboard');
+      // Only honor callbackUrl if it's a same-site relative path — prevents open-redirect abuse.
+      const safeCallback = callbackUrl && callbackUrl.startsWith('/') && !callbackUrl.startsWith('//') ? callbackUrl : null;
+      router.push(safeCallback ?? (sessionData.data?.role === 'admin' ? '/admin' : '/dashboard'));
     } catch {
       setError('Something went wrong. Please try again.');
     } finally {
