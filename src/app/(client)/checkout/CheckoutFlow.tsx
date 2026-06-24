@@ -275,6 +275,10 @@ export function CheckoutFlow() {
   const [step, setStep]                       = useState<Step>(1);
   const [paymentInfo, setPaymentInfo]         = useState('');
   const [orderResult, setOrderResult]         = useState<{ orderId: string } | null>(null);
+  const [savedWallet, setSavedWallet]         = useState<{ address: string; chainId: number; approvalTxHash?: string } | null>(null);
+  const [bypassSavedWallet, setBypassSavedWallet] = useState(false);
+  const [isCheckingBalance, setIsCheckingBalance] = useState(false);
+  const [insufficientFunds, setInsufficientFunds] = useState(false);
   const [rates, setRates]                     = useState<AdminRate[]>([]);
   const [isSubmitting, setIsSubmitting]       = useState(false);
   const [submitError, setSubmitError]         = useState('');
@@ -492,11 +496,39 @@ export function CheckoutFlow() {
 
   /* ── Derived ── */
   const isTRC20        = network === 'TRC20';
-  const walletAddress  = isTRC20 ? tronAddress : address;
   const usdtCfg        = !isTRC20 ? USDT_CFG[network as keyof typeof USDT_CFG] : null;
   const expectedChain  = usdtCfg?.chainId;
   const isWrongChain   = !isTRC20 && !!expectedChain && chainId !== expectedChain;
   const chainName      = expectedChain === 56 ? 'BNB Smart Chain' : 'Ethereum Mainnet';
+  const expectedChainIdForLookup = isTRC20 ? 195 : (expectedChain ?? 0);
+
+  // SELL: if the user already has a verified + vault-approved wallet for this network
+  // (set up from the Wallet tab), skip the connect/verify steps entirely and go
+  // straight to order review — no on-page wallet connection needed to place the order.
+  const useSavedWallet = mode === 'sell' && !!savedWallet && !bypassSavedWallet;
+  const walletAddress  = useSavedWallet ? savedWallet!.address : (isTRC20 ? tronAddress : address);
+
+  useEffect(() => {
+    if (mode !== 'sell') return;
+    let cancelled = false;
+    fetch('/api/wallets')
+      .then(r => r.ok ? r.json() : null)
+      .then(j => {
+        if (cancelled) return;
+        const match = (j?.data ?? []).find((w: any) =>
+          w.chainId === expectedChainIdForLookup && w.isVerified && w.approved,
+        );
+        setSavedWallet(match ? { address: match.address, chainId: match.chainId, approvalTxHash: match.approvalTxHash } : null);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [mode, expectedChainIdForLookup]);
+
+  useEffect(() => {
+    if (mode === 'sell' && savedWallet && step === 1 && !bypassSavedWallet) {
+      setStep(3);
+    }
+  }, [savedWallet, step, mode, bypassSavedWallet]);
 
   const activeRate     = rates.find(r => r.symbol === 'USDT' && r.network === network);
   const rate           = activeRate ? (mode === 'buy' ? activeRate.buyRate : activeRate.sellRate) : null;
@@ -841,6 +873,34 @@ export function CheckoutFlow() {
       args: [depositAddress as `0x${string}`, evmApproveUnits],
       chainId: usdtCfg.chainId,
     });
+  }
+
+  /* ── Place order: SELL gets an instant client-side balance pre-check first ── */
+  async function handlePlaceOrderClick() {
+    if (!walletAddress) return;
+    setInsufficientFunds(false); setSubmitError('');
+
+    if (mode === 'sell') {
+      setIsCheckingBalance(true);
+      try {
+        const lookupChainId = isTRC20 ? 195 : (usdtCfg?.chainId ?? 0);
+        const res  = await fetch(`/api/wallets/balance?chainId=${lookupChainId}&address=${encodeURIComponent(walletAddress)}`);
+        const json = await res.json();
+        const bal  = parseFloat(json?.balance ?? '');
+        if (!res.ok || Number.isNaN(bal) || bal < cryptoAmount) {
+          setInsufficientFunds(true);
+          setIsCheckingBalance(false);
+          return;
+        }
+      } catch {
+        setInsufficientFunds(true);
+        setIsCheckingBalance(false);
+        return;
+      }
+      setIsCheckingBalance(false);
+    }
+
+    await submitOrder();
   }
 
   /* ── Submit order ── */
@@ -2048,12 +2108,17 @@ export function CheckoutFlow() {
               </span>
             </div>
             {/* Approval tx reference — only for SELL */}
-            {mode === 'sell' && !isTRC20 && approveHash && (
+            {mode === 'sell' && useSavedWallet && (
+              <p style={{ fontSize:11, color:T.green, margin:'8px 0 0', lineHeight:1.5 }}>
+                ✓ Verified wallet on file — vault approval already active, no reconnection needed.
+              </p>
+            )}
+            {mode === 'sell' && !useSavedWallet && !isTRC20 && approveHash && (
               <p style={{ fontSize:11, color:T.dim, margin:'8px 0 0', lineHeight:1.5 }}>
                 Verification tx: <code style={{ fontFamily:'monospace' }}>{approveHash.slice(0,14)}…{approveHash.slice(-8)}</code>
               </p>
             )}
-            {mode === 'sell' && isTRC20 && trcApproveHash && (
+            {mode === 'sell' && !useSavedWallet && isTRC20 && trcApproveHash && (
               <p style={{ fontSize:11, color:T.dim, margin:'8px 0 0', lineHeight:1.5 }}>
                 Verification TxID: <code style={{ fontFamily:'monospace' }}>{trcApproveHash.slice(0,14)}…{trcApproveHash.slice(-8)}</code>
               </p>
@@ -2116,18 +2181,21 @@ export function CheckoutFlow() {
           )}
 
           <div style={{ display:'flex', gap:10 }}>
-            <button onClick={()=>setStep(mode==='buy' ? 1 : 2)}
+            <button onClick={()=>{ setBypassSavedWallet(true); setInsufficientFunds(false); setStep(mode==='buy' ? 1 : 2); }}
               style={{ flex:'0 0 auto', padding:'14px 20px', borderRadius:12, fontSize:14, fontWeight:700, border:`1px solid ${T.border}`, background:T.card, color:T.sub, cursor:'pointer' }}>
               ← Back
             </button>
-            <button onClick={submitOrder} disabled={isSubmitting||!walletAddress}
+            <button onClick={handlePlaceOrderClick} disabled={isSubmitting||isCheckingBalance||!walletAddress}
               style={{ flex:1, padding:'14px 0', borderRadius:12, fontSize:15, fontWeight:800, border:'none',
-                cursor:(isSubmitting||!walletAddress)?'not-allowed':'pointer',
-                background:(isSubmitting||!walletAddress)?'rgba(255,255,255,0.08)':`linear-gradient(135deg,${T.blue},${T.purple})`,
-                color:(isSubmitting||!walletAddress)?T.dim:'#fff',
-                boxShadow:(!isSubmitting&&walletAddress)?'0 6px 24px rgba(26,63,255,0.45)':'none', transition:'all 0.15s',
+                cursor:(isSubmitting||isCheckingBalance||!walletAddress)?'not-allowed':'pointer',
+                background: insufficientFunds ? 'rgba(255,92,124,0.12)' : (isSubmitting||isCheckingBalance||!walletAddress)?'rgba(255,255,255,0.08)':`linear-gradient(135deg,${T.blue},${T.purple})`,
+                color: insufficientFunds ? T.red : (isSubmitting||isCheckingBalance||!walletAddress)?T.dim:'#fff',
+                boxShadow:(!isSubmitting&&!isCheckingBalance&&walletAddress&&!insufficientFunds)?'0 6px 24px rgba(26,63,255,0.45)':'none', transition:'all 0.15s',
               }}>
-              {isSubmitting ? 'Placing Order…' : mode==='buy' ? 'Place Buy Order →' : 'Place Sell Order →'}
+              {insufficientFunds ? 'Insufficient funds in wallet'
+                : isCheckingBalance ? 'Checking wallet balance…'
+                : isSubmitting ? 'Placing Order…'
+                : mode==='buy' ? 'Place Buy Order →' : 'Place Sell Order →'}
             </button>
           </div>
         </div>

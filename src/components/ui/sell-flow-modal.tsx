@@ -9,7 +9,7 @@ import {
 } from 'firebase/auth';
 import { TokenIcon } from './token-icon';
 import { ProUpgradeModal } from './pro-upgrade-modal';
-import { Crown, CheckCircle } from '@phosphor-icons/react';
+import { Crown } from '@phosphor-icons/react';
 
 /* ─── Types ─────────────────────────────────────────────────────────────── */
 
@@ -771,9 +771,7 @@ export function SellFlowModal({ network, usdtAmount, inrAmount, rate, onClose, o
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     <span style={{ fontSize: 14, fontWeight: 800, color: disabled ? C.dim : C.text }}>{m.label}</span>
                     {m.gold && isPro && (
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 9, fontWeight: 900, color: '#4ADE80', background: 'rgba(74,222,128,0.1)', border: '1px solid rgba(74,222,128,0.25)', borderRadius: 99, padding: '2px 7px', letterSpacing: '0.06em' }}>
-                        <CheckCircle size={9} weight="fill" color="#4ADE80" />UNLOCKED
-                      </span>
+                      <Crown size={13} weight="fill" color="#FFD700" />
                     )}
                     {m.gold && !isPro && (
                       <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 9, fontWeight: 900, color: '#000', background: 'linear-gradient(270deg,#FFD700,#FFF176 50%,#FFB800)', borderRadius: 99, padding: '2px 7px', letterSpacing: '0.08em', animation: 'pro-shimmer 6s linear infinite', backgroundSize: '300% 100%' }}>
