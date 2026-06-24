@@ -165,13 +165,13 @@ export function PhoneVerifyModal({ currentPhone = '', onVerified, onClose }: Pho
           {step === 'input' && (
             <>
               <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.45)', margin: '0 0 20px', lineHeight: 1.6 }}>
-                Enter your Indian mobile number. We'll send a 6-digit OTP via SMS.
+                We'll text a one-time verification code to this number to confirm it's yours.
               </p>
               <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.35)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 8 }}>
                 Mobile Number
               </label>
               <div style={{ display: 'flex', alignItems: 'center', gap: 0, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.09)', borderRadius: 10, overflow: 'hidden', marginBottom: 20 }}>
-                <div style={{ padding: '13px 14px', fontSize: 15, fontWeight: 700, color: 'rgba(255,255,255,0.4)', borderRight: '1px solid rgba(255,255,255,0.09)', flexShrink: 0, userSelect: 'none' }}>
+                <div style={{ padding: '13px 14px', fontSize: 15, fontWeight: 700, color: '#fff', borderRight: '1px solid rgba(255,255,255,0.09)', flexShrink: 0, userSelect: 'none' }}>
                   🇮🇳 +91
                 </div>
                 <input

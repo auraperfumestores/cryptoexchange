@@ -567,6 +567,8 @@
   .fr-input::placeholder, .fr-textarea::placeholder { color: var(--fr-text-disabled); }
   .fr-input:hover, .fr-select:hover, .fr-textarea:hover { border-color: var(--fr-border-medium); background: var(--fr-dark-4); }
   .fr-input:focus, .fr-select:focus, .fr-textarea:focus { border-color: var(--fr-lime); box-shadow: 0 0 0 3px var(--fr-lime-glow); background: var(--fr-dark-4); }
+  .fr-select { color-scheme: dark; }
+  .fr-select option { background: #15151a; color: #fff; }
   .fr-input--error   { border-color: #F87171 !important; }
   .fr-input--success { border-color: #4ADE80 !important; }
   .fr-textarea { height: auto; min-height: 120px; padding: var(--fr-sp-3) var(--fr-sp-4); resize: vertical; line-height: 1.65; }

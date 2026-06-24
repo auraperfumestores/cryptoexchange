@@ -158,7 +158,7 @@ export default function LoginPage() {
                 </span>
                 <input
                   type="email" className="fr-field__input" style={{ paddingLeft: 42 }}
-                  placeholder="you@example.com" value={email}
+                  value={email}
                   onChange={e => setEmail(e.target.value)} autoComplete="email" required
                 />
               </div>
@@ -176,7 +176,7 @@ export default function LoginPage() {
                 <input
                   type={showPass ? 'text' : 'password'} className="fr-field__input"
                   style={{ paddingLeft: 42, paddingRight: 42 }}
-                  placeholder="Enter your password" value={password}
+                  value={password}
                   onChange={e => setPassword(e.target.value)} autoComplete="current-password" required
                 />
                 <button type="button" onClick={() => setShowPass(!showPass)} style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--fr-text-tertiary)', padding: 0, display: 'flex' }}>

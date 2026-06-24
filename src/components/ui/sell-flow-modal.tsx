@@ -615,7 +615,7 @@ export function SellFlowModal({ network, usdtAmount, inrAmount, rate, onClose, o
         </div>
 
         <p style={{ fontSize: 13, color: C.sub, textAlign: 'center', margin: '0 0 20px', lineHeight: 1.6 }}>
-          We'll send a 6-digit OTP to your Indian mobile number (+91) to confirm your identity.
+          For your security, we verify every sell order with a one-time code sent by SMS.
         </p>
 
         {errorBanner()}
@@ -627,7 +627,7 @@ export function SellFlowModal({ network, usdtAmount, inrAmount, rate, onClose, o
           placeholder="98765 43210"
           type="tel"
           maxLength={10}
-          prefix="🇮🇳 +91"
+          prefix={<span style={{ color: '#fff' }}>🇮🇳 +91</span>}
         />
 
         {primaryBtn('Send OTP →', sendOtp, phone.replace(/\D/g,'').length !== 10)}

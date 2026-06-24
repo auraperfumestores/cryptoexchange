@@ -1031,7 +1031,7 @@ export default async function LandingPage() {
             {[
               { h: 'Product', links: [['Exchange','/register'],['PRO Membership','#pro'],['Academy','#academy'],['API','#']] },
               { h: 'Company',  links: [['About','#'],['Blog','#'],['Careers','#'],['Contact','#']] },
-              { h: 'Legal',    links: [['Terms','#'],['Privacy','#'],['Refund Policy','#'],['FEMA Compliance','#']] },
+              { h: 'Legal',    links: [['Terms','/terms'],['Privacy','/privacy'],['Refund Policy','#'],['FEMA Compliance','#']] },
             ].map(({ h, links }) => (
               <div key={h}>
                 <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--fr-text-disabled)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 16 }}>{h}</p>

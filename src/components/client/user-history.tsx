@@ -124,11 +124,15 @@ export function UserHistory({ transactions }: { transactions: TransactionDocumen
         <select
           value={typeFilter}
           onChange={e => setTypeFilter(e.target.value)}
+          className="fr-select"
           style={{
-            height: 40, padding: '0 12px', borderRadius: 10, fontSize: 13, fontWeight: 600,
+            height: 40, padding: '0 30px 0 12px', borderRadius: 10, fontSize: 13, fontWeight: 600,
             background: 'rgba(255,255,255,0.05)', border: '1px solid var(--fr-border-default)',
-            color: 'var(--fr-text-secondary)', cursor: 'pointer', outline: 'none',
-            fontFamily: 'var(--fr-font-sans)',
+            color: 'var(--fr-text-primary)', cursor: 'pointer', outline: 'none',
+            fontFamily: 'var(--fr-font-sans)', colorScheme: 'dark',
+            appearance: 'none', WebkitAppearance: 'none',
+            backgroundImage: 'url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'12\' height=\'12\' viewBox=\'0 0 12 12\' fill=\'none\'%3E%3Cpath d=\'M3 4.5L6 7.5L9 4.5\' stroke=\'%2391918f\' stroke-width=\'1.4\' stroke-linecap=\'round\' stroke-linejoin=\'round\'/%3E%3C/svg%3E")',
+            backgroundRepeat: 'no-repeat', backgroundPosition: 'right 10px center',
           }}
         >
           <option value="all">All types</option>
@@ -139,11 +143,15 @@ export function UserHistory({ transactions }: { transactions: TransactionDocumen
         <select
           value={statusFilter}
           onChange={e => setStatusFilter(e.target.value)}
+          className="fr-select"
           style={{
-            height: 40, padding: '0 12px', borderRadius: 10, fontSize: 13, fontWeight: 600,
+            height: 40, padding: '0 30px 0 12px', borderRadius: 10, fontSize: 13, fontWeight: 600,
             background: 'rgba(255,255,255,0.05)', border: '1px solid var(--fr-border-default)',
-            color: 'var(--fr-text-secondary)', cursor: 'pointer', outline: 'none',
-            fontFamily: 'var(--fr-font-sans)',
+            color: 'var(--fr-text-primary)', cursor: 'pointer', outline: 'none',
+            fontFamily: 'var(--fr-font-sans)', colorScheme: 'dark',
+            appearance: 'none', WebkitAppearance: 'none',
+            backgroundImage: 'url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'12\' height=\'12\' viewBox=\'0 0 12 12\' fill=\'none\'%3E%3Cpath d=\'M3 4.5L6 7.5L9 4.5\' stroke=\'%2391918f\' stroke-width=\'1.4\' stroke-linecap=\'round\' stroke-linejoin=\'round\'/%3E%3C/svg%3E")',
+            backgroundRepeat: 'no-repeat', backgroundPosition: 'right 10px center',
           }}
         >
           {STATUSES.map(s => <option key={s} value={s}>{STATUS_LABELS[s]}</option>)}

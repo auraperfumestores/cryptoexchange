@@ -32,6 +32,7 @@ export default function RegisterPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [done, setDone] = useState(false);
+  const [agreed, setAgreed] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -39,6 +40,7 @@ export default function RegisterPage() {
     if (!name || !email || !phone || !password) { setError('Please fill in all fields.'); return; }
     if (!/^[6-9]\d{9}$/.test(phone)) { setError('Enter a valid 10-digit Indian mobile number.'); return; }
     if (password.length < 8) { setError('Password must be at least 8 characters.'); return; }
+    if (!agreed) { setError('Please accept the Terms of Service and Privacy Policy to continue.'); return; }
     setLoading(true);
     try {
       const res = await fetch('/api/auth/register', {
@@ -173,7 +175,7 @@ export default function RegisterPage() {
               <label className="fr-field__label">Full name</label>
               <div style={{ position: 'relative' }}>
                 <span style={{ position: 'absolute', left: 13, top: '50%', transform: 'translateY(-50%)', color: 'var(--fr-text-tertiary)', pointerEvents: 'none' }}><User size={16} /></span>
-                <input type="text" className="fr-field__input" style={{ paddingLeft: 42 }} placeholder="Rahul Sharma" value={name} onChange={e => setName(e.target.value)} autoComplete="name" required />
+                <input type="text" className="fr-field__input" style={{ paddingLeft: 42 }} value={name} onChange={e => setName(e.target.value)} autoComplete="name" required />
               </div>
             </div>
 
@@ -181,7 +183,7 @@ export default function RegisterPage() {
               <label className="fr-field__label">Email address</label>
               <div style={{ position: 'relative' }}>
                 <span style={{ position: 'absolute', left: 13, top: '50%', transform: 'translateY(-50%)', color: 'var(--fr-text-tertiary)', pointerEvents: 'none' }}><Envelope size={16} /></span>
-                <input type="email" className="fr-field__input" style={{ paddingLeft: 42 }} placeholder="you@example.com" value={email} onChange={e => setEmail(e.target.value)} autoComplete="email" required />
+                <input type="email" className="fr-field__input" style={{ paddingLeft: 42 }} value={email} onChange={e => setEmail(e.target.value)} autoComplete="email" required />
               </div>
             </div>
 
@@ -195,7 +197,6 @@ export default function RegisterPage() {
                   type="tel"
                   className="fr-field__input"
                   style={{ borderRadius: '0 var(--fr-radius-md) var(--fr-radius-md) 0', flex: 1 }}
-                  placeholder="98765 43210"
                   value={phone}
                   onChange={e => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
                   autoComplete="tel"
@@ -210,7 +211,7 @@ export default function RegisterPage() {
               <label className="fr-field__label">Password</label>
               <div style={{ position: 'relative' }}>
                 <span style={{ position: 'absolute', left: 13, top: '50%', transform: 'translateY(-50%)', color: 'var(--fr-text-tertiary)', pointerEvents: 'none' }}><Lock size={16} /></span>
-                <input type={showPass ? 'text' : 'password'} className="fr-field__input" style={{ paddingLeft: 42, paddingRight: 42 }} placeholder="Min. 8 characters" value={password} onChange={e => setPassword(e.target.value)} autoComplete="new-password" required minLength={8} />
+                <input type={showPass ? 'text' : 'password'} className="fr-field__input" style={{ paddingLeft: 42, paddingRight: 42 }} value={password} onChange={e => setPassword(e.target.value)} autoComplete="new-password" required minLength={8} />
                 <button type="button" onClick={() => setShowPass(!showPass)} style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--fr-text-tertiary)', padding: 0, display: 'flex' }}>
                   {showPass ? <EyeSlash size={16} /> : <Eye size={16} />}
                 </button>
@@ -227,16 +228,24 @@ export default function RegisterPage() {
               )}
             </div>
 
-            <button type="submit" disabled={loading} className="fr-btn fr-btn--primary fr-btn--lg fr-btn--full" style={{ marginTop: 4 }}>
+            <label style={{ display: 'flex', alignItems: 'flex-start', gap: 9, cursor: 'pointer', marginTop: 2 }}>
+              <input
+                type="checkbox"
+                checked={agreed}
+                onChange={e => setAgreed(e.target.checked)}
+                style={{ marginTop: 2, width: 16, height: 16, accentColor: 'var(--fr-lime)', cursor: 'pointer', flexShrink: 0 }}
+              />
+              <span style={{ fontSize: 12, color: 'var(--fr-text-disabled)', lineHeight: 1.6 }}>
+                I agree to the{' '}
+                <Link href="/terms" target="_blank" style={{ color: 'var(--fr-lime)', textDecoration: 'none' }}>Terms of Service</Link> &amp;{' '}
+                <Link href="/privacy" target="_blank" style={{ color: 'var(--fr-lime)', textDecoration: 'none' }}>Privacy Policy</Link>.
+              </span>
+            </label>
+
+            <button type="submit" disabled={loading || !agreed} className="fr-btn fr-btn--primary fr-btn--lg fr-btn--full" style={{ marginTop: 4 }}>
               {loading ? <><span className="spinner" />Creating account…</> : <>Create free account <ArrowRight size={16} weight="bold" /></>}
             </button>
           </form>
-
-          <p style={{ marginTop: 14, textAlign: 'center', fontSize: 12, color: 'var(--fr-text-disabled)', lineHeight: 1.6 }}>
-            By signing up you agree to our{' '}
-            <a href="#" style={{ color: 'var(--fr-lime)', textDecoration: 'none' }}>Terms</a> &amp;{' '}
-            <a href="#" style={{ color: 'var(--fr-lime)', textDecoration: 'none' }}>Privacy Policy</a>.
-          </p>
 
           <div style={{ margin: '24px 0', borderTop: '1px solid var(--fr-border-subtle)' }} />
 
