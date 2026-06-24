@@ -40,7 +40,7 @@ export default function ForgotPasswordPage() {
               <span style={{ color: '#000', fontSize: 18, fontWeight: 900 }}>S</span>
             </div>
             <span style={{ fontSize: 22, fontWeight: 900, color: '#fff', letterSpacing: '-0.03em' }}>
-              Swap<span style={{ color: '#CCFF00' }}>INR</span>
+              Swapp<span style={{ color: '#CCFF00' }}>INR</span>
             </span>
           </Link>
         </div>

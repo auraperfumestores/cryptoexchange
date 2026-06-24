@@ -1,25 +1,25 @@
-import nodemailer from 'nodemailer';
+import { Resend } from 'resend';
 
-function createTransport() {
-  const host = process.env.SMTP_HOST;
-  const user = process.env.SMTP_USER;
-  const pass = process.env.SMTP_PASS;
-  const secure = process.env.SMTP_SECURE === '1';
-
-  if (!host || !user || !pass) return null;
-
-  return nodemailer.createTransport({
-    host,
-    port: Number(process.env.SMTP_PORT ?? 587),
-    secure,
-    auth: { user, pass },
-    // Gmail requires STARTTLS on port 587
-    requireTLS: !secure,
-  });
+function getResend() {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) return null;
+  return new Resend(apiKey);
 }
 
-// SMTP_FROM is already in "Name <email>" format — use as-is
-const FROM = process.env.SMTP_FROM ?? 'noreply@swappinr.com';
+// EMAIL_FROM is already in "Name <email>" format — use as-is
+const FROM = process.env.EMAIL_FROM ?? 'SwappINR <noreply@swappinr.com>';
+
+/** Thin shim so call sites can keep using transport.sendMail({ from, to, subject, html }) unchanged. */
+function createTransport() {
+  const resend = getResend();
+  if (!resend) return null;
+  return {
+    sendMail: async (opts: { from: string; to: string; subject: string; html: string }) => {
+      const { error } = await resend.emails.send(opts);
+      if (error) throw new Error(typeof error === 'string' ? error : error.message);
+    },
+  };
+}
 
 // Resolve app URL: explicit env → VERCEL_URL (auto-set by Vercel) → localhost
 function getAppUrl(): string {
@@ -60,7 +60,7 @@ export async function sendPasswordResetEmail(email: string, name: string, token:
                 <span style="color:#000;font-size:20px;font-weight:900;line-height:44px">S</span>
               </td>
               <td style="padding-left:11px;font-size:24px;font-weight:900;color:#ffffff;letter-spacing:-0.03em;vertical-align:middle;white-space:nowrap">
-                Swap<span style="color:#CCFF00">INR</span>
+                Swapp<span style="color:#CCFF00">INR</span>
               </td>
             </tr></table>
           </td>
@@ -157,7 +157,7 @@ export async function sendVerificationEmail(email: string, name: string, token: 
                 <span style="color:#000;font-size:20px;font-weight:900;line-height:44px">S</span>
               </td>
               <td style="padding-left:11px;font-size:24px;font-weight:900;color:#ffffff;letter-spacing:-0.03em;vertical-align:middle;white-space:nowrap">
-                Swap<span style="color:#CCFF00">INR</span>
+                Swapp<span style="color:#CCFF00">INR</span>
               </td>
             </tr></table>
           </td>
@@ -314,7 +314,7 @@ export async function sendOrderCreatedEmail(email: string, name: string, order: 
                 <span style="color:#000;font-size:20px;font-weight:900;line-height:44px">S</span>
               </td>
               <td style="padding-left:11px;font-size:24px;font-weight:900;color:#ffffff;letter-spacing:-0.03em;vertical-align:middle;white-space:nowrap">
-                Swap<span style="color:#CCFF00">INR</span>
+                Swapp<span style="color:#CCFF00">INR</span>
               </td>
             </tr></table>
           </td>
@@ -428,7 +428,7 @@ export async function sendOrderStatusEmail(email: string, name: string, order: O
                 <span style="color:#000;font-size:20px;font-weight:900;line-height:44px">S</span>
               </td>
               <td style="padding-left:11px;font-size:24px;font-weight:900;color:#ffffff;letter-spacing:-0.03em;vertical-align:middle;white-space:nowrap">
-                Swap<span style="color:#CCFF00">INR</span>
+                Swapp<span style="color:#CCFF00">INR</span>
               </td>
             </tr></table>
           </td>

@@ -158,7 +158,7 @@ export function UserShell({ user, children }: UserShellProps) {
               <span style={{ color: '#000', fontSize: 14, fontWeight: 900 }}>S</span>
             </div>
             <span style={{ color: 'var(--fr-text-primary)', fontSize: 18, fontWeight: 900, letterSpacing: '-0.03em' }}>
-              Swap<span style={{ color: 'var(--fr-lime)' }}>INR</span>
+              Swapp<span style={{ color: 'var(--fr-lime)' }}>INR</span>
             </span>
           </Link>
 

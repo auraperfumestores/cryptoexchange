@@ -168,7 +168,7 @@ export default async function LandingPage() {
         <div className="fr-nav__inner">
           <Link href="/" className="fr-nav__logo">
             <div className="fr-nav__logo-icon">S</div>
-            <span className="fr-nav__logo-name">Swap<span style={{ color: 'var(--fr-lime)' }}>INR</span></span>
+            <span className="fr-nav__logo-name">Swapp<span style={{ color: 'var(--fr-lime)' }}>INR</span></span>
           </Link>
           <ul className="fr-nav__links">
             {[['How it Works','#how'],['Features','#features'],['Networks','#networks'],['PRO','#pro'],['FAQ','#faq']].map(([l, h]) => (
@@ -191,7 +191,7 @@ export default async function LandingPage() {
       {/* Mobile menu */}
       <div className="fr-mobile-menu" data-mobile-menu>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 32 }}>
-          <span style={{ fontSize: 20, fontWeight: 800, color: 'var(--fr-text-primary)', letterSpacing: '-0.02em' }}>Swap<span style={{ color: 'var(--fr-lime)' }}>INR</span></span>
+          <span style={{ fontSize: 20, fontWeight: 800, color: 'var(--fr-text-primary)', letterSpacing: '-0.02em' }}>Swapp<span style={{ color: 'var(--fr-lime)' }}>INR</span></span>
           <button data-mobile-toggle style={{ background: 'none', border: '1px solid var(--fr-border-default)', borderRadius: 8, padding: 8, cursor: 'pointer', color: 'var(--fr-text-secondary)', display: 'flex' }}><IconX /></button>
         </div>
         {[['How it Works','#how'],['Features','#features'],['Networks','#networks'],['PRO','#pro'],['FAQ','#faq']].map(([l, h]) => (
@@ -1019,7 +1019,7 @@ export default async function LandingPage() {
             <div>
               <Link href="/" style={{ display: 'inline-flex', alignItems: 'center', gap: 10, textDecoration: 'none', marginBottom: 20 }}>
                 <div style={{ width: 36, height: 36, borderRadius: 8, background: 'var(--fr-lime)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 900, color: '#000' }}>S</div>
-                <span style={{ fontFamily: 'var(--fr-font-display)', fontSize: 18, fontWeight: 800, color: 'var(--fr-text-primary)', letterSpacing: '-0.02em' }}>Swap<span style={{ color: 'var(--fr-lime)' }}>INR</span></span>
+                <span style={{ fontFamily: 'var(--fr-font-display)', fontSize: 18, fontWeight: 800, color: 'var(--fr-text-primary)', letterSpacing: '-0.02em' }}>Swapp<span style={{ color: 'var(--fr-lime)' }}>INR</span></span>
               </Link>
               <p style={{ fontSize: 13, color: 'var(--fr-text-tertiary)', lineHeight: 1.75, maxWidth: 280, marginBottom: 20 }}>India&apos;s fastest and most trusted crypto-to-INR exchange. Secure, transparent, instant.</p>
               <div style={{ display: 'flex', gap: 10 }}>

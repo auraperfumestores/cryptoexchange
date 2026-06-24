@@ -75,7 +75,7 @@ export function Sidebar({ role, open, onClose }: { role: UserRole; open: boolean
             </div>
             <div>
               <div style={{ fontSize: 15, fontWeight: 900, color: 'var(--fr-text-primary)', letterSpacing: '-0.03em', lineHeight: 1 }}>
-                Swap<span style={{ color: 'var(--fr-lime)' }}>INR</span>
+                Swapp<span style={{ color: 'var(--fr-lime)' }}>INR</span>
               </div>
               <div style={{ fontSize: 9, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.14em', color: 'var(--fr-text-disabled)', marginTop: 2 }}>
                 {role === 'admin' ? 'Admin Panel' : 'Dashboard'}
