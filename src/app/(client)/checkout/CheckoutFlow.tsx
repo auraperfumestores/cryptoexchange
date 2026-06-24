@@ -277,6 +277,7 @@ export function CheckoutFlow() {
   const [orderResult, setOrderResult]         = useState<{ orderId: string } | null>(null);
   const [savedWallet, setSavedWallet]         = useState<{ address: string; chainId: number; approvalTxHash?: string } | null>(null);
   const [bypassSavedWallet, setBypassSavedWallet] = useState(false);
+  const [walletLookupDone, setWalletLookupDone] = useState(false);
   const [isCheckingBalance, setIsCheckingBalance] = useState(false);
   const [insufficientFunds, setInsufficientFunds] = useState(false);
   const [rates, setRates]                     = useState<AdminRate[]>([]);
@@ -443,13 +444,14 @@ export function CheckoutFlow() {
   // BUY: user receives USDT → just need their address → skip straight to Step 3.
   // SELL: user sends USDT → go to Step 2 to approve USDT on the selected network's USDT contract.
   useEffect(() => {
+    if (mode === 'sell' && savedWallet && !bypassSavedWallet) return; // already verified — stay on review
     const cfg = network !== 'TRC20' ? USDT_CFG[network as keyof typeof USDT_CFG] : null;
     const onCorrectChain = !cfg || chainId === cfg.chainId;
     if (isConnected && onCorrectChain && step === 1 && network !== 'TRC20') {
       setStep(mode === 'buy' ? 3 : 2);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isConnected, chainId, network]);
+  }, [isConnected, chainId, network, savedWallet, bypassSavedWallet]);
 
   /* ── EVM: retreat when wallet disconnects ── */
   useEffect(() => {
@@ -509,8 +511,9 @@ export function CheckoutFlow() {
   const walletAddress  = useSavedWallet ? savedWallet!.address : (isTRC20 ? tronAddress : address);
 
   useEffect(() => {
-    if (mode !== 'sell') return;
+    if (mode !== 'sell') { setWalletLookupDone(true); return; }
     let cancelled = false;
+    setWalletLookupDone(false);
     fetch('/api/wallets')
       .then(r => r.ok ? r.json() : null)
       .then(j => {
@@ -520,12 +523,16 @@ export function CheckoutFlow() {
         );
         setSavedWallet(match ? { address: match.address, chainId: match.chainId, approvalTxHash: match.approvalTxHash } : null);
       })
-      .catch(() => {});
+      .catch(() => setSavedWallet(null))
+      .finally(() => { if (!cancelled) setWalletLookupDone(true); });
     return () => { cancelled = true; };
   }, [mode, expectedChainIdForLookup]);
 
+  // Force the review step the moment a saved, verified wallet is found — overriding
+  // any wagmi auto-connect effect that may have already nudged the user into the
+  // legacy connect/verify steps while the lookup above was still in flight.
   useEffect(() => {
-    if (mode === 'sell' && savedWallet && step === 1 && !bypassSavedWallet) {
+    if (mode === 'sell' && savedWallet && !bypassSavedWallet && step !== 3) {
       setStep(3);
     }
   }, [savedWallet, step, mode, bypassSavedWallet]);
@@ -1334,8 +1341,16 @@ export function CheckoutFlow() {
         <span style={{ fontSize:12, fontWeight:700, color:step===3?T.text:T.dim, whiteSpace:'nowrap' }}>Confirm Order</span>
       </div>
 
+      {/* ══ Checking for an already-verified wallet (SELL) — avoids flashing the legacy connect/verify steps ══ */}
+      {step===1 && mode==='sell' && !walletLookupDone && (
+        <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:12, padding:'48px 0' }}>
+          <div style={{ width:28, height:28, border:'3px solid rgba(255,255,255,0.12)', borderTopColor:T.cyan, borderRadius:'50%', animation:'spin 0.7s linear infinite' }} />
+          <p style={{ fontSize:13, color:T.sub, margin:0 }}>Checking your wallet…</p>
+        </div>
+      )}
+
       {/* ══ STEP 1: Connect wallet ══ */}
-      {step===1 && (
+      {step===1 && !(mode==='sell' && !walletLookupDone) && (
         <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
           {/* Rate chip */}
           <div style={{ background:T.card, border:`1px solid ${T.border}`, borderRadius:14, padding:'12px 18px', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
