@@ -13,12 +13,13 @@ const STATUS: Record<string, { label: string; color: string; bg: string }> = {
   completed:        { label: 'Completed',         color: '#CCFF00', bg: 'rgba(204,255,0,0.08)'   },
   cancelled:        { label: 'Cancelled',         color: '#64748B', bg: 'rgba(100,116,139,0.10)' },
   disputed:         { label: 'Disputed',          color: '#F87171', bg: 'rgba(248,113,113,0.10)' },
+  failed:           { label: 'Failed',            color: '#F87171', bg: 'rgba(248,113,113,0.10)' },
 };
 
-const STATUSES = ['all','awaiting_crypto','awaiting_payment','confirming','completed','cancelled'];
+const STATUSES = ['all','awaiting_crypto','awaiting_payment','confirming','completed','cancelled','failed'];
 const STATUS_LABELS: Record<string,string> = {
   all:'All statuses', awaiting_crypto:'Awaiting crypto', awaiting_payment:'Awaiting payment',
-  confirming:'Confirming', completed:'Completed', cancelled:'Cancelled',
+  confirming:'Confirming', completed:'Completed', cancelled:'Cancelled', failed:'Failed',
 };
 
 /* ── Icons ── */

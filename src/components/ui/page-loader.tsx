@@ -39,7 +39,8 @@ export default function PageLoader() {
       const a = (e.target as Element).closest('a[href]');
       if (!a) return;
       const href = a.getAttribute('href') ?? '';
-      if (href.startsWith('/') && !href.startsWith('//') && href !== pathname) start();
+      const opensNewTab = a.getAttribute('target') === '_blank';
+      if (!opensNewTab && href.startsWith('/') && !href.startsWith('//') && href !== pathname) start();
     };
     document.addEventListener('click', onClick, true);
     return () => document.removeEventListener('click', onClick, true);

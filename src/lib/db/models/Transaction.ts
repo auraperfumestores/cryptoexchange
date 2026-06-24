@@ -67,6 +67,7 @@ const TransactionSchema = new Schema<TransactionAttrs>(
         'completed',
         'cancelled',
         'disputed',
+        'failed',
       ],
       required: true,
       default: 'awaiting_crypto',

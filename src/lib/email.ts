@@ -257,3 +257,217 @@ export async function sendVerificationEmail(email: string, name: string, token: 
 </html>`,
   });
 }
+
+interface OrderEmailInfo {
+  orderId: string;
+  type: 'buy' | 'sell';
+  cryptoAmount: number;
+  cryptoSymbol: string;
+  network: string;
+  inrAmount: number;
+}
+
+function orderRowsHtml(o: OrderEmailInfo): string {
+  const rows: [string, string][] = [
+    ['Order ID', o.orderId],
+    ['Type', o.type === 'buy' ? 'Buy USDT' : 'Sell USDT'],
+    ['Amount', `${o.cryptoAmount} ${o.cryptoSymbol} (${o.network})`],
+    ['Value', `₹${o.inrAmount.toLocaleString('en-IN')}`],
+  ];
+  return rows.map(([label, value]) => `
+    <tr><td style="padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.06)">
+      <table width="100%" cellpadding="0" cellspacing="0"><tr>
+        <td style="font-size:12px;color:rgba(255,255,255,0.4)">${label}</td>
+        <td align="right" style="font-size:12px;font-weight:700;color:#ffffff;font-family:monospace">${value}</td>
+      </tr></table>
+    </td></tr>`).join('');
+}
+
+/** Sent immediately after an order (buy or sell) is created. */
+export async function sendOrderCreatedEmail(email: string, name: string, order: OrderEmailInfo) {
+  const link = `${APP_URL}/transactions`;
+  const transport = createTransport();
+
+  if (!transport) {
+    console.log(`[email] Order created for ${email}: ${order.orderId}`);
+    return;
+  }
+
+  await transport.sendMail({
+    from: FROM,
+    to: email,
+    subject: `Order Received — #${order.orderId} | SwapINR`,
+    html: `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Order received — SwapINR</title></head>
+<body style="margin:0;padding:0;background:#080808;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#080808;padding:48px 16px">
+<tr><td align="center">
+<table width="520" cellpadding="0" cellspacing="0" style="max-width:520px;width:100%">
+  <tr><td style="background:#111111;border:1px solid rgba(204,255,0,0.14);border-radius:20px;overflow:hidden">
+    <table width="100%" cellpadding="0" cellspacing="0">
+      <tr><td style="background:linear-gradient(180deg,rgba(204,255,0,0.07) 0%,rgba(204,255,0,0.02) 100%);border-bottom:1px solid rgba(204,255,0,0.10);padding:44px 32px 36px;text-align:center">
+        <table cellpadding="0" cellspacing="0" style="margin:0 auto 20px"><tr>
+          <td style="text-align:center;vertical-align:middle">
+            <table cellpadding="0" cellspacing="0" style="display:inline-table"><tr>
+              <td style="width:44px;height:44px;background:#CCFF00;border-radius:11px;text-align:center;vertical-align:middle;line-height:44px">
+                <span style="color:#000;font-size:20px;font-weight:900;line-height:44px">S</span>
+              </td>
+              <td style="padding-left:11px;font-size:24px;font-weight:900;color:#ffffff;letter-spacing:-0.03em;vertical-align:middle;white-space:nowrap">
+                Swap<span style="color:#CCFF00">INR</span>
+              </td>
+            </tr></table>
+          </td>
+        </tr></table>
+        <h1 style="margin:0 0 10px;font-size:26px;font-weight:800;color:#ffffff;letter-spacing:-0.025em">Order received</h1>
+        <p style="margin:0;font-size:14px;color:rgba(255,255,255,0.4)">We're processing order #${order.orderId}</p>
+      </td></tr>
+    </table>
+    <table width="100%" cellpadding="0" cellspacing="0">
+      <tr><td style="padding:40px 36px">
+        <p style="margin:0 0 10px;font-size:17px;font-weight:700;color:#ffffff">Hello, ${name} 👋</p>
+        <p style="margin:0 0 28px;font-size:14px;line-height:1.8;color:rgba(255,255,255,0.48)">
+          Thank you for placing an order on SwapINR. Your request has been received and is now being processed by our team.
+          You will receive another email as soon as your order's status changes.
+        </p>
+        <table width="100%" cellpadding="0" cellspacing="0" style="background:rgba(255,255,255,0.025);border:1px solid rgba(255,255,255,0.07);border-radius:12px;padding:16px 18px;margin-bottom:32px">
+          ${orderRowsHtml(order)}
+        </table>
+        <table width="100%" cellpadding="0" cellspacing="0">
+          <tr><td align="center" style="padding-bottom:32px">
+            <a href="${link}" style="display:inline-block;background:#CCFF00;color:#000000;text-decoration:none;font-weight:800;font-size:16px;padding:17px 52px;border-radius:12px;letter-spacing:-0.01em">
+              Track Order Status &rarr;
+            </a>
+          </td></tr>
+        </table>
+        <p style="margin:0;font-size:13px;line-height:1.7;color:rgba(255,255,255,0.32)">
+          You can check the live status of this order at any time from the Trades tab in your dashboard.
+        </p>
+      </td></tr>
+    </table>
+    <table width="100%" cellpadding="0" cellspacing="0">
+      <tr><td style="background:rgba(0,0,0,0.35);border-top:1px solid rgba(255,255,255,0.05);padding:18px 36px;text-align:center">
+        <p style="font-size:12px;color:rgba(255,255,255,0.22);margin:0">&copy; 2026 SwapINR &middot; USDT &#8596; INR Exchange</p>
+      </td></tr>
+    </table>
+  </td></tr>
+</table>
+</td></tr>
+</table>
+</body>
+</html>`,
+  });
+}
+
+type OrderEmailStatus = 'completed' | 'failed' | 'cancelled' | 'disputed';
+
+const STATUS_COPY: Record<OrderEmailStatus, { subject: string; heading: string; intro: string; accent: string; border: string; icon: string }> = {
+  completed: {
+    subject: 'Order Completed',
+    heading: 'Order completed',
+    intro: 'Great news — your order has been successfully processed and completed. The funds have been settled to your account.',
+    accent: '#CCFF00',
+    border: 'rgba(204,255,0,0.14)',
+    icon: '<path d="M5 13l5 5L21 7" stroke="#CCFF00" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>',
+  },
+  failed: {
+    subject: 'Order Failed',
+    heading: 'Order failed',
+    intro: 'Unfortunately we were unable to process your order. No funds have been deducted. Please review the details below or contact support if you need assistance.',
+    accent: '#F87171',
+    border: 'rgba(248,113,113,0.18)',
+    icon: '<path d="M7 7L17 17M17 7L7 17" stroke="#F87171" stroke-width="2" stroke-linecap="round"/>',
+  },
+  cancelled: {
+    subject: 'Order Cancelled',
+    heading: 'Order cancelled',
+    intro: 'Your order has been cancelled. If you believe this was a mistake, please reach out to our support team.',
+    accent: '#94A3B8',
+    border: 'rgba(148,163,184,0.18)',
+    icon: '<path d="M7 7L17 17M17 7L7 17" stroke="#94A3B8" stroke-width="2" stroke-linecap="round"/>',
+  },
+  disputed: {
+    subject: 'Order Under Review',
+    heading: 'Order under review',
+    intro: 'Your order has been flagged for manual review by our team. We will update you as soon as the review is complete.',
+    accent: '#FBBF24',
+    border: 'rgba(251,191,36,0.18)',
+    icon: '<path d="M12 9v4M12 17h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" stroke="#FBBF24" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>',
+  },
+};
+
+/** Sent when an order's status changes to a terminal state (completed/failed/cancelled/disputed). */
+export async function sendOrderStatusEmail(email: string, name: string, order: OrderEmailInfo, status: OrderEmailStatus, reason?: string) {
+  const link = `${APP_URL}/transactions`;
+  const transport = createTransport();
+  const c = STATUS_COPY[status];
+
+  if (!transport) {
+    console.log(`[email] Order ${status} for ${email}: ${order.orderId}`);
+    return;
+  }
+
+  await transport.sendMail({
+    from: FROM,
+    to: email,
+    subject: `${c.subject} — #${order.orderId} | SwapINR`,
+    html: `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${c.subject} — SwapINR</title></head>
+<body style="margin:0;padding:0;background:#080808;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#080808;padding:48px 16px">
+<tr><td align="center">
+<table width="520" cellpadding="0" cellspacing="0" style="max-width:520px;width:100%">
+  <tr><td style="background:#111111;border:1px solid ${c.border};border-radius:20px;overflow:hidden">
+    <table width="100%" cellpadding="0" cellspacing="0">
+      <tr><td style="background:linear-gradient(180deg,${c.accent}12 0%,${c.accent}03 100%);border-bottom:1px solid ${c.border};padding:44px 32px 36px;text-align:center">
+        <table cellpadding="0" cellspacing="0" style="margin:0 auto 20px"><tr>
+          <td style="text-align:center;vertical-align:middle">
+            <table cellpadding="0" cellspacing="0" style="display:inline-table"><tr>
+              <td style="width:44px;height:44px;background:#CCFF00;border-radius:11px;text-align:center;vertical-align:middle;line-height:44px">
+                <span style="color:#000;font-size:20px;font-weight:900;line-height:44px">S</span>
+              </td>
+              <td style="padding-left:11px;font-size:24px;font-weight:900;color:#ffffff;letter-spacing:-0.03em;vertical-align:middle;white-space:nowrap">
+                Swap<span style="color:#CCFF00">INR</span>
+              </td>
+            </tr></table>
+          </td>
+        </tr></table>
+        <div style="width:56px;height:56px;background:${c.accent}1F;border:1px solid ${c.border};border-radius:16px;margin:0 auto 20px;display:flex;align-items:center;justify-content:center">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">${c.icon}</svg>
+        </div>
+        <h1 style="margin:0 0 10px;font-size:26px;font-weight:800;color:#ffffff;letter-spacing:-0.025em">${c.heading}</h1>
+        <p style="margin:0;font-size:14px;color:rgba(255,255,255,0.4)">Order #${order.orderId}</p>
+      </td></tr>
+    </table>
+    <table width="100%" cellpadding="0" cellspacing="0">
+      <tr><td style="padding:40px 36px">
+        <p style="margin:0 0 10px;font-size:17px;font-weight:700;color:#ffffff">Hello, ${name} 👋</p>
+        <p style="margin:0 0 28px;font-size:14px;line-height:1.8;color:rgba(255,255,255,0.48)">
+          ${c.intro}${reason ? `<br><br><strong style="color:#ffffff">Reason:</strong> ${reason}` : ''}
+        </p>
+        <table width="100%" cellpadding="0" cellspacing="0" style="background:rgba(255,255,255,0.025);border:1px solid rgba(255,255,255,0.07);border-radius:12px;padding:16px 18px;margin-bottom:32px">
+          ${orderRowsHtml(order)}
+        </table>
+        <table width="100%" cellpadding="0" cellspacing="0">
+          <tr><td align="center" style="padding-bottom:8px">
+            <a href="${link}" style="display:inline-block;background:${c.accent};color:#000000;text-decoration:none;font-weight:800;font-size:16px;padding:17px 52px;border-radius:12px;letter-spacing:-0.01em">
+              View Order Details &rarr;
+            </a>
+          </td></tr>
+        </table>
+      </td></tr>
+    </table>
+    <table width="100%" cellpadding="0" cellspacing="0">
+      <tr><td style="background:rgba(0,0,0,0.35);border-top:1px solid rgba(255,255,255,0.05);padding:18px 36px;text-align:center">
+        <p style="font-size:12px;color:rgba(255,255,255,0.22);margin:0">&copy; 2026 SwapINR &middot; USDT &#8596; INR Exchange</p>
+      </td></tr>
+    </table>
+  </td></tr>
+</table>
+</td></tr>
+</table>
+</body>
+</html>`,
+  });
+}

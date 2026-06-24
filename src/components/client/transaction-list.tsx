@@ -24,6 +24,7 @@ const STATUS_LABEL: Record<string, { label: string; variant: 'default' | 'succes
   completed: { label: 'Completed', variant: 'success' },
   cancelled: { label: 'Cancelled', variant: 'error' },
   disputed: { label: 'Disputed', variant: 'error' },
+  failed: { label: 'Failed', variant: 'error' },
 };
 
 export function TransactionList({ transactions, isAdmin = false }: TransactionListProps) {

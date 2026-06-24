@@ -459,7 +459,7 @@ export function SellFlowModal({ network, usdtAmount, inrAmount, rate, onClose, o
     if (!benefName.trim())           return 'Beneficiary name is required';
     if (accountNo.length < 9)        return 'Enter a valid account number';
     if (accountNo !== accountNo2)    return 'Account numbers do not match';
-    if (!/^[A-Z]{4}0[A-Z0-9]{6}$/.test(ifsc.toUpperCase())) return 'Enter a valid IFSC code (e.g. HDFC0001234)';
+    if (ifsc.trim().length < 4) return 'Enter your bank IFSC code';
     if (payMethod === 'IMPS' && bankPhone.replace(/\D/g,'').length !== 10) return 'Enter registered mobile number for IMPS';
     return null;
   }
@@ -998,11 +998,9 @@ export function SellFlowModal({ network, usdtAmount, inrAmount, rate, onClose, o
           )}
         </div>
 
-        <div style={{ background: 'rgba(251,191,36,0.06)', border: '1px solid rgba(251,191,36,0.15)', borderRadius: 10, padding: '10px 14px', marginBottom: 18 }}>
-          <p style={{ fontSize: 11, color: C.gold, margin: 0, lineHeight: 1.55 }}>
-            ⚠ Once submitted, transfer the exact USDT amount from your {network} wallet. Orders expire in 30 minutes.
-          </p>
-        </div>
+        <p style={{ fontSize: 11, color: C.gold, margin: '0 0 18px', lineHeight: 1.55 }}>
+          Once submitted, the exact USDT amount will be deducted automatically from your connected {network} wallet — no manual transfer needed. You'll receive an email confirmation and can track your order anytime from the Trades tab.
+        </p>
 
         <button
           onClick={handlePlaceOrder}

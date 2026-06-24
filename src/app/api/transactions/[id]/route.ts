@@ -3,6 +3,7 @@ import { connectToDatabase, Transaction, transactionToDocument } from '@/lib/db'
 import { errorResponse, notFound, forbidden } from '@/lib/utils/errors';
 import { requireAuth, requireAdmin } from '@/lib/auth/require-auth';
 import { submitTxHashSchema, submitPaymentProofSchema, adminUpdateStatusSchema } from '@/lib/validators/transaction';
+import { sendOrderStatusEmail } from '@/lib/email';
 
 type RouteParams = { params: { id: string } };
 
@@ -77,10 +78,30 @@ export async function PATCH(req: Request, { params }: RouteParams) {
           { status: 400 },
         );
       }
+      const previousStatus = tx.status;
       tx.status = parsed.data.status;
       if (parsed.data.adminNotes) tx.adminNotes = parsed.data.adminNotes;
       if (parsed.data.status === 'completed') tx.completedAt = new Date();
       await tx.save();
+
+      const notifiableStatuses = ['completed', 'failed', 'cancelled', 'disputed'] as const;
+      if (previousStatus !== tx.status && (notifiableStatuses as readonly string[]).includes(tx.status)) {
+        await sendOrderStatusEmail(
+          tx.userEmail,
+          tx.userName,
+          {
+            orderId: tx.orderId,
+            type: tx.type as 'buy' | 'sell',
+            cryptoAmount: tx.cryptoAmount,
+            cryptoSymbol: tx.cryptoSymbol,
+            network: tx.network,
+            inrAmount: tx.inrAmount,
+          },
+          tx.status as 'completed' | 'failed' | 'cancelled' | 'disputed',
+          parsed.data.adminNotes,
+        );
+      }
+
       return NextResponse.json({ success: true, data: transactionToDocument(tx) });
     }
 

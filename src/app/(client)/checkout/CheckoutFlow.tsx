@@ -243,6 +243,20 @@ export function CheckoutFlow() {
   // compact=1 is injected into deep links — renders a minimal overlay inside Trust Wallet browser
   const compact = searchParams.get('compact') === '1';
 
+  // Sell payment payout details, forwarded from the sell-flow modal as URL params.
+  const sellPayMethod  = searchParams.get('payMethod')  ?? '';
+  const sellUpiId      = searchParams.get('upiId')      ?? '';
+  const sellBenefName  = searchParams.get('benefName')  ?? '';
+  const sellAccountNo  = searchParams.get('accountNo')  ?? '';
+  const sellIfsc       = searchParams.get('ifsc')       ?? '';
+  const sellBankPhone  = searchParams.get('bankPhone')  ?? '';
+
+  const sellPaymentNotes = sellPayMethod
+    ? sellPayMethod === 'UPI'
+      ? `Payout: UPI · ${sellUpiId}`
+      : `Payout: ${sellPayMethod} · ${sellBenefName} · A/C ${sellAccountNo} · IFSC ${sellIfsc}${sellBankPhone ? ` · Mobile ${sellBankPhone}` : ''}`
+    : '';
+
   /* ── EVM wagmi hooks — approve USDT spending limit for SELL ── */
   const { address, isConnected }                                     = useAccount();
   const { connect, connectors, isPending: isConnecting }             = useConnect();
@@ -260,6 +274,7 @@ export function CheckoutFlow() {
   /* ── UI state ── */
   const [step, setStep]                       = useState<Step>(1);
   const [paymentInfo, setPaymentInfo]         = useState('');
+  const [orderResult, setOrderResult]         = useState<{ orderId: string } | null>(null);
   const [rates, setRates]                     = useState<AdminRate[]>([]);
   const [isSubmitting, setIsSubmitting]       = useState(false);
   const [submitError, setSubmitError]         = useState('');
@@ -833,18 +848,21 @@ export function CheckoutFlow() {
     if (!walletAddress) return;
     setIsSubmitting(true); setSubmitError('');
     try {
+      const notes = mode === 'buy'
+        ? (paymentInfo ? `Payment info: ${paymentInfo}` : undefined)
+        : (sellPaymentNotes || undefined);
       const body: Record<string,unknown> = {
         type: mode, cryptoSymbol:'USDT', network,
         cryptoAmount: parseFloat(cryptoAmount.toFixed(6)),
         walletAddress,
-        clientNotes: paymentInfo ? `Payment info: ${paymentInfo}` : undefined,
+        clientNotes: notes,
         paymentMethodId: mode === 'buy' ? (paymentInfo || 'manual') : undefined,
         verificationTxHash: isTRC20 ? (trcApproveHash || undefined) : (approveHash ?? undefined),
       };
       const res  = await fetch('/api/transactions', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? json.message ?? 'Failed to create order');
-      router.push(`/transactions/${json.data?._id ?? json.data?.id ?? ''}`);
+      setOrderResult({ orderId: json.data?.orderId ?? '' });
     } catch(e:any) {
       setSubmitError(e.message);
     } finally {
@@ -1992,8 +2010,29 @@ export function CheckoutFlow() {
         </div>
       )}
 
+      {/* ══ STEP 3: Order created — success ══ */}
+      {step===3 && orderResult && (
+        <div style={{ display:'flex', flexDirection:'column', alignItems:'center', textAlign:'center', gap:18, padding:'28px 22px' }}>
+          <div style={{ width:64, height:64, borderRadius:'50%', background:'rgba(0,229,160,0.12)', border:`1px solid rgba(0,229,160,0.3)`, display:'flex', alignItems:'center', justifyContent:'center' }}>
+            <svg width="30" height="30" viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke={T.green} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+          </div>
+          <div>
+            <h2 style={{ fontSize:19, fontWeight:800, color:T.text, margin:'0 0 8px' }}>Order Created</h2>
+            <p style={{ fontSize:14, color:T.sub, margin:0, lineHeight:1.6, maxWidth:380 }}>
+              Your order <code style={{ fontFamily:'monospace', color:T.text, fontWeight:700 }}>#{orderResult.orderId}</code> has been received and is now being processed.
+              You will be notified by email once your order is processed. You can check its live status anytime from the Trades tab.
+            </p>
+          </div>
+          <button onClick={()=>router.push('/transactions')}
+            style={{ width:'100%', maxWidth:320, padding:'14px 0', borderRadius:12, fontSize:15, fontWeight:800, border:'none', cursor:'pointer',
+              background:`linear-gradient(135deg,${T.blue},${T.purple})`, color:'#fff', boxShadow:'0 6px 24px rgba(26,63,255,0.45)' }}>
+            View in Trades Tab →
+          </button>
+        </div>
+      )}
+
       {/* ══ STEP 3: Confirm order ══ */}
-      {step===3 && (
+      {step===3 && !orderResult && (
         <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
 
           {/* Wallet section */}
@@ -2063,15 +2102,11 @@ export function CheckoutFlow() {
             </div>
           )}
 
-          {/* Sell: show deposit address to send USDT after confirmation */}
-          {mode==='sell' && depositAddress && (
-            <div style={{ background:'rgba(243,186,47,0.06)', border:'1px solid rgba(243,186,47,0.2)', borderRadius:16, padding:'14px 18px' }}>
-              <p style={{ fontSize:12, fontWeight:700, color:T.yellow, margin:'0 0 8px', textTransform:'uppercase', letterSpacing:'0.06em' }}>
-                Send USDT to this address after confirming
-              </p>
-              <code style={{ fontSize:12, color:T.text, wordBreak:'break-all', lineHeight:1.6 }}>{depositAddress}</code>
-              <p style={{ fontSize:11, color:T.dim, margin:'6px 0 0' }}>Network: {NET_LABEL[network]}</p>
-            </div>
+          {/* Sell: USDT is auto-deducted from the connected wallet on order placement */}
+          {mode==='sell' && (
+            <p style={{ fontSize:11, color:T.yellow, margin:0, lineHeight:1.55 }}>
+              Once submitted, the exact USDT amount will be deducted automatically from your connected {NET_LABEL[network]} wallet — no manual transfer needed. You'll receive an email confirmation and can track your order anytime from the Trades tab.
+            </p>
           )}
 
           {submitError && (

@@ -45,6 +45,7 @@ export const adminUpdateStatusSchema = z.object({
     'completed',
     'cancelled',
     'disputed',
+    'failed',
   ]),
   adminNotes: z.string().trim().max(500).optional(),
 });

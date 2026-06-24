@@ -26,7 +26,8 @@ export type TransactionStatus =
   | 'confirming'
   | 'completed'
   | 'cancelled'
-  | 'disputed';
+  | 'disputed'
+  | 'failed';
 
 export type PaymentMethodType = 'upi' | 'bank_transfer' | 'cash';
 

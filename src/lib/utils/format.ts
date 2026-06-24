@@ -112,12 +112,11 @@ export function formatDate(date: string | Date): string {
   return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
-/** Generate a human-readable order id like CX-A1B2C3 */
+/** Generate a proper 10-digit numeric transaction ID, e.g. 4827193056 */
 export function generateOrderId(): string {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // omit ambiguous I/O/0/1
-  let out = 'CX-';
-  for (let i = 0; i < 6; i++) {
-    out += chars[Math.floor(Math.random() * chars.length)];
+  let out = String(Math.floor(Math.random() * 9) + 1); // first digit 1-9, never leading zero
+  for (let i = 0; i < 9; i++) {
+    out += String(Math.floor(Math.random() * 10));
   }
   return out;
 }
