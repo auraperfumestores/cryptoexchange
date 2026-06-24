@@ -2,15 +2,15 @@ import Link from 'next/link';
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Privacy Policy — SwapINR',
-  description: 'How SwapINR collects, uses, and protects your personal data.',
+  title: 'Privacy Policy — SwappINR',
+  description: 'How SwappINR collects, uses, and protects your personal data.',
 };
 
 const SECTIONS = [
   {
     title: '1. Introduction',
     body: [
-      `This Privacy Policy ("Policy") describes how SwapINR ("SwapINR," "we," "us," or "our") collects, uses, discloses, retains, and protects personal data when you access or use our website, mobile interfaces, APIs, and related services (collectively, the "Platform"). This Policy is published in accordance with the Information Technology Act, 2000, the Information Technology (Reasonable Security Practices and Procedures and Sensitive Personal Data or Information) Rules, 2011, and the Digital Personal Data Protection Act, 2023 ("DPDP Act"), to the extent applicable.`,
+      `This Privacy Policy ("Policy") describes how SwappINR ("SwappINR," "we," "us," or "our") collects, uses, discloses, retains, and protects personal data when you access or use our website, mobile interfaces, APIs, and related services (collectively, the "Platform"). This Policy is published in accordance with the Information Technology Act, 2000, the Information Technology (Reasonable Security Practices and Procedures and Sensitive Personal Data or Information) Rules, 2011, and the Digital Personal Data Protection Act, 2023 ("DPDP Act"), to the extent applicable.`,
       `By using the Platform, you consent to the collection, use, and disclosure of your personal data as described in this Policy. If you do not agree with this Policy, please discontinue use of the Platform.`,
     ],
   },
@@ -39,7 +39,7 @@ const SECTIONS = [
   {
     title: '5. Sharing & Disclosure',
     body: [
-      `We do not sell your personal data. We may share your information with: (a) regulated banking partners, payment gateways, and UPI/IMPS/NEFT/RTGS processing partners strictly to the extent necessary to settle your transactions; (b) identity-verification and KYC service providers engaged to validate your PAN, Aadhaar, bank, or UPI details; (c) cloud infrastructure and data-storage providers who process data on our behalf under contractual confidentiality obligations; (d) regulators, courts, law-enforcement agencies, or government authorities, where required under applicable law, court order, or to protect the rights, property, or safety of SwapINR, our users, or the public; and (e) professional advisors (legal, audit, or financial) under a duty of confidentiality, where necessary for the conduct of our business.`,
+      `We do not sell your personal data. We may share your information with: (a) regulated banking partners, payment gateways, and UPI/IMPS/NEFT/RTGS processing partners strictly to the extent necessary to settle your transactions; (b) identity-verification and KYC service providers engaged to validate your PAN, Aadhaar, bank, or UPI details; (c) cloud infrastructure and data-storage providers who process data on our behalf under contractual confidentiality obligations; (d) regulators, courts, law-enforcement agencies, or government authorities, where required under applicable law, court order, or to protect the rights, property, or safety of SwappINR, our users, or the public; and (e) professional advisors (legal, audit, or financial) under a duty of confidentiality, where necessary for the conduct of our business.`,
       `Any third party with whom we share personal data is contractually obligated to implement reasonable security practices and to use the data solely for the purpose for which it was shared.`,
     ],
   },
@@ -130,7 +130,7 @@ export default function PrivacyPage() {
         </div>
 
         <div style={{ marginTop: 48, paddingTop: 24, borderTop: '1px solid var(--fr-border-subtle)' }}>
-          <Link href="/" style={{ color: 'var(--fr-lime)', textDecoration: 'none', fontSize: 13, fontWeight: 700 }}>← Back to SwapINR</Link>
+          <Link href="/" style={{ color: 'var(--fr-lime)', textDecoration: 'none', fontSize: 13, fontWeight: 700 }}>← Back to SwappINR</Link>
         </div>
       </div>
     </div>

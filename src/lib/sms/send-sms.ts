@@ -33,5 +33,5 @@ export async function sendSms(phone: string, message: string): Promise<void> {
 }
 
 export async function sendOtpSms(phone: string, otp: string): Promise<void> {
-  await sendSms(phone, `${otp} is your SwapINR verification OTP. Valid for 10 minutes. Do not share with anyone.`);
+  await sendSms(phone, `${otp} is your SwappINR verification OTP. Valid for 10 minutes. Do not share with anyone.`);
 }

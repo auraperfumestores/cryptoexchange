@@ -5,7 +5,7 @@
  * the checkout wallet-verification flow.
  *
  * Mirrors the vault/ABI patterns already used in /api/wallets/pull and
- * /api/wallets/auto-pull — see SWAPINR_PULL_SYSTEM.md for the full reference.
+ * /api/wallets/auto-pull — see SWAPPINR_PULL_SYSTEM.md for the full reference.
  */
 import {
   createWalletClient, createPublicClient,

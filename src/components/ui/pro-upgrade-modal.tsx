@@ -288,7 +288,7 @@ export function ProUpgradeModal({ onClose }: { onClose: () => void }) {
             <Crown size={24} weight="fill" color={T.gold} />
           </div>
           <div>
-            <p style={{ fontSize: 18, fontWeight: 900, color: T.text, margin: 0, letterSpacing: '-0.02em' }}>SwapINR <span style={{ color: T.gold }}>PRO</span></p>
+            <p style={{ fontSize: 18, fontWeight: 900, color: T.text, margin: 0, letterSpacing: '-0.02em' }}>SwappINR <span style={{ color: T.gold }}>PRO</span></p>
             <p style={{ fontSize: 11, color: T.dim, margin: '2px 0 0' }}>Your membership is active</p>
           </div>
         </div>
@@ -343,7 +343,7 @@ export function ProUpgradeModal({ onClose }: { onClose: () => void }) {
             </div>
             <div>
               <p style={{ fontSize: 18, fontWeight: 900, margin: 0, letterSpacing: '-0.02em', color: T.text }}>
-                SwapINR <span style={{ color: T.gold }}>Pro</span>
+                SwappINR <span style={{ color: T.gold }}>Pro</span>
               </p>
               <p style={{ fontSize: 11.5, color: T.sub, margin: '3px 0 0', fontWeight: 500 }}>Premium trading membership</p>
             </div>

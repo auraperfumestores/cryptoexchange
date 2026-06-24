@@ -33,7 +33,7 @@ function VerifyInner() {
         </div>
         <h2 style={{ fontSize:20, fontWeight:900, color:'#fff', margin:'0 0 8px', textAlign:'center', letterSpacing:'-0.02em' }}>Wallet Verified</h2>
         <p style={{ fontSize:14, color:'rgba(255,255,255,0.5)', margin:0, textAlign:'center', lineHeight:1.6 }}>
-          Your wallet has been verified. You can return to SwapINR.
+          Your wallet has been verified. You can return to SwappINR.
         </p>
       </div>
     );
@@ -47,7 +47,7 @@ function VerifyInner() {
             <div style={{ width:32, height:32, borderRadius:10, background:'#CCFF00', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
               <span style={{ color:'#000', fontSize:14, fontWeight:900 }}>S</span>
             </div>
-            <span style={{ fontSize:16, fontWeight:900, color:'#fff' }}>SwapINR</span>
+            <span style={{ fontSize:16, fontWeight:900, color:'#fff' }}>SwappINR</span>
           </div>
           <h1 style={{ fontSize:20, fontWeight:900, color:'#fff', margin:'0 0 4px', letterSpacing:'-0.02em' }}>Verify Wallet</h1>
           <p style={{ fontSize:13, color:'rgba(255,255,255,0.5)', margin:0 }}>Connect your {network} wallet and complete ownership verification.</p>

@@ -389,7 +389,7 @@ export function SellFlowModal({ network, usdtAmount, inrAmount, rate, onClose, o
     } catch (e: any) {
       resetRecaptcha(); /* clear so next attempt gets a fresh verifier */
       /* ── DEBUG: open browser console (F12) to see full error ── */
-      console.error('[SwapINR OTP] sendOtp failed:', {
+      console.error('[SwappINR OTP] sendOtp failed:', {
         code:    e?.code,
         message: e?.message,
         full:    e,
@@ -651,7 +651,7 @@ export function SellFlowModal({ network, usdtAmount, inrAmount, rate, onClose, o
             <svg width="26" height="26" viewBox="0 0 26 26" fill="none"><circle cx="13" cy="9" r="4" stroke={C.danger} strokeWidth="1.6"/><path d="M4 22C4 18.7 8 16 13 16C18 16 22 18.7 22 22" stroke={C.danger} strokeWidth="1.6" strokeLinecap="round"/></svg>
           </div>
           <p style={{ fontSize: 15, fontWeight: 800, color: C.text, margin: '0 0 8px' }}>You need to be signed in</p>
-          <p style={{ fontSize: 13, color: C.sub, margin: '0 0 24px', lineHeight: 1.6 }}>Create an account or sign in to sell USDT on SwapINR.</p>
+          <p style={{ fontSize: 13, color: C.sub, margin: '0 0 24px', lineHeight: 1.6 }}>Create an account or sign in to sell USDT on SwappINR.</p>
           <a href="/login" style={{ display: 'inline-block', padding: '12px 28px', borderRadius: 11, background: C.lime, color: '#000', fontSize: 14, fontWeight: 800, textDecoration: 'none' }}>
             Sign In →
           </a>

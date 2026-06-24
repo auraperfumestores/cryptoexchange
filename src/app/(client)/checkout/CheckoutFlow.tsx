@@ -954,7 +954,7 @@ export function CheckoutFlow() {
             <div style={{ width:32, height:32, borderRadius:10, background:`linear-gradient(135deg,${T.blue},${T.purple})`, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="1" y="4" width="14" height="9" rx="2" stroke="white" strokeWidth="1.3"/><path d="M1 7H15" stroke="white" strokeWidth="1.3"/><circle cx="12" cy="10" r="1" fill="white"/></svg>
             </div>
-            <span style={{ fontSize:16, fontWeight:900, color:T.text, letterSpacing:'-0.02em' }}>SwapINR</span>
+            <span style={{ fontSize:16, fontWeight:900, color:T.text, letterSpacing:'-0.02em' }}>SwappINR</span>
           </div>
           {/* Exchange summary chip */}
           <div style={{ display:'flex', alignItems:'center', gap:6, padding:'6px 12px', borderRadius:999, background:T.card2, border:`1px solid ${T.border}` }}>

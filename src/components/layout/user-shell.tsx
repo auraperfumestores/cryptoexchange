@@ -69,7 +69,7 @@ function BalanceChip({ balance }: { balance: number | null }) {
   return (
     <div
       className="user-balance-chip"
-      title="SwapINR Wallet Balance"
+      title="SwappINR Wallet Balance"
       style={{
         display: 'flex', alignItems: 'center', gap: 7,
         minWidth: 110, padding: '7px 14px', borderRadius: 8,
@@ -196,7 +196,7 @@ export function UserShell({ user, children }: UserShellProps) {
               <button
                 onClick={() => setShowProModal(true)}
                 className="user-pro-btn"
-                title="SwapINR PRO"
+                title="SwappINR PRO"
                 style={{
                   display: 'none', /* shown via CSS on mobile */
                   alignItems: 'center', gap: 5,

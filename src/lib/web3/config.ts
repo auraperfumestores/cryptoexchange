@@ -27,7 +27,7 @@ const trustWalletInjected = injected({
 const connectors = [
   injected({ shimDisconnect: true }),
   trustWalletInjected,
-  coinbaseWallet({ appName: 'SwapINR' }),
+  coinbaseWallet({ appName: 'SwappINR' }),
   ...(WC_PROJECT_ID
     ? [walletConnect({ projectId: WC_PROJECT_ID, showQrModal: true })]
     : []),

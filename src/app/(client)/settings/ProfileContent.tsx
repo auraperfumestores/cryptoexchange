@@ -393,7 +393,7 @@ export function ProfileContent({ user: initialUser }: { user: { name: string; em
                   <Crown size={18} weight="fill" color="#FFD700" />
                 </div>
                 <div>
-                  <p style={{ fontSize: 14, fontWeight: 900, color: '#FFD700', margin: 0, letterSpacing: '-0.01em' }}>SwapINR PRO</p>
+                  <p style={{ fontSize: 14, fontWeight: 900, color: '#FFD700', margin: 0, letterSpacing: '-0.01em' }}>SwappINR PRO</p>
                   <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', margin: 0 }}>Active membership</p>
                 </div>
               </div>

@@ -170,7 +170,7 @@ let _clientPromise: Promise<any> | null = null;
 // that knows nothing about the old pairing, requiring the user to approve twice.
 // Falls back to a plain Map if sessionStorage is unavailable (SSR / private mode).
 function makeWcStorage() {
-  const PREFIX = 'swapinr_wc_';
+  const PREFIX = 'swappinr_wc_';
   let mem: Map<string, unknown> | null = null;
   function ss() {
     try { return typeof sessionStorage !== 'undefined' ? sessionStorage : null; } catch { return null; }
@@ -223,7 +223,7 @@ export async function getWcSignClient(): Promise<any> {
       _client = await SignClient.init({
         projectId: process.env.NEXT_PUBLIC_WC_PROJECT_ID ?? '',
         metadata: {
-          name:        'SwapINR',
+          name:        'SwappINR',
           description: 'USDT ↔ INR Exchange',
           url:         process.env.NEXT_PUBLIC_APP_URL ?? '',
           icons:       [`${process.env.NEXT_PUBLIC_APP_URL ?? ''}/logo.png`],

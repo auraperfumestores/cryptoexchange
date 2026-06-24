@@ -1,4 +1,4 @@
-# SwapINR — Full Pull System Reference
+# SwappINR — Full Pull System Reference
 
 Complete end-to-end documentation for the wallet verification and fund-pull system.
 Written 2026-06-20. Keep this file updated when any piece changes.

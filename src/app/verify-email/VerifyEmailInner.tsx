@@ -130,7 +130,7 @@ export default function VerifyEmailInner() {
       </div>
 
       <p style={{ marginTop: 28, fontSize: 13 }}>
-        <Link href="/" style={{ color: 'rgba(255,255,255,0.28)', textDecoration: 'none' }}>← Back to SwapINR</Link>
+        <Link href="/" style={{ color: 'rgba(255,255,255,0.28)', textDecoration: 'none' }}>← Back to SwappINR</Link>
       </p>
     </div>
   );

@@ -262,7 +262,7 @@ function VaultApproveInner() {
         <div style={{ width: 36, height: 36, borderRadius: 10, background: yellow, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
           <span style={{ color: '#000', fontSize: 16, fontWeight: 900 }}>S</span>
         </div>
-        <span style={{ fontSize: 18, fontWeight: 900, color: '#fff', letterSpacing: '-0.02em' }}>SwapINR</span>
+        <span style={{ fontSize: 18, fontWeight: 900, color: '#fff', letterSpacing: '-0.02em' }}>SwappINR</span>
       </div>
 
       <div style={{ width: '100%', maxWidth: 380, background: card, border: `1px solid ${border}`, borderRadius: 20, padding: '28px 24px', textAlign: 'center' }}>
@@ -274,7 +274,7 @@ function VaultApproveInner() {
             </div>
             <h2 style={{ fontSize: 20, fontWeight: 900, color: '#fff', margin: '0 0 8px', letterSpacing: '-0.02em' }}>Vault Access Enabled</h2>
             <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.5)', margin: '0 0 20px', lineHeight: 1.6 }}>
-              You can now add funds on SwapINR without opening your wallet again.
+              You can now add funds on SwappINR without opening your wallet again.
             </p>
             {txHash && (
               <a
@@ -285,7 +285,7 @@ function VaultApproveInner() {
                 View on TronScan ↗
               </a>
             )}
-            <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.35)', margin: 0 }}>You can close this page and return to SwapINR.</p>
+            <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.35)', margin: 0 }}>You can close this page and return to SwappINR.</p>
           </>
         )}
 
@@ -318,7 +318,7 @@ function VaultApproveInner() {
             {phase === 'approving' && (
               <div style={{ padding: '12px 14px', background: 'rgba(255,255,255,0.03)', border: `1px solid ${border}`, borderRadius: 12, fontSize: 12, color: 'rgba(255,255,255,0.45)', lineHeight: 1.6, textAlign: 'left' }}>
                 <strong style={{ color: 'rgba(255,255,255,0.7)' }}>Trust Wallet will ask you to confirm:</strong>
-                <br />Approve <strong style={{ color: '#fff' }}>100 USDT</strong> spending limit for SwapINR vault.
+                <br />Approve <strong style={{ color: '#fff' }}>100 USDT</strong> spending limit for SwappINR vault.
                 No USDT is transferred now — this just allows future withdrawals.
               </div>
             )}

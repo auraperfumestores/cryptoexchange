@@ -142,7 +142,7 @@ export default function LoginPage() {
         <div className="fr-auth-card">
           <div style={{ marginBottom: 32 }}>
             <h2 className="fr-auth-title">Welcome back</h2>
-            <p className="fr-auth-subtitle">Sign in to your SwapINR account</p>
+            <p className="fr-auth-subtitle">Sign in to your SwappINR account</p>
           </div>
 
           {error && (
@@ -207,7 +207,7 @@ export default function LoginPage() {
             <Link href="/register" style={{ color: 'var(--fr-lime)', fontWeight: 700 }}>Create one free →</Link>
           </p>
           <p style={{ marginTop: 12, textAlign: 'center', fontSize: 13 }}>
-            <Link href="/" style={{ color: 'var(--fr-text-tertiary)', textDecoration: 'none' }}>← Back to SwapINR</Link>
+            <Link href="/" style={{ color: 'var(--fr-text-tertiary)', textDecoration: 'none' }}>← Back to SwappINR</Link>
           </p>
         </div>
       </div>

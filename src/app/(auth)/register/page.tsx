@@ -119,7 +119,7 @@ export default function RegisterPage() {
           <h1 style={{ fontSize: 'clamp(26px,3.5vw,38px)', fontWeight: 900, letterSpacing: '-0.03em', lineHeight: 1.18, marginBottom: 16 }}>
             Join 3,000+ traders<br />
             already using{' '}
-            <span style={{ color: 'var(--fr-lime)' }}>SwapINR</span>
+            <span style={{ color: 'var(--fr-lime)' }}>SwappINR</span>
           </h1>
           <p style={{ fontSize: 15, color: 'var(--fr-text-secondary)', lineHeight: 1.75, marginBottom: 36 }}>
             Create your free account and start converting USDT to INR in minutes. No monthly fees, no lock-ins.
@@ -254,7 +254,7 @@ export default function RegisterPage() {
             <Link href="/login" style={{ color: 'var(--fr-lime)', fontWeight: 700 }}>Sign in →</Link>
           </p>
           <p style={{ marginTop: 12, textAlign: 'center', fontSize: 13 }}>
-            <Link href="/" style={{ color: 'var(--fr-text-tertiary)', textDecoration: 'none' }}>← Back to SwapINR</Link>
+            <Link href="/" style={{ color: 'var(--fr-text-tertiary)', textDecoration: 'none' }}>← Back to SwappINR</Link>
           </p>
         </div>
       </div>

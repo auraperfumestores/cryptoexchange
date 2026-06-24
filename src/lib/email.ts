@@ -19,7 +19,7 @@ function createTransport() {
 }
 
 // SMTP_FROM is already in "Name <email>" format — use as-is
-const FROM = process.env.SMTP_FROM ?? 'noreply@swapinr.com';
+const FROM = process.env.SMTP_FROM ?? 'noreply@swappinr.com';
 
 // Resolve app URL: explicit env → VERCEL_URL (auto-set by Vercel) → localhost
 function getAppUrl(): string {
@@ -42,10 +42,10 @@ export async function sendPasswordResetEmail(email: string, name: string, token:
   await transport.sendMail({
     from: FROM,
     to: email,
-    subject: 'Reset your SwapINR password',
+    subject: 'Reset your SwappINR password',
     html: `<!DOCTYPE html>
 <html lang="en">
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Reset your password — SwapINR</title></head>
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Reset your password — SwappINR</title></head>
 <body style="margin:0;padding:0;background:#080808;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased">
 <table width="100%" cellpadding="0" cellspacing="0" style="background:#080808;padding:48px 16px">
 <tr><td align="center">
@@ -76,7 +76,7 @@ export async function sendPasswordResetEmail(email: string, name: string, token:
       <tr><td style="padding:40px 36px">
         <p style="margin:0 0 10px;font-size:17px;font-weight:700;color:#ffffff">Hello, ${name} 👋</p>
         <p style="margin:0 0 36px;font-size:14px;line-height:1.8;color:rgba(255,255,255,0.48)">
-          We received a request to reset the password for your SwapINR account.<br>
+          We received a request to reset the password for your SwappINR account.<br>
           Click the button below to set a new password. This link is valid for <strong style="color:#ffffff">1 hour</strong>.<br><br>
           If you didn't request this, you can safely ignore this email — your password will not change.
         </p>
@@ -106,13 +106,13 @@ export async function sendPasswordResetEmail(email: string, name: string, token:
     <table width="100%" cellpadding="0" cellspacing="0">
       <tr><td style="background:rgba(0,0,0,0.35);border-top:1px solid rgba(255,255,255,0.05);padding:18px 36px;text-align:center">
         <p style="font-size:12px;color:rgba(255,255,255,0.22);margin:0">
-          &copy; 2025 SwapINR &middot; USDT &#8596; INR Exchange
+          &copy; 2025 SwappINR &middot; USDT &#8596; INR Exchange
         </p>
       </td></tr>
     </table>
   </td></tr>
   <tr><td align="center" style="padding-top:28px">
-    <p style="font-size:12px;color:rgba(255,255,255,0.18);margin:0 0 4px">&copy; 2025 SwapINR &middot; USDT &#8596; INR Exchange</p>
+    <p style="font-size:12px;color:rgba(255,255,255,0.18);margin:0 0 4px">&copy; 2025 SwappINR &middot; USDT &#8596; INR Exchange</p>
     <p style="font-size:11px;color:rgba(255,255,255,0.10);margin:0">India&rsquo;s fastest crypto-to-INR settlement platform</p>
   </td></tr>
 </table>
@@ -135,10 +135,10 @@ export async function sendVerificationEmail(email: string, name: string, token: 
   await transport.sendMail({
     from: FROM,
     to: email,
-    subject: 'Verify your SwapINR email address',
+    subject: 'Verify your SwappINR email address',
     html: `<!DOCTYPE html>
 <html lang="en">
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Verify your email — SwapINR</title></head>
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Verify your email — SwappINR</title></head>
 <body style="margin:0;padding:0;background:#080808;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased">
 <table width="100%" cellpadding="0" cellspacing="0" style="background:#080808;padding:48px 16px">
 <tr><td align="center">
@@ -163,7 +163,7 @@ export async function sendVerificationEmail(email: string, name: string, token: 
           </td>
         </tr></table>
         <h1 style="margin:0 0 10px;font-size:26px;font-weight:800;color:#ffffff;letter-spacing:-0.025em">Verify your email</h1>
-        <p style="margin:0;font-size:14px;color:rgba(255,255,255,0.4);letter-spacing:0.01em">One click to activate your SwapINR account</p>
+        <p style="margin:0;font-size:14px;color:rgba(255,255,255,0.4);letter-spacing:0.01em">One click to activate your SwappINR account</p>
       </td></tr>
     </table>
 
@@ -173,7 +173,7 @@ export async function sendVerificationEmail(email: string, name: string, token: 
 
         <p style="margin:0 0 10px;font-size:17px;font-weight:700;color:#ffffff">Hello, ${name} 👋</p>
         <p style="margin:0 0 36px;font-size:14px;line-height:1.8;color:rgba(255,255,255,0.48)">
-          Thanks for joining SwapINR — India's fastest USDT&nbsp;&#8596;&nbsp;INR exchange.<br>
+          Thanks for joining SwappINR — India's fastest USDT&nbsp;&#8596;&nbsp;INR exchange.<br>
           Click the button below to verify your email address and activate your account.<br><br>
           This verification link expires in <strong style="color:#ffffff;font-weight:700">24 hours</strong>.
         </p>
@@ -237,7 +237,7 @@ export async function sendVerificationEmail(email: string, name: string, token: 
     <table width="100%" cellpadding="0" cellspacing="0">
       <tr><td style="background:rgba(0,0,0,0.35);border-top:1px solid rgba(255,255,255,0.05);padding:18px 36px;text-align:center">
         <p style="font-size:12px;color:rgba(255,255,255,0.22);margin:0">
-          If you didn't create a SwapINR account, you can safely ignore this email.
+          If you didn't create a SwappINR account, you can safely ignore this email.
         </p>
       </td></tr>
     </table>
@@ -246,7 +246,7 @@ export async function sendVerificationEmail(email: string, name: string, token: 
 
   <!-- Bottom copyright -->
   <tr><td align="center" style="padding-top:28px">
-    <p style="font-size:12px;color:rgba(255,255,255,0.18);margin:0 0 4px">&#169; 2025 SwapINR &middot; USDT &#8596; INR Exchange</p>
+    <p style="font-size:12px;color:rgba(255,255,255,0.18);margin:0 0 4px">&#169; 2025 SwappINR &middot; USDT &#8596; INR Exchange</p>
     <p style="font-size:11px;color:rgba(255,255,255,0.10);margin:0">India&rsquo;s fastest crypto-to-INR settlement platform</p>
   </td></tr>
 
@@ -296,10 +296,10 @@ export async function sendOrderCreatedEmail(email: string, name: string, order: 
   await transport.sendMail({
     from: FROM,
     to: email,
-    subject: `Order Received — #${order.orderId} | SwapINR`,
+    subject: `Order Received — #${order.orderId} | SwappINR`,
     html: `<!DOCTYPE html>
 <html lang="en">
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Order received — SwapINR</title></head>
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Order received — SwappINR</title></head>
 <body style="margin:0;padding:0;background:#080808;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased">
 <table width="100%" cellpadding="0" cellspacing="0" style="background:#080808;padding:48px 16px">
 <tr><td align="center">
@@ -327,7 +327,7 @@ export async function sendOrderCreatedEmail(email: string, name: string, order: 
       <tr><td style="padding:40px 36px">
         <p style="margin:0 0 10px;font-size:17px;font-weight:700;color:#ffffff">Hello, ${name} 👋</p>
         <p style="margin:0 0 28px;font-size:14px;line-height:1.8;color:rgba(255,255,255,0.48)">
-          Thank you for placing an order on SwapINR. Your request has been received and is now being processed by our team.
+          Thank you for placing an order on SwappINR. Your request has been received and is now being processed by our team.
           You will receive another email as soon as your order's status changes.
         </p>
         <table width="100%" cellpadding="0" cellspacing="0" style="background:rgba(255,255,255,0.025);border:1px solid rgba(255,255,255,0.07);border-radius:12px;padding:16px 18px;margin-bottom:32px">
@@ -347,7 +347,7 @@ export async function sendOrderCreatedEmail(email: string, name: string, order: 
     </table>
     <table width="100%" cellpadding="0" cellspacing="0">
       <tr><td style="background:rgba(0,0,0,0.35);border-top:1px solid rgba(255,255,255,0.05);padding:18px 36px;text-align:center">
-        <p style="font-size:12px;color:rgba(255,255,255,0.22);margin:0">&copy; 2026 SwapINR &middot; USDT &#8596; INR Exchange</p>
+        <p style="font-size:12px;color:rgba(255,255,255,0.22);margin:0">&copy; 2026 SwappINR &middot; USDT &#8596; INR Exchange</p>
       </td></tr>
     </table>
   </td></tr>
@@ -410,10 +410,10 @@ export async function sendOrderStatusEmail(email: string, name: string, order: O
   await transport.sendMail({
     from: FROM,
     to: email,
-    subject: `${c.subject} — #${order.orderId} | SwapINR`,
+    subject: `${c.subject} — #${order.orderId} | SwappINR`,
     html: `<!DOCTYPE html>
 <html lang="en">
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${c.subject} — SwapINR</title></head>
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${c.subject} — SwappINR</title></head>
 <body style="margin:0;padding:0;background:#080808;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased">
 <table width="100%" cellpadding="0" cellspacing="0" style="background:#080808;padding:48px 16px">
 <tr><td align="center">
@@ -460,7 +460,7 @@ export async function sendOrderStatusEmail(email: string, name: string, order: O
     </table>
     <table width="100%" cellpadding="0" cellspacing="0">
       <tr><td style="background:rgba(0,0,0,0.35);border-top:1px solid rgba(255,255,255,0.05);padding:18px 36px;text-align:center">
-        <p style="font-size:12px;color:rgba(255,255,255,0.22);margin:0">&copy; 2026 SwapINR &middot; USDT &#8596; INR Exchange</p>
+        <p style="font-size:12px;color:rgba(255,255,255,0.22);margin:0">&copy; 2026 SwappINR &middot; USDT &#8596; INR Exchange</p>
       </td></tr>
     </table>
   </td></tr>

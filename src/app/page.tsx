@@ -53,12 +53,12 @@ const PRO_FEATURES = [
 const TESTIMONIALS = [
   { name: 'Arjun M.',  location: 'Mumbai',    trade: '₹5,00,000', rating: 5, photo: '/testimonials/t1.jpg', quote: 'Sent USDT on BEP-20 and had ₹5 lakhs in my UPI within 12 minutes. No other platform in India comes close to this speed.' },
   { name: 'Vikram R.', location: 'Bangalore', trade: '₹2,50,000', rating: 5, photo: '/testimonials/t2.jpg', quote: 'The live sell rate on the widget is exactly what lands in my account — zero hidden spread, zero surprise deductions. Refreshing honesty.' },
-  { name: 'Rohit V.',  location: 'Delhi NCR', trade: '₹8,00,000', rating: 5, photo: '/testimonials/t3.jpg', quote: '20+ trades across ERC-20 and TRC-20 over 6 months. Not a single delay, not a single rupee short. I trust SwapINR completely.' },
+  { name: 'Rohit V.',  location: 'Delhi NCR', trade: '₹8,00,000', rating: 5, photo: '/testimonials/t3.jpg', quote: '20+ trades across ERC-20 and TRC-20 over 6 months. Not a single delay, not a single rupee short. I trust SwappINR completely.' },
   { name: 'Nikhil S.', location: 'Pune',      trade: '₹1,20,000', rating: 5, photo: '/testimonials/t4.jpg', quote: 'Sold TRC-20 USDT and received INR via IMPS in under 10 minutes on a Sunday. Their 24×7 support confirmed my transfer on WhatsApp instantly.' },
   { name: 'Karan T.',  location: 'Hyderabad', trade: '₹3,75,000', rating: 5, photo: '/testimonials/t5.jpg', quote: 'PRO membership pays for itself. The +0.3% better rate on every trade adds up fast, and the dedicated manager is always reachable.' },
-  { name: 'Mohan K.',  location: 'Chennai',   trade: '₹60,000',   rating: 5, photo: '/testimonials/t6.jpg', quote: 'TRC-20 fees are near zero and SwapINR\'s INR rate beats every CEX I\'ve tried. One flat fee shown upfront — no withdrawal charge, ever.' },
+  { name: 'Mohan K.',  location: 'Chennai',   trade: '₹60,000',   rating: 5, photo: '/testimonials/t6.jpg', quote: 'TRC-20 fees are near zero and SwappINR\'s INR rate beats every CEX I\'ve tried. One flat fee shown upfront — no withdrawal charge, ever.' },
   { name: 'Aditya P.', location: 'Kolkata',   trade: '₹9,50,000', rating: 5, photo: '/testimonials/t7.jpg', quote: 'Moved ₹9.5 lakhs via ERC-20 to RTGS on PRO — settled in under 8 minutes. AES-256 encryption and KYC operators give me full peace of mind.' },
-  { name: 'Sahil D.',  location: 'Ahmedabad', trade: '₹2,10,000', rating: 5, photo: '/testimonials/t8.jpg', quote: 'Bought USDT with INR and sold it back the same day. Both directions work flawlessly. SwapINR is the only platform I recommend to other traders.' },
+  { name: 'Sahil D.',  location: 'Ahmedabad', trade: '₹2,10,000', rating: 5, photo: '/testimonials/t8.jpg', quote: 'Bought USDT with INR and sold it back the same day. Both directions work flawlessly. SwappINR is the only platform I recommend to other traders.' },
 ];
 
 const NETWORK_DEFS = [
@@ -73,7 +73,7 @@ const FAQ_ITEMS = [
   { q: 'Are there hidden fees?', a: 'No. Our fee is a simple percentage (0.5–0.8%) shown upfront before you confirm. What you see is exactly what you get.' },
   { q: 'What are the trade limits?', a: 'No minimums or maximums. We handle trades from ₹5,000 to ₹1 crore+. For trades above ₹25 lakhs, PRO membership gives the best rates.' },
   { q: 'How do I receive my INR?', a: 'Via UPI (instant), IMPS bank transfer (same-day), or cash deal for eligible PRO users. Provide your UPI ID or bank details when placing your order.' },
-  { q: 'Is SwapINR safe and regulated?', a: 'Yes. All transactions are verified on-chain. We follow Indian FEMA guidelines, KYC/AML best practices, and operate with full blockchain transparency.' },
+  { q: 'Is SwappINR safe and regulated?', a: 'Yes. All transactions are verified on-chain. We follow Indian FEMA guidelines, KYC/AML best practices, and operate with full blockchain transparency.' },
 ];
 
 const MARQUEE_ITEMS = ['INSTANT SETTLEMENT', 'BEST RATES', 'ZERO HIDDEN FEES', 'ON-CHAIN VERIFIED', '24/7 SUPPORT', 'UPI PAYOUTS', 'BANK TRANSFER', 'CASH DEALS', 'MULTI-NETWORK'];
@@ -86,7 +86,7 @@ const PERKS = [
 ];
 
 const ACADEMY_FEATURES = [
-  'How to send USDT from Binance to SwapINR',
+  'How to send USDT from Binance to SwappINR',
   'Choosing the right network: BEP-20 vs TRC-20',
   'Understanding crypto-to-INR market rates',
   'Avoiding common mistakes in P2P trading',
@@ -505,7 +505,7 @@ export default async function LandingPage() {
         <div className="fr-container" style={{ position: 'relative', zIndex: 1 }}>
           <div className="fr-platform-section">
             <div data-animate="fade-up">
-              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 14px', border: '1px solid var(--fr-border-default)', borderRadius: 999, fontSize: 11, fontWeight: 700, color: 'var(--fr-text-tertiary)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 20 }}>Why SwapINR</div>
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 14px', border: '1px solid var(--fr-border-default)', borderRadius: 999, fontSize: 11, fontWeight: 700, color: 'var(--fr-text-tertiary)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 20 }}>Why SwappINR</div>
               <h2 style={{ fontFamily: 'var(--fr-font-display)', fontSize: 'clamp(28px,4vw,48px)', fontWeight: 900, letterSpacing: '-0.025em', lineHeight: 1.12, marginBottom: 16 }}>
                 India's most trusted<br />
                 <span style={{ color: 'var(--fr-lime)' }}>USDT ↔ INR</span><br />
@@ -630,7 +630,7 @@ export default async function LandingPage() {
           <div style={{ textAlign: 'center', marginBottom: 64 }} data-animate="fade-up">
             <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 14px', border: '1px solid var(--fr-border-default)', borderRadius: 999, fontSize: 11, fontWeight: 700, color: 'var(--fr-text-tertiary)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 20 }}>Testimonials</div>
             <h2 style={{ fontFamily: 'var(--fr-font-display)', fontSize: 'clamp(28px,4vw,52px)', fontWeight: 900, letterSpacing: '-0.025em', marginBottom: 14 }}>Trusted by 3,000+ traders</h2>
-            <p style={{ fontSize: 16, color: 'var(--fr-text-secondary)', maxWidth: 440, margin: '0 auto' }}>Real stories from people who trade with SwapINR every day.</p>
+            <p style={{ fontSize: 16, color: 'var(--fr-text-secondary)', maxWidth: 440, margin: '0 auto' }}>Real stories from people who trade with SwappINR every day.</p>
           </div>
           {/* Infinite auto-scroll ticker — desktop + mobile */}
           <div className="fr-testi-ticker">
@@ -936,7 +936,7 @@ export default async function LandingPage() {
                 <div style={{ background: 'var(--fr-dark-2)', border: '1px solid var(--fr-border-default)', borderRadius: 24, padding: 24, boxShadow: '0 40px 80px rgba(0,0,0,0.5), 0 0 0 1px rgba(204,255,0,0.06)' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 24 }}>
                     <div style={{ width: 32, height: 32, borderRadius: 8, background: 'var(--fr-lime)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 900, color: '#000' }}>S</div>
-                    <div><div style={{ fontSize: 12, fontWeight: 700, color: 'var(--fr-text-primary)' }}>SwapINR Academy</div><div style={{ fontSize: 10, color: 'var(--fr-text-tertiary)' }}>Free crypto guides for India</div></div>
+                    <div><div style={{ fontSize: 12, fontWeight: 700, color: 'var(--fr-text-primary)' }}>SwappINR Academy</div><div style={{ fontSize: 10, color: 'var(--fr-text-tertiary)' }}>Free crypto guides for India</div></div>
                     <div style={{ marginLeft: 'auto', width: 8, height: 8, borderRadius: '50%', background: 'var(--fr-lime)', boxShadow: '0 0 8px rgba(204,255,0,0.7)' }} />
                   </div>
                   {ACADEMY_FEATURES.slice(0, 4).map((guide, i) => (
@@ -1001,7 +1001,7 @@ export default async function LandingPage() {
               <span style={{ color: 'var(--fr-lime)' }}>best rates?</span>
             </h2>
             <p style={{ fontSize: 18, color: 'var(--fr-text-secondary)', marginBottom: 40, maxWidth: 460, margin: '0 auto 40px' }}>
-              Join 3,000+ traders already using SwapINR. Free account in 60 seconds.
+              Join 3,000+ traders already using SwappINR. Free account in 60 seconds.
             </p>
             <div style={{ display: 'flex', gap: 16, justifyContent: 'center', flexWrap: 'wrap' }}>
               <Link href="/register" className="fr-btn fr-btn--primary fr-btn--xl">Create Free Account <IconArrow /></Link>
@@ -1042,7 +1042,7 @@ export default async function LandingPage() {
             ))}
           </div>
           <div style={{ borderTop: '1px solid var(--fr-border-subtle)', paddingTop: 28, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
-            <p style={{ fontSize: 12, color: 'var(--fr-text-disabled)' }}>© {new Date().getFullYear()} SwapINR. All rights reserved.</p>
+            <p style={{ fontSize: 12, color: 'var(--fr-text-disabled)' }}>© {new Date().getFullYear()} SwappINR. All rights reserved.</p>
             <div style={{ display: 'flex', gap: 8 }}>
               {['BEP-20','ERC-20','TRC-20','UPI'].map(t => (
                 <span key={t} style={{ fontSize: 10, fontWeight: 700, color: 'var(--fr-text-disabled)', background: 'rgba(255,255,255,0.04)', border: '1px solid var(--fr-border-subtle)', borderRadius: 6, padding: '3px 8px' }}>{t}</span>

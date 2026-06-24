@@ -67,7 +67,7 @@ export function PhoneVerifyModal({ currentPhone = '', onVerified, onClose }: Pho
       setTimeout(() => otpRefs.current[0]?.focus(), 100);
     } catch (err: any) {
       resetRecaptcha(); /* fresh anchor for next attempt */
-      console.error('[SwapINR OTP] sendOtp failed:', {
+      console.error('[SwappINR OTP] sendOtp failed:', {
         code:    err?.code,
         message: err?.message,
         full:    err,

