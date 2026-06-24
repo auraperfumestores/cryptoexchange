@@ -78,14 +78,14 @@ export async function POST(req: Request) {
     const applicableRate = isBuy ? rate.buyRate : rate.sellRate;
     const inrAmount = parseFloat((cryptoAmount * applicableRate).toFixed(2));
 
-    // Simple fee: 0.5% platform fee
-    const platformFee = parseFloat((inrAmount * 0.005).toFixed(2));
+    // No platform/network fee — matches the ₹0 fee advertised in the exchange widget.
+    const platformFee = 0;
     const networkFee = 0;
     const gasEstimate = 0;
     const fee = platformFee + networkFee + gasEstimate;
     const feeBreakdown: FeeBreakdown = { platformFee, networkFee, gasEstimate };
 
-    const feePercent = parseFloat((((fee) / inrAmount) * 100).toFixed(2));
+    const feePercent = 0;
 
     // For sell: user receives netInrAmount after fee deduction
     // For buy: user pays inrAmount, fee is included

@@ -1134,7 +1134,7 @@ export function SellFlowModal({ network, usdtAmount, inrAmount, rate, onClose, o
           href="/transactions"
           style={{ display: 'block', width: '100%', padding: '13px', borderRadius: 11, fontSize: 14, fontWeight: 800, background: C.lime, color: '#000', textAlign: 'center', textDecoration: 'none', marginBottom: 10 }}
         >
-          View in Trades Tab
+          Check Status
         </a>
         <button onClick={onClose} style={{ width: '100%', padding: '12px', borderRadius: 11, fontSize: 14, fontWeight: 700, background: C.faint, border: `1px solid ${C.border}`, color: C.sub, cursor: 'pointer' }}>
           Close

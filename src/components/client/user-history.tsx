@@ -2,14 +2,15 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
+import { Bank } from '@phosphor-icons/react';
 import { formatINR, formatCrypto, timeAgo } from '@/lib/utils';
 import type { TransactionDocument } from '@/types';
 
 /* ── Status config ── */
-const STATUS: Record<string, { label: string; color: string; bg: string }> = {
+const STATUS: Record<string, { label: string; color: string; bg: string; plain?: boolean }> = {
   awaiting_crypto:  { label: 'Awaiting crypto',  color: '#FBBF24', bg: 'rgba(251,191,36,0.10)' },
   awaiting_payment: { label: 'Awaiting payment', color: '#60A5FA', bg: 'rgba(96,165,250,0.10)'  },
-  confirming:       { label: 'Confirming',        color: '#A78BFA', bg: 'rgba(167,139,250,0.10)' },
+  confirming:       { label: 'Confirming',        color: '#FBBF24', bg: 'transparent', plain: true },
   completed:        { label: 'Completed',         color: '#CCFF00', bg: 'rgba(204,255,0,0.08)'   },
   cancelled:        { label: 'Cancelled',         color: '#64748B', bg: 'rgba(100,116,139,0.10)' },
   disputed:         { label: 'Disputed',          color: '#F87171', bg: 'rgba(248,113,113,0.10)' },
@@ -208,10 +209,10 @@ export function UserHistory({ transactions }: { transactions: TransactionDocumen
           {filtered.map((tx) => {
             const s    = STATUS[tx.status] ?? STATUS.cancelled;
             const isBuy = tx.type === 'buy';
-            const iconBg   = isBuy ? 'rgba(204,255,0,0.08)'  : 'rgba(96,165,250,0.10)';
-            const iconBd   = isBuy ? 'rgba(204,255,0,0.20)'  : 'rgba(96,165,250,0.20)';
-            const iconClr  = isBuy ? '#CCFF00' : '#60A5FA';
-            const typeClr  = isBuy ? '#CCFF00' : '#60A5FA';
+            const iconBg   = isBuy ? 'rgba(204,255,0,0.08)'  : 'rgba(248,113,113,0.10)';
+            const iconBd   = isBuy ? 'rgba(204,255,0,0.20)'  : 'rgba(248,113,113,0.22)';
+            const iconClr  = isBuy ? '#CCFF00' : '#F87171';
+            const typeClr  = isBuy ? '#CCFF00' : '#F87171';
 
             return (
               <div key={tx._id}>
@@ -223,7 +224,7 @@ export function UserHistory({ transactions }: { transactions: TransactionDocumen
                   {/* Col 1: icon + order */}
                   <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
                     <div style={{ width: 36, height: 36, borderRadius: 10, flexShrink: 0, background: iconBg, border: `1px solid ${iconBd}`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: iconClr }}>
-                      {isBuy ? <IcoBuy /> : <IcoSell />}
+                      {isBuy ? <IcoBuy /> : <Bank size={18} weight="bold" />}
                     </div>
                     <div style={{ minWidth: 0 }}>
                       <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--fr-text-primary)', fontFamily: 'var(--fr-font-mono)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -246,10 +247,14 @@ export function UserHistory({ transactions }: { transactions: TransactionDocumen
                   </div>
                   {/* Col 4: status */}
                   <div>
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 10px', borderRadius: 999, fontSize: 11, fontWeight: 700, color: s.color, background: s.bg }}>
-                      <span style={{ width: 5, height: 5, borderRadius: '50%', background: s.color, flexShrink: 0, display: 'inline-block' }} />
-                      {s.label}
-                    </span>
+                    {s.plain ? (
+                      <span style={{ fontSize: 11, fontWeight: 700, color: s.color }}>{s.label}</span>
+                    ) : (
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 10px', borderRadius: 999, fontSize: 11, fontWeight: 700, color: s.color, background: s.bg }}>
+                        <span style={{ width: 5, height: 5, borderRadius: '50%', background: s.color, flexShrink: 0, display: 'inline-block' }} />
+                        {s.label}
+                      </span>
+                    )}
                   </div>
                   {/* Col 5: time */}
                   <div style={{ fontSize: 11, color: 'var(--fr-text-disabled)', textAlign: 'right' }}>
@@ -261,7 +266,7 @@ export function UserHistory({ transactions }: { transactions: TransactionDocumen
                 <Link href={`/transactions/${tx._id}`} className="trades-row-m">
                   {/* Icon */}
                   <div style={{ width: 40, height: 40, borderRadius: 12, flexShrink: 0, background: iconBg, border: `1px solid ${iconBd}`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: iconClr }}>
-                    {isBuy ? <IcoBuy /> : <IcoSell />}
+                    {isBuy ? <IcoBuy /> : <Bank size={18} weight="bold" />}
                   </div>
                   {/* Left: order id + type */}
                   <div style={{ flex: 1, minWidth: 0 }}>
@@ -279,10 +284,14 @@ export function UserHistory({ transactions }: { transactions: TransactionDocumen
                       {formatINR(tx.inrAmount)}
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 5, marginTop: 4 }}>
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 8px', borderRadius: 999, fontSize: 10, fontWeight: 700, color: s.color, background: s.bg }}>
-                        <span style={{ width: 4, height: 4, borderRadius: '50%', background: s.color, flexShrink: 0, display: 'inline-block' }} />
-                        {s.label}
-                      </span>
+                      {s.plain ? (
+                        <span style={{ fontSize: 10, fontWeight: 700, color: s.color }}>{s.label}</span>
+                      ) : (
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 8px', borderRadius: 999, fontSize: 10, fontWeight: 700, color: s.color, background: s.bg }}>
+                          <span style={{ width: 4, height: 4, borderRadius: '50%', background: s.color, flexShrink: 0, display: 'inline-block' }} />
+                          {s.label}
+                        </span>
+                      )}
                     </div>
                     <div style={{ fontSize: 10, color: 'var(--fr-text-disabled)', marginTop: 3, fontWeight: 500 }}>
                       {timeAgo(tx.createdAt)}

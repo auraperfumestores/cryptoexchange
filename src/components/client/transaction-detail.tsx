@@ -161,9 +161,13 @@ export function TransactionDetail({ tx, paymentMethod, currentUserRole, isOwner 
             <p className="text-xs text-muted uppercase tracking-wide">Order ID</p>
             <p className="font-mono-crypto text-lg font-bold text-secondary">{tx.orderId}</p>
           </div>
-          <Badge variant={tx.status === 'completed' ? 'success' : tx.status === 'cancelled' || tx.status === 'disputed' ? 'error' : tx.status === 'confirming' ? 'primary' : 'warning'} size="md">
-            {tx.status.replace(/_/g, ' ')}
-          </Badge>
+          {tx.status === 'confirming' ? (
+            <span className="text-sm font-bold" style={{ color: '#FBBF24' }}>Confirming</span>
+          ) : (
+            <Badge variant={tx.status === 'completed' ? 'success' : tx.status === 'cancelled' || tx.status === 'disputed' ? 'error' : 'warning'} size="md">
+              {tx.status.replace(/_/g, ' ')}
+            </Badge>
+          )}
         </Card>
 
         {/* Action area depending on type and status */}
@@ -368,33 +372,97 @@ export function TransactionDetail({ tx, paymentMethod, currentUserRole, isOwner 
         </Card>
 
         <Card padding="md">
-          <h3 className="text-sm font-semibold text-secondary mb-3">Timeline</h3>
-          <div className="space-y-2 text-sm">
-            <div className="flex items-center justify-between">
-              <span className="text-muted">Created</span>
-              <span className="text-secondary">{formatDateTime(tx.createdAt)}</span>
+          <h3 className="text-sm font-semibold text-secondary mb-4">Timeline</h3>
+          <OrderTimeline tx={tx} />
+          {(tx.clientNotes || (tx.adminNotes && currentUserRole === 'admin')) && (
+            <div className="space-y-2 mt-4">
+              {tx.clientNotes && (
+                <div className="rounded-lg bg-mist/50 p-2 text-xs text-secondary">
+                  <p className="font-semibold text-muted mb-0.5">Client note</p>
+                  {tx.clientNotes}
+                </div>
+              )}
+              {tx.adminNotes && currentUserRole === 'admin' && (
+                <div className="rounded-lg bg-primary-50/40 p-2 text-xs text-secondary">
+                  <p className="font-semibold text-muted mb-0.5">Admin note</p>
+                  {tx.adminNotes}
+                </div>
+              )}
             </div>
-            {tx.completedAt && (
-              <div className="flex items-center justify-between">
-                <span className="text-muted">Completed</span>
-                <span className="text-success">{formatDateTime(tx.completedAt)}</span>
-              </div>
-            )}
-            {tx.clientNotes && (
-              <div className="rounded-lg bg-mist/50 p-2 text-xs text-secondary">
-                <p className="font-semibold text-muted mb-0.5">Client note</p>
-                {tx.clientNotes}
-              </div>
-            )}
-            {tx.adminNotes && currentUserRole === 'admin' && (
-              <div className="rounded-lg bg-primary-50/40 p-2 text-xs text-secondary">
-                <p className="font-semibold text-muted mb-0.5">Admin note</p>
-                {tx.adminNotes}
-              </div>
-            )}
-          </div>
+          )}
         </Card>
       </div>
+    </div>
+  );
+}
+
+const BAD_STATUSES = ['cancelled', 'disputed', 'failed'];
+
+function OrderTimeline({ tx }: { tx: TransactionDocument }) {
+  const isBad = BAD_STATUSES.includes(tx.status);
+  const reachedConfirming = tx.status === 'confirming' || tx.status === 'completed' || tx.status === 'cancelled' || tx.status === 'disputed';
+  const isComplete = tx.status === 'completed';
+
+  const steps = [
+    {
+      label: 'Order Placed',
+      time: formatDateTime(tx.createdAt),
+      done: true,
+      active: false,
+      bad: false,
+    },
+    {
+      label: tx.type === 'buy' ? 'Awaiting Payment' : 'Confirming',
+      time: reachedConfirming ? formatDateTime(tx.createdAt) : undefined,
+      done: reachedConfirming,
+      active: tx.status === 'confirming' || tx.status === 'awaiting_crypto' || tx.status === 'awaiting_payment',
+      bad: false,
+    },
+    {
+      label: isBad ? tx.status.charAt(0).toUpperCase() + tx.status.slice(1) : 'Completed',
+      time: isComplete && tx.completedAt ? formatDateTime(tx.completedAt) : undefined,
+      done: isComplete || isBad,
+      active: false,
+      bad: isBad,
+    },
+  ];
+
+  const GREEN = '#4ADE80';
+  const GREEN_DIM = 'rgba(74,222,128,0.25)';
+  const RED = '#F87171';
+
+  return (
+    <div className="relative pl-1">
+      {steps.map((step, i) => {
+        const color = step.bad ? RED : step.done || step.active ? GREEN : GREEN_DIM;
+        const isLast = i === steps.length - 1;
+        return (
+          <div key={step.label} className="relative flex gap-3 pb-6 last:pb-0">
+            {!isLast && (
+              <span
+                className="absolute left-[5px] top-3 w-px"
+                style={{ bottom: 0, background: step.done || step.active ? GREEN : GREEN_DIM }}
+              />
+            )}
+            <span
+              className="relative z-10 mt-1 h-[11px] w-[11px] flex-shrink-0 rounded-full"
+              style={{
+                background: step.active ? 'transparent' : color,
+                border: step.active ? `2px solid ${GREEN}` : 'none',
+              }}
+            />
+            <div className="flex-1 min-w-0">
+              <p
+                className="text-sm font-semibold"
+                style={{ color: step.bad ? RED : step.done || step.active ? GREEN : 'rgba(74,222,128,0.45)' }}
+              >
+                {step.label}
+              </p>
+              {step.time && <p className="text-xs text-muted mt-0.5">{step.time}</p>}
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -403,7 +471,12 @@ function Row({ label, value, mono, highlight }: { label: string; value: string; 
   return (
     <div className="flex items-center justify-between">
       <dt className="text-muted">{label}</dt>
-      <dd className={`${mono ? 'font-mono-crypto' : ''} ${highlight ? 'font-bold text-primary text-base' : 'text-secondary'}`}>{value}</dd>
+      <dd
+        className={`${mono ? 'font-mono-crypto' : ''} ${highlight ? 'font-bold text-base' : 'text-secondary'}`}
+        style={highlight ? { color: '#CCFF00' } : undefined}
+      >
+        {value}
+      </dd>
     </div>
   );
 }
