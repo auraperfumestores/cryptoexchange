@@ -25,7 +25,8 @@ type SellStep  =
   | 'upiDetails'
   | 'bankDetails'
   | 'goldOnly'
-  | 'review';
+  | 'review'
+  | 'orderResult';
 
 export interface SellFlowProps {
   network:     Network;
@@ -302,6 +303,12 @@ export function SellFlowModal({ network, usdtAmount, inrAmount, rate, onClose, o
   const [ifsc,         setIfsc]         = useState('');
   const [bankPhone,    setBankPhone]    = useState('');
 
+  /* order placement */
+  const [walletAddress,    setWalletAddress]    = useState('');
+  const [placing,          setPlacing]          = useState(false);
+  const [insufficientFunds, setInsufficientFunds] = useState(false);
+  const [orderResult,      setOrderResult]      = useState<{ orderId: string; status: string; cryptoAmount: number; inrAmount: number } | null>(null);
+
   /* ── countdown ── */
   useEffect(() => {
     if (!otpCountdown) return;
@@ -337,8 +344,9 @@ export function SellFlowModal({ network, usdtAmount, inrAmount, rate, onClose, o
       if (!phoneVerified) { setStep('phoneGate'); return; }
 
       const chainId = NET_CHAIN[network];
-      const hasWallet = wallets.some((w: any) => w.chainId === chainId && w.isVerified);
-      if (!hasWallet) { setStep('walletGate'); return; }
+      const match = wallets.find((w: any) => w.chainId === chainId && w.isVerified);
+      if (!match) { setStep('walletGate'); return; }
+      setWalletAddress(match.address);
 
       setIsPro(!!(profile?.isPro));
       setStep('payMethod');
@@ -423,8 +431,9 @@ export function SellFlowModal({ network, usdtAmount, inrAmount, rate, onClose, o
       const chainId = NET_CHAIN[network];
       const wRes  = await fetch('/api/wallets');
       const wData = wRes.ok ? (await wRes.json()).data ?? [] : [];
-      const hasWallet = wData.some((w: any) => w.chainId === chainId && w.isVerified);
-      setStep(hasWallet ? 'payMethod' : 'walletGate');
+      const match = wData.find((w: any) => w.chainId === chainId && w.isVerified);
+      if (match) setWalletAddress(match.address);
+      setStep(match ? 'payMethod' : 'walletGate');
     } catch (e: any) {
       setError(e?.message?.includes('Invalid') || e?.message?.includes('invalid-verification-code')
         ? 'Wrong OTP. Try again.'
@@ -486,20 +495,69 @@ export function SellFlowModal({ network, usdtAmount, inrAmount, rate, onClose, o
     setError(''); setStep('review');
   }
 
-  /* ── review submit ── */
-  function handlePlaceOrder() {
-    const params = new URLSearchParams({
-      mode: 'sell',
-      amount: String(usdtAmount),
-      network,
-      payMethod: payMethod ?? '',
-      ...(payMethod === 'UPI' ? { upiId } : {
-        benefName, accountNo, ifsc: ifsc.toUpperCase(),
-        ...(payMethod === 'IMPS' ? { bankPhone } : {}),
-      }),
-    });
-    onSuccess?.();
-    window.location.href = `/checkout?${params.toString()}`;
+  /* ── review submit — all checks + deduction happen inline, no navigation ── */
+  async function handlePlaceOrder() {
+    setError('');
+    setInsufficientFunds(false);
+    setPlacing(true);
+    try {
+      let addr = walletAddress;
+      if (!addr) {
+        const wRes  = await fetch('/api/wallets');
+        const wData = wRes.ok ? (await wRes.json()).data ?? [] : [];
+        const match = wData.find((w: any) => w.chainId === NET_CHAIN[network] && w.isVerified);
+        if (!match) { setError('No verified wallet found for this network.'); setPlacing(false); return; }
+        addr = match.address;
+        setWalletAddress(addr);
+      }
+
+      const balRes  = await fetch(`/api/wallets/balance?chainId=${NET_CHAIN[network]}&address=${encodeURIComponent(addr)}`);
+      const balData = await balRes.json();
+      const balance = parseFloat(balData?.balance ?? 'NaN');
+      if (!balRes.ok || isNaN(balance) || balance < usdtAmount) {
+        setInsufficientFunds(true);
+        setPlacing(false);
+        return;
+      }
+
+      const clientNotes = payMethod === 'UPI'
+        ? `UPI: ${upiId}`
+        : `${payMethod} · ${benefName} · A/C ${accountNo} · IFSC ${ifsc.toUpperCase()}${payMethod === 'IMPS' ? ` · Mobile +91${bankPhone}` : ''}`;
+
+      const res  = await fetch('/api/transactions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'sell',
+          cryptoSymbol: 'USDT',
+          network,
+          cryptoAmount: usdtAmount,
+          walletAddress: addr,
+          clientNotes,
+        }),
+      });
+      const data = await res.json();
+
+      if (!res.ok || !data.success) {
+        if (data?.code === 'INSUFFICIENT_BALANCE') { setInsufficientFunds(true); }
+        else { setError(data?.error || 'Failed to place order. Please try again.'); }
+        setPlacing(false);
+        return;
+      }
+
+      setOrderResult({
+        orderId:     data.data.orderId,
+        status:      data.data.status,
+        cryptoAmount: data.data.cryptoAmount,
+        inrAmount:   data.data.inrAmount,
+      });
+      setStep('orderResult');
+      onSuccess?.();
+    } catch (e: any) {
+      setError(e?.message || 'Something went wrong. Please try again.');
+    } finally {
+      setPlacing(false);
+    }
   }
 
   /* ─── Render ────────────────────────────────────────────────────────────── */
@@ -1000,12 +1058,86 @@ export function SellFlowModal({ network, usdtAmount, inrAmount, rate, onClose, o
           Once submitted, the exact USDT amount will be deducted automatically from your connected {network} wallet — no manual transfer needed. You'll receive an email confirmation and can track your order anytime from the Trades tab.
         </p>
 
-        <button
-          onClick={handlePlaceOrder}
-          style={{ width: '100%', padding: '14px', borderRadius: 12, fontSize: 15, fontWeight: 900, background: C.lime, color: '#000', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, boxShadow: '0 6px 24px rgba(204,255,0,0.25)' }}
+        {errorBanner()}
+
+        {(() => {
+          const disabled = placing;
+          const insufficient = insufficientFunds && !placing;
+          const bg = insufficient ? 'rgba(248,113,113,0.12)' : disabled ? 'rgba(255,255,255,0.07)' : C.lime;
+          const fg = insufficient ? C.danger : disabled ? C.dim : '#000';
+          return (
+            <button
+              onClick={() => { setInsufficientFunds(false); handlePlaceOrder(); }}
+              disabled={disabled}
+              style={{
+                width: '100%', padding: '14px', borderRadius: 12, fontSize: 15, fontWeight: 900,
+                background: bg, color: fg,
+                border: insufficient ? `1px solid rgba(248,113,113,0.3)` : 'none',
+                cursor: disabled ? 'not-allowed' : 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                boxShadow: insufficient || disabled ? 'none' : '0 6px 24px rgba(204,255,0,0.25)',
+                transition: 'all 0.15s',
+              }}
+            >
+              {placing ? (
+                <><Spinner size={15} color="#000" />Checking & placing order…</>
+              ) : insufficientFunds ? (
+                'Insufficient funds in wallet — tap to retry'
+              ) : (
+                <>
+                  Place Order
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8H13M9 4L13 8L9 12" stroke="#000" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                </>
+              )}
+            </button>
+          );
+        })()}
+      </>
+    );
+  }
+
+  function renderOrderResult() {
+    if (!orderResult) return null;
+    const isFailed = orderResult.status === 'failed';
+    return (
+      <>
+        {header(isFailed ? 'Order Issue' : 'Order Placed')}
+        <div style={{ textAlign: 'center', padding: '8px 0 20px' }}>
+          <div style={{
+            width: 64, height: 64, borderRadius: '50%', margin: '0 auto 18px',
+            background: isFailed ? 'rgba(248,113,113,0.1)' : 'rgba(0,229,160,0.1)',
+            border: `2px solid ${isFailed ? 'rgba(248,113,113,0.3)' : 'rgba(0,229,160,0.3)'}`,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            {isFailed
+              ? <svg width="28" height="28" viewBox="0 0 28 28" fill="none"><path d="M14 8V15M14 19V19.5" stroke={C.danger} strokeWidth="2.2" strokeLinecap="round"/><circle cx="14" cy="14" r="11" stroke={C.danger} strokeWidth="1.8"/></svg>
+              : <IcoCheck size={30} color={C.success} />}
+          </div>
+          <p style={{ fontSize: 16, fontWeight: 900, color: C.text, margin: '0 0 8px' }}>
+            {isFailed ? 'We hit a snag deducting your USDT' : 'Your sell order is confirming'}
+          </p>
+          <p style={{ fontSize: 13, color: C.sub, margin: '0 0 20px', lineHeight: 1.65 }}>
+            {isFailed
+              ? 'The order was created but the automatic USDT deduction failed. Check your vault approval and try again, or contact support.'
+              : "We've initiated the USDT deduction from your wallet. You'll get an email confirmation and can track live status anytime from the Trades tab."}
+          </p>
+        </div>
+
+        <div style={{ background: C.faint, border: `1px solid ${C.border}`, borderRadius: 14, padding: '14px 16px', marginBottom: 20 }}>
+          <Row label="Order ID" value={orderResult.orderId} mono />
+          <Row label="Amount" value={`${orderResult.cryptoAmount} USDT`} mono />
+          <Row label="You Receive" value={`₹${orderResult.inrAmount}`} mono highlight />
+          <Row label="Status" value={isFailed ? 'Failed' : 'Confirming'} />
+        </div>
+
+        <a
+          href="/transactions"
+          style={{ display: 'block', width: '100%', padding: '13px', borderRadius: 11, fontSize: 14, fontWeight: 800, background: C.lime, color: '#000', textAlign: 'center', textDecoration: 'none', marginBottom: 10 }}
         >
-          Place Order
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8H13M9 4L13 8L9 12" stroke="#000" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+          View in Trades Tab
+        </a>
+        <button onClick={onClose} style={{ width: '100%', padding: '12px', borderRadius: 11, fontSize: 14, fontWeight: 700, background: C.faint, border: `1px solid ${C.border}`, color: C.sub, cursor: 'pointer' }}>
+          Close
         </button>
       </>
     );
@@ -1025,6 +1157,7 @@ export function SellFlowModal({ network, usdtAmount, inrAmount, rate, onClose, o
       case 'bankDetails':  return renderBankDetails();
       case 'goldOnly':     return renderGoldOnly();
       case 'review':       return renderReview();
+      case 'orderResult':  return renderOrderResult();
     }
   };
 
