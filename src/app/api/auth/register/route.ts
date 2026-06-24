@@ -41,12 +41,18 @@ export async function POST(req: Request) {
       emailVerified: false,
       emailVerifyToken: verifyToken,
       emailVerifyExpiresAt: verifyExpiresAt,
+      verifyEmailLastSentAt: Date.now(),
     });
 
-    // Fire-and-forget — don't block registration if mail fails
-    sendVerificationEmail(email, name, verifyToken).catch((err) =>
-      console.error('[register] email send failed:', err),
-    );
+    // Must be awaited — on serverless (Vercel) the function execution is frozen
+    // right after the response is sent, which silently kills any in-flight
+    // fire-and-forget network call before it reaches Resend. A failed send
+    // is logged but never blocks account creation from succeeding.
+    try {
+      await sendVerificationEmail(email, name, verifyToken);
+    } catch (err) {
+      console.error('[register] email send failed:', err);
+    }
 
     return NextResponse.json(
       { success: true, data: userToDocument(user) },

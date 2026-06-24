@@ -23,9 +23,13 @@ export async function POST(req: Request) {
         $set: { passwordResetToken: token, passwordResetExpiresAt: expiresAt },
       });
 
-      sendPasswordResetEmail(user.email, user.name, token).catch(err =>
-        console.error('[forgot-password] email send failed:', err),
-      );
+      // Awaited — fire-and-forget calls get killed mid-flight when Vercel
+      // freezes the function right after the response is sent.
+      try {
+        await sendPasswordResetEmail(user.email, user.name, token);
+      } catch (err) {
+        console.error('[forgot-password] email send failed:', err);
+      }
     }
 
     // Always 200 — don't reveal whether the email exists

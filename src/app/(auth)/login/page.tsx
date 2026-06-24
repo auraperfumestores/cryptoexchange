@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { signIn } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -38,18 +38,31 @@ export default function LoginPage() {
   const [showPass, setShowPass] = useState(false);
   const [loading,  setLoading]  = useState(false);
   const [error,    setError]    = useState('');
+  const [unverified, setUnverified] = useState(false);
+  const [resending, setResending] = useState(false);
+  const [resendCooldown, setResendCooldown] = useState(0);
+
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const t = setInterval(() => setResendCooldown(s => Math.max(0, s - 1)), 1000);
+    return () => clearInterval(t);
+  }, [resendCooldown]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError('');
+    setUnverified(false);
     if (!email || !password) { setError('Please enter your email and password.'); return; }
     setLoading(true);
     try {
       const result = await signIn('credentials', { redirect: false, email, password });
       if (result?.error) {
-        setError(result.error === 'EMAIL_NOT_VERIFIED'
-          ? 'Please verify your email before signing in. Check your inbox.'
-          : 'Invalid email or password.');
+        if (result.error === 'EMAIL_NOT_VERIFIED') {
+          setError('Please verify your email before signing in. Check your inbox.');
+          setUnverified(true);
+        } else {
+          setError('Invalid email or password.');
+        }
         return;
       }
       const sessionRes  = await fetch('/api/auth/me');
@@ -59,6 +72,25 @@ export default function LoginPage() {
       setError('Something went wrong. Please try again.');
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleResendVerification() {
+    if (!email || resending || resendCooldown > 0) return;
+    setResending(true);
+    try {
+      const res = await fetch('/api/auth/resend-verification', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+      const data = await res.json();
+      setResendCooldown(data.cooldownSeconds ?? 60);
+      setError('Verification email sent — check your inbox.');
+    } catch {
+      setError('Could not resend right now. Please try again in a moment.');
+    } finally {
+      setResending(false);
     }
   }
 
@@ -146,7 +178,28 @@ export default function LoginPage() {
           </div>
 
           {error && (
-            <div className="fr-alert fr-alert--error" style={{ marginBottom: 20 }}>{error}</div>
+            <div className="fr-alert fr-alert--error" style={{ marginBottom: unverified ? 10 : 20 }}>{error}</div>
+          )}
+
+          {unverified && (
+            <button
+              type="button"
+              onClick={handleResendVerification}
+              disabled={resending || resendCooldown > 0}
+              style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                width: '100%', marginBottom: 20, padding: '9px 0',
+                background: 'none', border: '1px solid var(--fr-border-subtle)', borderRadius: 10,
+                color: resendCooldown > 0 ? 'var(--fr-text-disabled)' : 'var(--fr-lime)',
+                fontSize: 13, fontWeight: 700, cursor: resending || resendCooldown > 0 ? 'not-allowed' : 'pointer',
+              }}
+            >
+              {resending
+                ? <><span className="spinner" />Sending…</>
+                : resendCooldown > 0
+                  ? `Resend verification email in ${resendCooldown}s`
+                  : 'Resend verification email'}
+            </button>
           )}
 
           <form onSubmit={handleSubmit} className="fr-auth-form">

@@ -22,6 +22,7 @@ export interface UserAttrs {
   emailVerified?: boolean;
   emailVerifyToken?: string;
   emailVerifyExpiresAt?: number;
+  verifyEmailLastSentAt?: number;
   passwordResetToken?: string;
   passwordResetExpiresAt?: number;
   phoneVerified?: boolean;
@@ -53,6 +54,7 @@ const UserSchema = new Schema<UserAttrs>(
     emailVerified: { type: Boolean, default: false },
     emailVerifyToken: { type: String, select: false },
     emailVerifyExpiresAt: { type: Number, select: false },
+    verifyEmailLastSentAt: { type: Number, select: false },
     passwordResetToken: { type: String, select: false },
     passwordResetExpiresAt: { type: Number, select: false },
     phoneVerified: { type: Boolean, default: false },
