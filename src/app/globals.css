@@ -295,6 +295,47 @@
   .fr-ticker-item::after { content: '✦'; font-size: 7px; color: var(--fr-lime); margin-left: var(--fr-sp-3); opacity: 0.5; }
   .fr-ticker-item:last-child::after { display: none; }
 
+  /* Vertical live transaction feed — desktop dashboard sidebar */
+  @keyframes fr-ticker-scroll-y {
+    0%   { transform: translateY(0); }
+    100% { transform: translateY(-50%); }
+  }
+  .fr-dash-feed {
+    position: fixed;
+    top: var(--fr-nav-height);
+    bottom: 0;
+    width: 220px;
+    overflow: hidden;
+    pointer-events: none;
+    z-index: 1;
+  }
+  .fr-dash-feed::before,
+  .fr-dash-feed::after {
+    content: '';
+    position: absolute;
+    left: 0; right: 0;
+    height: 90px;
+    z-index: 2;
+    pointer-events: none;
+  }
+  .fr-dash-feed::before { top: 0;    background: linear-gradient(to bottom, var(--fr-dark-0), transparent); }
+  .fr-dash-feed::after  { bottom: 0; background: linear-gradient(to top,    var(--fr-dark-0), transparent); }
+  .fr-dash-feed__track {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding: 90px 0;
+    animation: fr-ticker-scroll-y 42s linear infinite;
+    width: 100%;
+  }
+  .fr-tx-card--compact {
+    width: 100%;
+    padding: 14px;
+  }
+  @media (max-width: 1749px) {
+    .fr-dash-feed { display: none; }
+  }
+
   /* ── Navbar ── */
   .fr-nav {
     position: sticky;

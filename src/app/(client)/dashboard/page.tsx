@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation';
 import { connectToDatabase, Transaction, transactionToDocument } from '@/lib/db';
 import { ClientShell } from '@/components/layout/client-shell';
 import ExchangeWidget from '@/components/landing/exchange-widget';
+import { DashboardLiveFeed } from '@/components/dashboard/dashboard-live-feed';
 import Link from 'next/link';
 import { formatINR, formatCrypto } from '@/lib/utils';
 import type { TransactionDocument } from '@/types';
@@ -29,6 +30,7 @@ export default async function DashboardPage() {
 
   return (
     <ClientShell user={session.user as any} rates={[]}>
+      <DashboardLiveFeed />
       <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 28, maxWidth: 900, margin: '0 auto' }}>
 
         {/* Welcome row */}

@@ -13,30 +13,12 @@ import {
 import StatCounter from '@/components/ui/stat-counter';
 import StaticMesh from '@/components/ui/static-mesh';
 import { SnapCarousel } from '@/components/ui/snap-carousel';
+import { TxCard } from '@/components/ui/tx-card';
+import { LIVE_TRADES } from '@/lib/data/live-trades';
 import { connectToDatabase, Rate, rateToDocument } from '@/lib/db';
 
 /* ─── Data ────────────────────────────────────────────── */
 // TICKER_ITEMS built dynamically inside LandingPage() using live rates
-
-
-const LIVE_TRADES = [
-  { name: 'Raj***', amount: '₹42,500',  txid: 'TXN***4521', network: 'BEP-20', time: '1 min ago',  color: 'teal',   nameColor: '#00D4C8' },
-  { name: 'Pri***', amount: '₹18,750',  txid: 'TXN***8832', network: 'TRC-20', time: '2 min ago',  color: 'purple', nameColor: '#9B5DE5' },
-  { name: 'Vik***', amount: '₹75,000',  txid: 'TXN***2219', network: 'ERC-20', time: '3 min ago',  color: 'green',  nameColor: '#22C55E' },
-  { name: 'Anu***', amount: '₹33,200',  txid: 'TXN***6670', network: 'BEP-20', time: '4 min ago',  color: 'pink',   nameColor: '#F72585' },
-  { name: 'Sam***', amount: '₹91,000',  txid: 'TXN***3344', network: 'TRC-20', time: '5 min ago',  color: 'blue',   nameColor: '#3B82F6' },
-  { name: 'Dev***', amount: '₹27,800',  txid: 'TXN***7751', network: 'BEP-20', time: '6 min ago',  color: 'teal',   nameColor: '#00D4C8' },
-  { name: 'Kav***', amount: '₹55,600',  txid: 'TXN***9983', network: 'ERC-20', time: '7 min ago',  color: 'purple', nameColor: '#9B5DE5' },
-  { name: 'Rah***', amount: '₹12,450',  txid: 'TXN***1127', network: 'TRC-20', time: '8 min ago',  color: 'green',  nameColor: '#22C55E' },
-  { name: 'Moh***', amount: '₹68,900',  txid: 'TXN***5566', network: 'BEP-20', time: '9 min ago',  color: 'pink',   nameColor: '#F72585' },
-  { name: 'Nis***', amount: '₹24,300',  txid: 'TXN***4488', network: 'ERC-20', time: '10 min ago', color: 'blue',   nameColor: '#3B82F6' },
-  { name: 'Tan***', amount: '₹87,500',  txid: 'TXN***2295', network: 'TRC-20', time: '11 min ago', color: 'teal',   nameColor: '#00D4C8' },
-  { name: 'She***', amount: '₹46,750',  txid: 'TXN***7743', network: 'BEP-20', time: '12 min ago', color: 'purple', nameColor: '#9B5DE5' },
-  { name: 'Arp***', amount: '₹15,800',  txid: 'TXN***3311', network: 'ERC-20', time: '13 min ago', color: 'green',  nameColor: '#22C55E' },
-  { name: 'Kir***', amount: '₹62,000',  txid: 'TXN***8899', network: 'TRC-20', time: '14 min ago', color: 'pink',   nameColor: '#F72585' },
-  { name: 'Man***', amount: '₹38,400',  txid: 'TXN***6622', network: 'BEP-20', time: '15 min ago', color: 'blue',   nameColor: '#3B82F6' },
-  { name: 'Poo***', amount: '₹99,200',  txid: 'TXN***1144', network: 'ERC-20', time: '16 min ago', color: 'teal',   nameColor: '#00D4C8' },
-];
 
 const PRO_FEATURES = [
   { label: 'Trust Wallet',   standard: 'Required',                        pro: 'Required'                                  },
@@ -885,35 +867,7 @@ export default async function LandingPage() {
         <div className="fr-live-feed">
           <div className="fr-live-feed__track">
             {[...LIVE_TRADES, ...LIVE_TRADES].map((t, i) => (
-              <div key={i} className={`fr-tx-card fr-tx-card--${t.color}`}>
-                {/* Dot pattern texture */}
-                <div style={{ position: 'absolute', inset: 0, backgroundImage: 'radial-gradient(circle, rgba(255,255,255,0.025) 1px, transparent 1px)', backgroundSize: '8px 8px', borderRadius: 'inherit', pointerEvents: 'none' }} />
-                <div style={{ position: 'relative', zIndex: 1 }}>
-                  {/* Header: logo + label */}
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-                    <div style={{ width: 24, height: 24, background: 'var(--fr-lime)', borderRadius: 5, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, fontWeight: 900, color: '#000', letterSpacing: '-0.02em' }}>SI</div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                      <svg width="8" height="8" viewBox="0 0 8 8" fill="none"><circle cx="4" cy="4" r="3.5" stroke="#4ADE80" strokeWidth="1.2"/><path d="M2 4L3.5 5.5L6 3" stroke="#4ADE80" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                      <span style={{ fontSize: 8, fontWeight: 700, color: '#4ADE80', letterSpacing: '0.08em' }}>VERIFIED</span>
-                    </div>
-                  </div>
-                  {/* Masked name */}
-                  <div style={{ fontSize: 12, fontWeight: 600, color: t.nameColor, marginBottom: 6 }}>{t.name}</div>
-                  {/* Amount — large, lime, JetBrains Mono */}
-                  <div style={{ fontFamily: 'var(--fr-font-mono)', fontSize: 22, fontWeight: 700, color: 'var(--fr-lime)', letterSpacing: '-0.03em', lineHeight: 1, marginBottom: 10 }}>{t.amount}</div>
-                  {/* Divider */}
-                  <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <div>
-                      <div style={{ fontSize: 8, fontWeight: 700, color: 'var(--fr-text-tertiary)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 2 }}>TXN</div>
-                      <div style={{ fontSize: 9, fontFamily: 'var(--fr-font-mono)', color: 'var(--fr-text-secondary)' }}>{t.txid}</div>
-                    </div>
-                    <div style={{ textAlign: 'right' }}>
-                      <div style={{ fontSize: 9, fontWeight: 700, color: 'var(--fr-text-tertiary)', letterSpacing: '0.04em', marginBottom: 2 }}>{t.network}</div>
-                      <div style={{ fontSize: 9, color: 'var(--fr-text-tertiary)' }}>{t.time}</div>
-                    </div>
-                  </div>
-                </div>
-              </div>
+              <TxCard key={i} trade={t} />
             ))}
           </div>
         </div>
