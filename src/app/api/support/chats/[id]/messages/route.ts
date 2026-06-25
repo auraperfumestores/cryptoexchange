@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { connectToDatabase, SupportChat, SupportMessage, supportMessageToDocument } from '@/lib/db';
 import { errorResponse, badRequest, notFound } from '@/lib/utils/errors';
-import { sendTopicMessage, sendTopicPhoto, escapeHtml } from '@/lib/telegram/bot';
+import { sendTopicMessage, sendTopicPhoto, sendTopicDocument, escapeHtml } from '@/lib/telegram/bot';
 import { checkSupportReminders } from '@/lib/telegram/reminders';
 
 export const dynamic = 'force-dynamic';
@@ -65,7 +65,19 @@ export async function POST(req: Request, { params }: { params: { id: string } })
         await sendTopicMessage(chat.telegramTopicId, escapeHtml(text.trim()));
       }
       for (const url of imageUrls ?? []) {
-        await sendTopicPhoto(chat.telegramTopicId, url);
+        // Telegram's sendPhoto rejects HEIC/HEIF (iPhone's default camera format) — fall
+        // back to sendDocument so the file still reaches the topic instead of silently failing.
+        const isHeic = /\.(heic|heif)(\?|$)/i.test(url);
+        try {
+          if (isHeic) {
+            await sendTopicDocument(chat.telegramTopicId, url);
+          } else {
+            await sendTopicPhoto(chat.telegramTopicId, url);
+          }
+        } catch (photoErr) {
+          console.error('[support/messages] sendPhoto failed, retrying as document:', photoErr);
+          await sendTopicDocument(chat.telegramTopicId, url);
+        }
       }
     } catch (err) {
       console.error('[support/messages] telegram relay failed:', err);

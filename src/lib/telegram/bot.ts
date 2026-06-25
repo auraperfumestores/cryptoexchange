@@ -86,6 +86,20 @@ export async function sendTopicPhoto(
   });
 }
 
+export async function sendTopicDocument(
+  threadId: number | undefined,
+  documentUrl: string,
+  caption?: string,
+): Promise<{ message_id: number }> {
+  return call('sendDocument', {
+    chat_id: supportGroupId(),
+    message_thread_id: threadId,
+    document: documentUrl,
+    caption,
+    parse_mode: 'HTML',
+  });
+}
+
 export async function answerCallbackQuery(callbackQueryId: string, text?: string) {
   return call('answerCallbackQuery', { callback_query_id: callbackQueryId, text, cache_time: 1 });
 }
