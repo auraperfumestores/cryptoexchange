@@ -1,14 +1,22 @@
 /**
- * Gonums (Bulk9) SMS — OTP route.
+ * Gonums (Bulk9) SMS — manual DLT route, using Gonums' own shared DLT entity.
  * Set GONUMS_AUTH_KEY in .env.local to enable real SMS.
  * Without it, OTP is logged to console (dev/test mode).
  *
- * Gonums' OTP route (`route: 'otp'`) is a plain SMS transport, not a hosted
- * OTP service — we generate/hash/verify the code ourselves (see OtpCode model)
- * and only use Gonums to deliver the text. This route is exempt from India's
- * DLT sender-ID requirement (unlike the `dlt` route), but the account must
- * have completed KYC first or sends fail with error 996.
+ * Gonums has no hosted OTP/verify service — we generate/hash/verify the code
+ * ourselves (see OtpCode model) and only use Gonums to deliver the text.
+ * Their dedicated `route: 'otp'` is locked behind account KYC (error 996) and
+ * currently unavailable on this account, so this instead uses `dlt_manual`
+ * with Gonums' own pre-registered shared sender/entity/template — confirmed
+ * working by live test (real SMS received, custom brand text included).
+ * The sender_id/entity_id/template_id below are NOT ours; they belong to
+ * Gonums' shared demo entity, which is why no DLT registration of our own
+ * was needed for this to work.
  */
+
+const SENDER_ID   = 'CHORHA';
+const ENTITY_ID   = '1601461177122457427';
+const TEMPLATE_ID = '1607100000000380703';
 
 export async function sendOtpSms(phone: string, otp: string): Promise<void> {
   const authKey = process.env.GONUMS_AUTH_KEY;
@@ -18,6 +26,8 @@ export async function sendOtpSms(phone: string, otp: string): Promise<void> {
     return;
   }
 
+  const message = `Hello, ${otp} is the OTP for SwapINR login using your phone number. Do not share it to anyone.`;
+
   const res = await fetch('https://my.gonums.com/dev/bulkV2', {
     method: 'POST',
     headers: {
@@ -25,9 +35,12 @@ export async function sendOtpSms(phone: string, otp: string): Promise<void> {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      route:            'otp',
-      variables_values: otp,
-      numbers:          phone,
+      route:       'dlt_manual',
+      sender_id:   SENDER_ID,
+      entity_id:   ENTITY_ID,
+      template_id: TEMPLATE_ID,
+      message,
+      numbers:     `91${phone}`,
     }),
   });
 
