@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { upload } from '@vercel/blob/client';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -129,21 +130,14 @@ export function TransactionDetail({ tx, paymentMethod, currentUserRole, isOwner 
   async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 4 * 1024 * 1024) {
-      toast.error('File is too large (max 4MB)');
+    if (file.size > 15 * 1024 * 1024) {
+      toast.error('File is too large (max 15MB)');
       return;
     }
     setUploading(true);
     try {
-      const formData = new FormData();
-      formData.append('file', file);
-      const res = await fetch('/api/upload', { method: 'POST', body: formData });
-      const data = await res.json();
-      if (!res.ok) {
-        toast.error(data.error || 'Upload failed');
-        return;
-      }
-      setProofUrl(data.data.url);
+      const blob = await upload(file.name, file, { access: 'public', handleUploadUrl: '/api/upload' });
+      setProofUrl(blob.url);
       toast.success('Screenshot uploaded');
     } catch {
       toast.error('Upload failed');

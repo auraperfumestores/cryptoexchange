@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useSession } from 'next-auth/react';
+import { upload } from '@vercel/blob/client';
 import { Headset, X, PaperPlaneRight, Image as ImageIcon, CheckCircle } from '@phosphor-icons/react';
 
 /** Any component can call this to open the global support widget instead of
@@ -157,15 +158,8 @@ export default function SupportChatWidget() {
     setUploading(true);
     setUploadError('');
     try {
-      const formData = new FormData();
-      formData.append('file', file);
-      const res = await fetch('/api/upload', { method: 'POST', body: formData });
-      const data = await res.json();
-      if (res.ok) {
-        await sendMessage(undefined, [data.data.url]);
-      } else {
-        setUploadError(data.error || 'Could not attach image. Please try again.');
-      }
+      const blob = await upload(file.name, file, { access: 'public', handleUploadUrl: '/api/upload' });
+      await sendMessage(undefined, [blob.url]);
     } catch {
       setUploadError('Could not attach image. Please try again.');
     } finally {
