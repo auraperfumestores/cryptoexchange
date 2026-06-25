@@ -1,10 +1,16 @@
 import { NextResponse }    from 'next/server';
 import { requireAuth }     from '@/lib/auth/require-auth';
+import { connectToDatabase } from '@/lib/db';
+import { OtpCode, generateOtp, hashOtp } from '@/lib/db/models/OtpCode';
+import { sendOtpSms }       from '@/lib/sms/gonums';
 import { errorResponse }   from '@/lib/utils/errors';
 
 export const dynamic = 'force-dynamic';
 
-/** POST /api/otp/send — sends a fresh OTP to a 10-digit Indian mobile number via MSG91 */
+const RATE_LIMIT_WINDOW_MS = 60 * 1000;
+const OTP_TTL_MINUTES      = 10;
+
+/** POST /api/otp/send — sends a fresh OTP to a 10-digit Indian mobile number via Gonums */
 export async function POST(req: Request) {
   try {
     await requireAuth();
@@ -15,21 +21,23 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Enter a valid 10-digit Indian mobile number' }, { status: 400 });
     }
 
-    const authKey    = process.env.MSG91_AUTH_KEY;
-    const templateId = process.env.MSG91_TEMPLATE_ID;
-    if (!authKey || !templateId) {
-      console.error('[OTP] MSG91_AUTH_KEY / MSG91_TEMPLATE_ID not configured');
-      return NextResponse.json({ error: 'OTP service is not configured. Please contact support.' }, { status: 500 });
+    await connectToDatabase();
+
+    const recent = await OtpCode.findOne({ phone: digits, purpose: 'phone-verify' }).sort({ createdAt: -1 }).lean();
+    if (recent) {
+      const age = Date.now() - new Date((recent as any).createdAt).getTime();
+      if (age < RATE_LIMIT_WINDOW_MS) {
+        const wait = Math.ceil((RATE_LIMIT_WINDOW_MS - age) / 1000);
+        return NextResponse.json({ error: `Please wait ${wait}s before requesting another OTP` }, { status: 429 });
+      }
     }
 
-    const url = `https://control.msg91.com/api/v5/otp?template_id=${encodeURIComponent(templateId)}&mobile=91${digits}&authkey=${encodeURIComponent(authKey)}`;
-    const res  = await fetch(url, { method: 'POST' });
-    const data = await res.json().catch(() => ({}));
+    const otp  = generateOtp();
+    const hash = hashOtp(otp);
+    const exp  = new Date(Date.now() + OTP_TTL_MINUTES * 60 * 1000);
 
-    if (data?.type !== 'success') {
-      console.error('[OTP] MSG91 send failed:', data);
-      return NextResponse.json({ error: data?.message || 'Failed to send OTP. Please try again.' }, { status: 502 });
-    }
+    await OtpCode.create({ phone: digits, codeHash: hash, purpose: 'phone-verify', expiresAt: exp });
+    await sendOtpSms(digits, otp);
 
     return NextResponse.json({ success: true });
   } catch (err) {

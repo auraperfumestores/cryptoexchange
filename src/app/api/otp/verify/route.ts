@@ -1,11 +1,14 @@
 import { NextResponse }            from 'next/server';
 import { requireAuth }             from '@/lib/auth/require-auth';
 import { connectToDatabase, User } from '@/lib/db';
+import { OtpCode, hashOtp }        from '@/lib/db/models/OtpCode';
 import { errorResponse }           from '@/lib/utils/errors';
 
 export const dynamic = 'force-dynamic';
 
-/** POST /api/otp/verify — verifies the OTP via MSG91 and marks the user's phone as verified */
+const MAX_ATTEMPTS = 5;
+
+/** POST /api/otp/verify — checks the OTP against the stored hash and marks the user's phone as verified */
 export async function POST(req: Request) {
   try {
     const auth = await requireAuth();
@@ -20,23 +23,27 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Enter all 6 digits' }, { status: 400 });
     }
 
-    const authKey = process.env.MSG91_AUTH_KEY;
-    if (!authKey) {
-      console.error('[OTP] MSG91_AUTH_KEY not configured');
-      return NextResponse.json({ error: 'OTP service is not configured. Please contact support.' }, { status: 500 });
-    }
-
-    const url = `https://control.msg91.com/api/v5/otp/verify?otp=${encodeURIComponent(otpCode)}&mobile=91${digits}&authkey=${encodeURIComponent(authKey)}`;
-    const res  = await fetch(url, { method: 'POST' });
-    const data = await res.json().catch(() => ({}));
-
-    if (data?.type !== 'success') {
-      const msg: string = data?.message || 'Invalid or expired OTP';
-      const friendly = /invalid/i.test(msg) ? 'Wrong OTP. Try again.' : msg;
-      return NextResponse.json({ error: friendly }, { status: 400 });
-    }
-
     await connectToDatabase();
+
+    const record = await OtpCode.findOne({ phone: digits, purpose: 'phone-verify', verified: false })
+      .sort({ createdAt: -1 });
+
+    if (!record || record.expiresAt < new Date()) {
+      return NextResponse.json({ error: 'OTP expired. Please request a new one.' }, { status: 400 });
+    }
+    if (record.attempts >= MAX_ATTEMPTS) {
+      return NextResponse.json({ error: 'Too many attempts. Please request a new OTP.' }, { status: 429 });
+    }
+
+    if (hashOtp(otpCode) !== record.codeHash) {
+      record.attempts += 1;
+      await record.save();
+      return NextResponse.json({ error: 'Wrong OTP. Try again.' }, { status: 400 });
+    }
+
+    record.verified = true;
+    await record.save();
+
     await User.updateOne({ _id: auth.id }, { $set: { phone: digits, phoneVerified: true } });
 
     return NextResponse.json({ success: true });
