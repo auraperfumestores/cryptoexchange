@@ -29,6 +29,20 @@ function mergeMessages(prev: SupportMessage[], incoming: SupportMessage[]): Supp
 }
 
 function SupportAvatar({ size = 28 }: { size?: number }) {
+  const [imgFailed, setImgFailed] = useState(false);
+  if (!imgFailed) {
+    return (
+      <img
+        src="/support-avatar.png"
+        alt="Support"
+        onError={() => setImgFailed(true)}
+        style={{
+          width: size, height: size, borderRadius: '50%', flexShrink: 0,
+          objectFit: 'cover', boxShadow: '0 2px 8px rgba(204,255,0,0.25)',
+        }}
+      />
+    );
+  }
   return (
     <div style={{
       width: size, height: size, borderRadius: '50%', flexShrink: 0,
@@ -231,7 +245,7 @@ export default function SupportChatWidget() {
       <div style={{
         position: 'fixed', bottom: 144, right: 20, zIndex: 9981,
         width: 360, maxWidth: 'calc(100vw - 32px)', maxHeight: 'min(560px, calc(100dvh - 180px))',
-        background: 'var(--fr-dark-0)', border: '1px solid var(--fr-border-md)', borderRadius: 18,
+        background: 'var(--fr-dark-3)', border: '1px solid var(--fr-border-default)', borderRadius: 18,
         display: 'flex', flexDirection: 'column', overflow: 'hidden',
         boxShadow: '0 24px 60px rgba(0,0,0,0.6)',
         opacity: open ? 1 : 0,
@@ -284,7 +298,7 @@ export default function SupportChatWidget() {
               placeholder="What can we help you with?" value={reason} onChange={e => setReason(e.target.value)}
               rows={3} style={{ ...inputStyle, resize: 'none', fontFamily: 'inherit' }} required
             />
-            <button type="submit" disabled={starting} className="fr-btn fr-btn--primary fr-btn--full" style={{ marginTop: 2 }}>
+            <button type="submit" disabled={starting} className="fr-btn fr-btn--primary fr-btn--md fr-btn--full" style={{ marginTop: 2 }}>
               {starting ? 'Starting…' : 'Start chat'}
             </button>
           </form>
@@ -296,7 +310,7 @@ export default function SupportChatWidget() {
                   {m.role !== 'user' && <SupportAvatar size={24} />}
                   <div style={{
                     maxWidth: '74%', padding: '8px 12px', borderRadius: 14, fontSize: 13, lineHeight: 1.45,
-                    background: m.role === 'user' ? 'var(--fr-lime)' : 'var(--fr-faint)',
+                    background: m.role === 'user' ? 'var(--fr-lime)' : 'var(--fr-dark-4)',
                     color: m.role === 'user' ? '#000' : 'var(--fr-text-primary)',
                     boxShadow: m.role === 'user' ? '0 2px 10px rgba(204,255,0,0.18)' : '0 1px 4px rgba(0,0,0,0.2)',
                   }}>
@@ -316,7 +330,7 @@ export default function SupportChatWidget() {
                   <div style={{ fontSize: 12, color: 'var(--fr-text-secondary)', lineHeight: 1.5 }}>
                     This chat has been resolved.<br />Start a new chat if you need more help.
                   </div>
-                  <button onClick={startNewChat} className="fr-btn fr-btn--primary" style={{ fontSize: 12, padding: '7px 16px', marginTop: 2 }}>
+                  <button onClick={startNewChat} className="fr-btn fr-btn--primary fr-btn--sm" style={{ marginTop: 2 }}>
                     Start a new chat
                   </button>
                 </div>
@@ -382,6 +396,6 @@ export default function SupportChatWidget() {
 
 const inputStyle: React.CSSProperties = {
   width: '100%', padding: '10px 12px', borderRadius: 9,
-  background: 'var(--fr-faint)', border: '1px solid var(--fr-border-subtle)',
+  background: 'var(--fr-dark-4)', border: '1px solid var(--fr-border-subtle)',
   color: 'var(--fr-text-primary)', fontSize: 13, outline: 'none',
 };
