@@ -2,6 +2,7 @@
  * Gonums (Bulk9) SMS — manual DLT route, using Gonums' own shared DLT entity.
  * Set GONUMS_AUTH_KEY in .env.local to enable real SMS.
  * Without it, OTP is logged to console (dev/test mode).
+ * (deploy trigger)
  *
  * Gonums has no hosted OTP/verify service — we generate/hash/verify the code
  * ourselves (see OtpCode model) and only use Gonums to deliver the text.
