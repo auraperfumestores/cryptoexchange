@@ -1,5 +1,5 @@
 import { TxCard } from '@/components/ui/tx-card';
-import { LIVE_TRADES } from '@/lib/data/live-trades';
+import { MALE_LIVE_TRADES } from '@/lib/data/live-trades';
 
 export function DashboardLiveFeed() {
   return (
@@ -9,7 +9,7 @@ export function DashboardLiveFeed() {
       aria-hidden="true"
     >
       <div className="fr-dash-feed__track">
-        {[...LIVE_TRADES, ...LIVE_TRADES].map((t, i) => (
+        {[...MALE_LIVE_TRADES, ...MALE_LIVE_TRADES].map((t, i) => (
           <TxCard key={i} trade={t} compact />
         ))}
       </div>

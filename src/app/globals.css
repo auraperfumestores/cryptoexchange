@@ -325,7 +325,7 @@
     flex-direction: column;
     gap: 14px;
     padding: 90px 0;
-    animation: fr-ticker-scroll-y 42s linear infinite;
+    animation: fr-ticker-scroll-y 95s linear infinite;
     width: 100%;
   }
   .fr-tx-card--compact {
@@ -334,6 +334,15 @@
   }
   @media (max-width: 1749px) {
     .fr-dash-feed { display: none; }
+  }
+
+  /* Recenter dashboard content into the space freed up by the vertical feed */
+  @media (min-width: 1750px) {
+    .dash-content-wrap {
+      max-width: 1040px !important;
+      margin-left: calc((100vw - 1180px) / 2 + 16px) !important;
+      margin-right: auto !important;
+    }
   }
 
   /* ── Navbar ── */

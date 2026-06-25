@@ -31,7 +31,7 @@ export default async function DashboardPage() {
   return (
     <ClientShell user={session.user as any} rates={[]}>
       <DashboardLiveFeed />
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 28, maxWidth: 900, margin: '0 auto' }}>
+      <div className="dash-content-wrap" style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 28, maxWidth: 900, margin: '0 auto' }}>
 
         {/* Welcome row */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
