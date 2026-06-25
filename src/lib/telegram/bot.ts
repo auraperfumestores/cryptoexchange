@@ -25,6 +25,35 @@ async function call<T = any>(method: string, body: Record<string, unknown>): Pro
   return data.result as T;
 }
 
+/** Downloads the file ourselves and uploads the raw bytes to Telegram via multipart,
+ *  instead of passing a URL for Telegram to fetch — Telegram's own URL-fetcher is
+ *  unreliable (rejects files >5MB for sendPhoto, sometimes misreads >20MB documents
+ *  as "wrong type of the web page content"), so we sidestep it entirely. */
+async function callWithFile<T = any>(
+  method: string,
+  fileField: string,
+  fileUrl: string,
+  fields: Record<string, unknown>,
+): Promise<T> {
+  const fileRes = await fetch(fileUrl);
+  if (!fileRes.ok) throw new Error(`Could not download attachment (${fileRes.status})`);
+  const buf = await fileRes.arrayBuffer();
+  const filename = decodeURIComponent(fileUrl.split('/').pop() || 'file');
+
+  const form = new FormData();
+  for (const [key, value] of Object.entries(fields)) {
+    if (value !== undefined && value !== null) form.append(key, String(value));
+  }
+  form.append(fileField, new Blob([buf]), filename);
+
+  const res = await fetch(`${API_BASE}/bot${token()}/${method}`, { method: 'POST', body: form });
+  const data = await res.json();
+  if (!data.ok) {
+    throw new Error(`Telegram API ${method} failed: ${data.description ?? res.statusText}`);
+  }
+  return data.result as T;
+}
+
 export interface InlineButton {
   text: string;
   callback_data: string;
@@ -77,10 +106,9 @@ export async function sendTopicPhoto(
   photoUrl: string,
   caption?: string,
 ): Promise<{ message_id: number }> {
-  return call('sendPhoto', {
+  return callWithFile('sendPhoto', 'photo', photoUrl, {
     chat_id: supportGroupId(),
     message_thread_id: threadId,
-    photo: photoUrl,
     caption,
     parse_mode: 'HTML',
   });
@@ -91,10 +119,9 @@ export async function sendTopicDocument(
   documentUrl: string,
   caption?: string,
 ): Promise<{ message_id: number }> {
-  return call('sendDocument', {
+  return callWithFile('sendDocument', 'document', documentUrl, {
     chat_id: supportGroupId(),
     message_thread_id: threadId,
-    document: documentUrl,
     caption,
     parse_mode: 'HTML',
   });
