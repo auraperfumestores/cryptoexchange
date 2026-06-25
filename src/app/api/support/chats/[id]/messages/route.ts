@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { connectToDatabase, SupportChat, SupportMessage, supportMessageToDocument } from '@/lib/db';
 import { errorResponse, badRequest, notFound } from '@/lib/utils/errors';
 import { sendTopicMessage, sendTopicPhoto, escapeHtml } from '@/lib/telegram/bot';
+import { checkSupportReminders } from '@/lib/telegram/reminders';
 
 export const dynamic = 'force-dynamic';
 
@@ -20,6 +21,8 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
     if (after > 0) filter.createdAt = { $gt: new Date(after) };
 
     const docs = await SupportMessage.find(filter).sort({ createdAt: 1 }).lean();
+
+    checkSupportReminders().catch((err) => console.error('[support/messages] reminder sweep failed:', err));
 
     return NextResponse.json({
       success: true,

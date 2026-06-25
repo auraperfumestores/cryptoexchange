@@ -1,14 +1,11 @@
 import { NextResponse } from 'next/server';
-import { connectToDatabase, SupportChat } from '@/lib/db';
-import { sendTopicMessage } from '@/lib/telegram/bot';
+import { checkSupportReminders } from '@/lib/telegram/reminders';
 
 export const dynamic = 'force-dynamic';
 
-const REMINDER_AFTER_MS = 5 * 60 * 1000;
-
-/** GET /api/cron/support-reminders — invoked by Vercel Cron (see vercel.json).
- *  Pings the Telegram topic for any chat that's been waiting on an agent reply
- *  past the threshold, so no message silently goes unanswered. */
+/** GET /api/cron/support-reminders — manual/external trigger for the reminder sweep.
+ *  Not registered in vercel.json (Hobby plan only allows daily cron); the sweep
+ *  normally runs opportunistically from webhook and widget-polling traffic instead. */
 export async function GET(req: Request) {
   const cronSecret = process.env.CRON_SECRET;
   if (cronSecret) {
@@ -18,32 +15,6 @@ export async function GET(req: Request) {
     }
   }
 
-  await connectToDatabase();
-
-  const stale = await SupportChat.find({
-    status: 'open',
-    lastSenderRole: 'user',
-    lastMessageAt: { $lt: Date.now() - REMINDER_AFTER_MS },
-  });
-
-  let reminded = 0;
-  for (const chat of stale) {
-    if (chat.reminderSentAt && chat.reminderSentAt > chat.lastMessageAt) continue;
-    if (!chat.telegramTopicId) continue;
-
-    const waitingMin = Math.round((Date.now() - chat.lastMessageAt) / 60000);
-    try {
-      await sendTopicMessage(
-        chat.telegramTopicId,
-        `⏰ <b>Still waiting on a reply</b> — ${waitingMin} min and counting.`,
-      );
-      chat.reminderSentAt = Date.now();
-      await chat.save();
-      reminded++;
-    } catch (err) {
-      console.error('[cron/support-reminders] failed for chat', String(chat._id), err);
-    }
-  }
-
-  return NextResponse.json({ ok: true, checked: stale.length, reminded });
+  await checkSupportReminders();
+  return NextResponse.json({ ok: true });
 }

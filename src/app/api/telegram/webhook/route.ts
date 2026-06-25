@@ -6,6 +6,7 @@ import {
   editForumTopic, editMessageReplyMarkup, getFileUrl, sendTopicMessage,
   topicDeepLink, supportGroupId,
 } from '@/lib/telegram/bot';
+import { checkSupportReminders } from '@/lib/telegram/reminders';
 
 export const dynamic = 'force-dynamic';
 
@@ -26,6 +27,8 @@ export async function POST(req: Request) {
     } else if (update.message) {
       await handleMessage(update.message);
     }
+
+    checkSupportReminders().catch((err) => console.error('[telegram/webhook] reminder sweep failed:', err));
   } catch (err) {
     console.error('[telegram/webhook]', err);
   }
