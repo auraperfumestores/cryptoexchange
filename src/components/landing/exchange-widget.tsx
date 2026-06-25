@@ -86,6 +86,7 @@ export default function ExchangeWidget() {
   const [lastUpdate, setLastUpdate] = useState('');
   const [showSummary,  setShowSummary]  = useState(false);
   const [showSellFlow, setShowSellFlow] = useState(false);
+  const [attemptedSubmit, setAttemptedSubmit] = useState(false);
   const fetchRef = useRef<AbortController | null>(null);
 
   const fetchRates = useCallback(async (signal: AbortSignal) => {
@@ -139,6 +140,9 @@ export default function ExchangeWidget() {
   const minRequired = mode === 'buy' ? widgetLimits.minBuyUsdt : widgetLimits.minSellUsdt;
   const belowMin = numAmt > 0 && usdtEquiv < minRequired;
   const minInr   = rate ? Math.ceil(minRequired * rate) : null;
+  // Only ever surface the min-order warning to logged-in users, and only after they've
+  // tried to proceed — guests get redirected to login first and validate at checkout.
+  const showMinWarning = isAuthed && attemptedSubmit && belowMin;
 
   return (
     <div style={{
@@ -178,7 +182,7 @@ export default function ExchangeWidget() {
       {/* ── Tabs ── */}
       <div style={{ padding:'14px 22px 0', display:'flex', gap:0, borderBottom:`1px solid ${FR.borderSub}` }}>
         {(['buy','sell'] as Mode[]).map(m => (
-          <button key={m} className="ew-tab-btn" onClick={() => setMode(m)} style={{
+          <button key={m} className="ew-tab-btn" onClick={() => { setMode(m); setAttemptedSubmit(false); }} style={{
             padding:'9px 20px 12px', border:'none', background:'transparent', cursor:'pointer',
             fontSize:13, fontWeight:700, letterSpacing:'-0.01em', fontFamily:FR.sans,
             color: mode===m ? FR.textPri : FR.textTert,
@@ -250,7 +254,7 @@ export default function ExchangeWidget() {
           <div style={{ position:'absolute', left:0, right:0, height:1, background:FR.borderSub }} />
           <button
             className="ew-swap-btn"
-            onClick={() => setMode(m => m==='buy' ? 'sell' : 'buy')}
+            onClick={() => { setMode(m => m==='buy' ? 'sell' : 'buy'); setAttemptedSubmit(false); }}
             style={{
               position:'relative', zIndex:1,
               width:34, height:34, borderRadius:8,
@@ -379,7 +383,7 @@ export default function ExchangeWidget() {
         )}
 
         {/* ── Minimum order warning ── */}
-        {belowMin && (
+        {showMinWarning && (
           <div style={{ marginBottom:12, background:'rgba(248,113,113,0.07)', border:'1px solid rgba(248,113,113,0.2)', borderRadius:10, padding:'10px 14px', display:'flex', alignItems:'center', gap:10, fontFamily:FR.sans }}>
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style={{ flexShrink:0 }}>
               <circle cx="7" cy="7" r="6" stroke={FR.danger} strokeWidth="1.4"/>
@@ -398,55 +402,55 @@ export default function ExchangeWidget() {
         {mode === 'sell' ? (
           <button
             onClick={() => {
-              if (belowMin || status === 'loading') return;
+              if (status === 'loading') return;
               if (!isAuthed) { goToLogin('/dashboard'); return; }
+              if (belowMin) { setAttemptedSubmit(true); return; }
               setShowSellFlow(true);
             }}
-            className={belowMin ? '' : 'ew-cta'}
-            disabled={belowMin}
+            className="ew-cta"
             style={{
               display:'flex', alignItems:'center', justifyContent:'center', gap:8,
               width:'100%', padding:'15px 0', borderRadius:12,
-              background: belowMin ? 'rgba(255,255,255,0.07)' : FR.lime,
-              color: belowMin ? FR.textDis : '#000',
-              border:'none', cursor: belowMin ? 'not-allowed' : 'pointer',
+              background: FR.lime, color: '#000',
+              border:'none', cursor:'pointer',
               fontSize:15, fontWeight:800, letterSpacing:'-0.01em',
               transition:'all 0.15s',
-              boxShadow: belowMin ? 'none' : `0 4px 20px rgba(204,255,0,0.22)`,
+              boxShadow: `0 4px 20px rgba(204,255,0,0.22)`,
               fontFamily: FR.sans,
             }}
           >
             Proceed · Sell USDT
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-              <path d="M3 8H13M9 4L13 8L9 12" stroke={belowMin ? FR.textDis : '#000'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M3 8H13M9 4L13 8L9 12" stroke="#000" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
           </button>
         ) : (
           <a
-            href={belowMin ? undefined : `/checkout?amount=${encodeURIComponent(amount)}&mode=${mode}&network=${network}`}
+            href={isAuthed && !belowMin ? `/checkout?amount=${encodeURIComponent(amount)}&mode=${mode}&network=${network}` : undefined}
             onClick={e => {
-              if (belowMin || status === 'loading') { e.preventDefault(); return; }
+              if (status === 'loading') { e.preventDefault(); return; }
               if (!isAuthed) {
                 e.preventDefault();
                 goToLogin(`/checkout?amount=${encodeURIComponent(amount)}&mode=${mode}&network=${network}`);
+                return;
               }
+              if (belowMin) { e.preventDefault(); setAttemptedSubmit(true); }
             }}
-            className={belowMin ? '' : 'ew-cta'}
+            className="ew-cta"
             style={{
               display:'flex', alignItems:'center', justifyContent:'center', gap:8,
               width:'100%', padding:'15px 0', borderRadius:12,
-              background: belowMin ? 'rgba(255,255,255,0.07)' : FR.lime,
-              color: belowMin ? FR.textDis : '#000',
-              cursor: belowMin ? 'not-allowed' : 'pointer',
+              background: FR.lime, color: '#000',
+              cursor:'pointer',
               fontSize:15, fontWeight:800, textDecoration:'none', letterSpacing:'-0.01em',
               transition:'all 0.15s',
-              boxShadow: belowMin ? 'none' : `0 4px 20px rgba(204,255,0,0.22)`,
+              boxShadow: `0 4px 20px rgba(204,255,0,0.22)`,
               fontFamily: FR.sans,
             }}
           >
             Proceed · Buy USDT
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-              <path d="M3 8H13M9 4L13 8L9 12" stroke={belowMin ? FR.textDis : '#000'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M3 8H13M9 4L13 8L9 12" stroke="#000" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
           </a>
         )}
