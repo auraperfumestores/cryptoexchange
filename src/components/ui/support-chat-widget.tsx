@@ -21,6 +21,12 @@ interface SupportMessage {
 const STORAGE_KEY = 'swappinr_support_chat_id';
 const POLL_MS = 4000;
 
+function mergeMessages(prev: SupportMessage[], incoming: SupportMessage[]): SupportMessage[] {
+  const existingIds = new Set(prev.map(m => m._id));
+  const fresh = incoming.filter(m => !existingIds.has(m._id));
+  return fresh.length ? [...prev, ...fresh] : prev;
+}
+
 export default function SupportChatWidget() {
   const { data: session } = useSession();
   const [open, setOpen] = useState(false);
@@ -61,8 +67,11 @@ export default function SupportChatWidget() {
   useEffect(() => {
     if (!open || !chatId) return;
     let cancelled = false;
+    let inFlight = false;
 
     async function poll() {
+      if (inFlight) return;
+      inFlight = true;
       try {
         const res = await fetch(`/api/support/chats/${chatId}/messages?after=${lastFetchedAt.current}`);
         if (!res.ok) return;
@@ -70,10 +79,12 @@ export default function SupportChatWidget() {
         if (cancelled) return;
         setStatus(data.data.status);
         if (data.data.messages.length) {
-          setMessages(prev => [...prev, ...data.data.messages]);
+          setMessages(prev => mergeMessages(prev, data.data.messages));
           lastFetchedAt.current = new Date(data.data.messages[data.data.messages.length - 1].createdAt).getTime();
         }
-      } catch { /* network blip — next poll will catch up */ }
+      } catch { /* network blip — next poll will catch up */ } finally {
+        inFlight = false;
+      }
     }
 
     lastFetchedAt.current = 0;
@@ -124,7 +135,7 @@ export default function SupportChatWidget() {
       });
       const data = await res.json();
       if (res.ok) {
-        setMessages(prev => [...prev, data.data]);
+        setMessages(prev => mergeMessages(prev, [data.data]));
         lastFetchedAt.current = new Date(data.data.createdAt).getTime();
         if (status === 'resolved') setStatus('open');
       }
