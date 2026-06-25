@@ -1,12 +1,6 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { firebaseAuth } from '@/lib/firebase/client';
-import {
-  RecaptchaVerifier,
-  signInWithPhoneNumber,
-  type ConfirmationResult,
-} from 'firebase/auth';
 
 interface PhoneVerifyModalProps {
   currentPhone?: string;
@@ -23,8 +17,6 @@ export function PhoneVerifyModal({ currentPhone = '', onVerified, onClose }: Pho
   const [loading,     setLoading]     = useState(false);
   const [error,       setError]       = useState('');
   const [countdown,   setCountdown]   = useState(0);
-  const confirmRef    = useRef<ConfirmationResult | null>(null);
-  const recaptchaRef  = useRef<RecaptchaVerifier | null>(null);
   const otpRefs       = useRef<(HTMLInputElement | null)[]>([]);
   const containerRef  = useRef<HTMLDivElement>(null);
 
@@ -35,57 +27,23 @@ export function PhoneVerifyModal({ currentPhone = '', onVerified, onClose }: Pho
     return () => clearTimeout(t);
   }, [countdown]);
 
-  function resetRecaptcha() {
-    try { recaptchaRef.current?.clear(); } catch {}
-    recaptchaRef.current = null;
-    const old = document.getElementById('recaptcha-container');
-    if (old) {
-      const fresh = document.createElement('div');
-      fresh.id = 'recaptcha-container';
-      old.parentNode?.replaceChild(fresh, old);
-    }
-  }
-
-  async function getVerifier(): Promise<RecaptchaVerifier> {
-    if (!recaptchaRef.current) {
-      recaptchaRef.current = new RecaptchaVerifier(firebaseAuth, 'recaptcha-container', { size: 'invisible' });
-      await recaptchaRef.current.render();
-    }
-    return recaptchaRef.current;
-  }
-
   async function sendOtp() {
     const digits = phone.replace(/\D/g, '');
     if (digits.length !== 10) { setError('Enter a valid 10-digit Indian mobile number'); return; }
     setError(''); setLoading(true);
     try {
-      const verifier = await getVerifier();
-      const result = await signInWithPhoneNumber(firebaseAuth, `+91${digits}`, verifier);
-      confirmRef.current = result;
+      const res  = await fetch('/api/otp/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: digits }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.error || 'Failed to send OTP. Please try again.');
       setStep('otp');
       setCountdown(30);
       setTimeout(() => otpRefs.current[0]?.focus(), 100);
     } catch (err: any) {
-      resetRecaptcha(); /* fresh anchor for next attempt */
-      console.error('[SwappINR OTP] sendOtp failed:', {
-        code:    err?.code,
-        message: err?.message,
-        full:    err,
-        firebaseApp: firebaseAuth?.app?.options,
-      });
-      const code: string = err?.code ?? '';
-      const msg: string  = err?.message ?? '';
-      if (code === 'auth/unauthorized-domain' || msg.includes('unauthorized-domain')) {
-        setError('Domain not authorised. Add it in Firebase Console → Authentication → Authorized domains.');
-      } else if (code === 'auth/operation-not-allowed' || msg.includes('operation-not-allowed')) {
-        setError(`[auth/operation-not-allowed] Check browser console (F12) for full details.`);
-      } else if (code === 'auth/too-many-requests' || msg.includes('too-many-requests')) {
-        setError('Too many attempts. Please wait a few minutes and try again.');
-      } else if (code === 'auth/invalid-phone-number') {
-        setError('Invalid phone number. Enter a valid 10-digit Indian mobile number.');
-      } else {
-        setError(`Failed to send OTP [${code || 'unknown'}] — see browser console (F12) for details.`);
-      }
+      setError(err?.message ?? 'Failed to send OTP. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -94,24 +52,20 @@ export function PhoneVerifyModal({ currentPhone = '', onVerified, onClose }: Pho
   async function verifyOtp() {
     const code = otp.join('');
     if (code.length !== 6) { setError('Enter all 6 digits'); return; }
-    if (!confirmRef.current) { setError('Session expired. Please resend OTP.'); return; }
+    const digits = phone.replace(/\D/g, '');
     setError(''); setLoading(true);
     try {
-      await confirmRef.current.confirm(code);
-      /* Save phone to our backend */
-      const digits = phone.replace(/\D/g, '');
-      const res = await fetch('/api/user/profile', {
-        method: 'PATCH',
+      const res  = await fetch('/api/otp/verify', {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: digits, phoneVerified: true }),
+        body: JSON.stringify({ phone: digits, otp: code }),
       });
-      if (!res.ok) throw new Error('Failed to save');
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.error || 'Verification failed.');
       setStep('done');
       onVerified(digits);
     } catch (err: any) {
-      setError(err?.message?.includes('invalid-verification-code') || err?.message?.includes('Invalid')
-        ? 'Wrong OTP. Please try again.'
-        : err.message ?? 'Verification failed.');
+      setError(err?.message ?? 'Verification failed.');
     } finally {
       setLoading(false);
     }
@@ -255,9 +209,6 @@ export function PhoneVerifyModal({ currentPhone = '', onVerified, onClose }: Pho
 
         </div>
       </div>
-
-      {/* Invisible reCAPTCHA anchor */}
-      <div id="recaptcha-container" />
 
       <style>{`@keyframes fr-spin{to{transform:rotate(360deg)}}`}</style>
     </div>
