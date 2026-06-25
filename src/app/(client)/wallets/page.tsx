@@ -8,10 +8,9 @@ import { toast } from '@/components/ui/toast';
 import { ClientShell } from '@/components/layout/client-shell';
 import { TokenIcon } from '@/components/ui/token-icon';
 import { PageLoading } from '@/components/ui/loading';
+import { openSupportChat } from '@/components/ui/support-chat-widget';
 import { shortenAddress } from '@/lib/utils';
 import type { WalletDocument } from '@/types';
-
-const SUPPORT_URL = 'https://wa.me/919999999999'; // ← replace with real support link
 
 
 type Network = 'BEP20' | 'ERC20' | 'TRC20';
@@ -564,14 +563,13 @@ function MobileVerifyModal({
           </div>
 
           {/* Contact support */}
-          <a href={SUPPORT_URL} target="_blank" rel="noopener noreferrer"
+          <button type="button" onClick={() => openSupportChat()}
             style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, width: '100%', padding: '12px', borderRadius: 12,
               fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.5)',
-              background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.09)',
-              textDecoration: 'none', cursor: 'pointer' }}>
+              background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.09)', cursor: 'pointer' }}>
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="6" stroke="currentColor" strokeWidth="1.2"/><path d="M7 4.5V7L8.5 8.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/></svg>
             Contact Support
-          </a>
+          </button>
         </div>
       );
     }
@@ -784,10 +782,10 @@ function MobileVerifyModal({
           {isDesktop ? 'Show New QR →' : 'Try Again →'}
         </button>
         {isDesktop && (
-          <a href={SUPPORT_URL} target="_blank" rel="noopener noreferrer"
-            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, width: '100%', padding: '12px', borderRadius: 12, fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.4)', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.09)', textDecoration: 'none' }}>
+          <button type="button" onClick={() => openSupportChat()}
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, width: '100%', padding: '12px', borderRadius: 12, fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.4)', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.09)', cursor: 'pointer' }}>
             Contact Support
-          </a>
+          </button>
         )}
         {!isDesktop && (
           <button onClick={onClose} style={{ width: '100%', padding: '12px', borderRadius: 12, fontSize: 13, fontWeight: 700, border: '1px solid rgba(255,255,255,0.08)', background: 'transparent', color: 'rgba(255,255,255,0.35)', cursor: 'pointer' }}>

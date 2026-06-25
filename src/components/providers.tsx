@@ -6,6 +6,7 @@ import { SessionProvider } from 'next-auth/react';
 import { useState } from 'react';
 import { wagmiConfig } from '@/lib/web3/config';
 import { ToastContainer } from '@/components/ui/toast';
+import SupportChatWidget from '@/components/ui/support-chat-widget';
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(() => new QueryClient({ defaultOptions: { queries: { staleTime: 30_000 } } }));
@@ -16,6 +17,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
         <WagmiProvider config={wagmiConfig}>
           {children}
           <ToastContainer />
+          <SupportChatWidget />
         </WagmiProvider>
       </QueryClientProvider>
     </SessionProvider>

@@ -23,3 +23,7 @@ export { generateUsername } from './models/User';
 export { ProPayment } from './models/ProPayment';
 export type { ProPaymentAttrs, ProPaymentStatus, ProNetwork } from './models/ProPayment';
 export type { ProStatus } from './models/User';
+export { SupportChat, supportChatToDocument } from './models/SupportChat';
+export type { SupportChatAttrs, SupportChatStatus, LastSenderRole } from './models/SupportChat';
+export { SupportMessage, supportMessageToDocument } from './models/SupportMessage';
+export type { SupportMessageAttrs, SupportMessageRole } from './models/SupportMessage';

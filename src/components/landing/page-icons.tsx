@@ -31,7 +31,7 @@ const FEATURES = [
   { Icon: TrendUp,         title: 'Best Rate Guaranteed', desc: 'Live inter-bank USDT/INR rate with zero hidden spread or markup.' },
   { Icon: Lightning,       title: 'Instant Settlement',   desc: 'INR credited to your UPI or bank account in under 15 minutes.' },
   { Icon: ShieldCheck,     title: 'Funds 100% Secure',    desc: 'AES-256 encryption, KYC verified operators, and multi-sig custody.' },
-  { Icon: Headset,         title: '24 × 7 Live Support',  desc: 'Dedicated agents on chat, WhatsApp & email — every hour of every day.' },
+  { Icon: Headset,         title: '24 × 7 Live Support',  desc: 'Dedicated agents on live chat & email — every hour of every day.' },
   { Icon: Receipt,         title: 'Transparent Pricing',  desc: 'One flat fee shown upfront. No withdrawal charge, no surprise deductions.' },
   { Icon: ArrowsLeftRight, title: 'Buy & Sell USDT',      desc: 'Sell USDT for INR or buy USDT with INR — both directions, one platform.' },
 ];

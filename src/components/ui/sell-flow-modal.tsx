@@ -9,6 +9,7 @@ import {
 } from 'firebase/auth';
 import { TokenIcon } from './token-icon';
 import { ProUpgradeModal } from './pro-upgrade-modal';
+import { openSupportChat } from './support-chat-widget';
 import { Crown } from '@phosphor-icons/react';
 
 /* ─── Types ─────────────────────────────────────────────────────────────── */
@@ -50,8 +51,6 @@ const NET_COLOR: Record<Network, string> = {
   ERC20: '#818CF8',
   TRC20: '#F87171',
 };
-
-const SUPPORT_URL = 'https://wa.me/919999999999';
 
 const C = {
   bg:        '#0a0a0c',
@@ -737,21 +736,20 @@ export function SellFlowModal({ network, usdtAmount, inrAmount, rate, onClose, o
         </a>
 
         {/* Support */}
-        <a
-          href={SUPPORT_URL}
-          target="_blank"
-          rel="noopener noreferrer"
-          style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px', background: C.faint, border: `1px solid ${C.border}`, borderRadius: 12, textDecoration: 'none', marginBottom: 20 }}
+        <button
+          type="button"
+          onClick={() => openSupportChat()}
+          style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px', background: C.faint, border: `1px solid ${C.border}`, borderRadius: 12, width: '100%', textAlign: 'left', cursor: 'pointer', marginBottom: 20 }}
         >
           <div style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(0,229,64,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
             <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M9 1.5C4.86 1.5 1.5 4.86 1.5 9C1.5 10.3 1.83 11.52 2.4 12.6L1.5 16.5L5.4 15.6C6.48 16.17 7.7 16.5 9 16.5C13.14 16.5 16.5 13.14 16.5 9C16.5 4.86 13.14 1.5 9 1.5Z" fill="#00E540" fillOpacity=".15" stroke="#00E540" strokeWidth="1.3" strokeLinejoin="round"/><path d="M6.5 7.5C6.5 7.5 6.8 5.5 9 5.5C11 5.5 11.5 7 11.5 8C11.5 9.5 10 10 9 10.5" stroke="#00E540" strokeWidth="1.2" strokeLinecap="round"/><circle cx="9" cy="12.5" r="0.75" fill="#00E540"/></svg>
           </div>
           <div style={{ flex: 1 }}>
             <p style={{ fontSize: 13, fontWeight: 800, color: C.text, margin: 0 }}>Contact Support</p>
-            <p style={{ fontSize: 11, color: C.sub, margin: '2px 0 0' }}>WhatsApp · Usually replies in minutes</p>
+            <p style={{ fontSize: 11, color: C.sub, margin: '2px 0 0' }}>Live chat · Usually replies in minutes</p>
           </div>
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M3 7H11M7 3L11 7L7 11" stroke={C.sub} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
-        </a>
+        </button>
 
         <button onClick={onClose} style={{ width: '100%', padding: '12px', borderRadius: 11, fontSize: 14, fontWeight: 700, background: C.faint, border: `1px solid ${C.border}`, color: C.sub, cursor: 'pointer' }}>
           Cancel
