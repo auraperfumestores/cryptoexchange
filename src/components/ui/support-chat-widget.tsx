@@ -34,6 +34,7 @@ export default function SupportChatWidget() {
   const [sending, setSending] = useState(false);
   const [starting, setStarting] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState('');
   const [error, setError] = useState('');
   const lastFetchedAt = useRef(0);
   const bodyRef = useRef<HTMLDivElement>(null);
@@ -143,12 +144,19 @@ export default function SupportChatWidget() {
     const file = e.target.files?.[0];
     if (!file) return;
     setUploading(true);
+    setUploadError('');
     try {
       const formData = new FormData();
       formData.append('file', file);
       const res = await fetch('/api/upload', { method: 'POST', body: formData });
       const data = await res.json();
-      if (res.ok) await sendMessage(undefined, [data.data.url]);
+      if (res.ok) {
+        await sendMessage(undefined, [data.data.url]);
+      } else {
+        setUploadError(data.error || 'Could not attach image. Please try again.');
+      }
+    } catch {
+      setUploadError('Could not attach image. Please try again.');
     } finally {
       setUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
@@ -164,6 +172,18 @@ export default function SupportChatWidget() {
 
   return (
     <>
+      {open && (
+        <div
+          onClick={() => setOpen(false)}
+          aria-hidden="true"
+          style={{
+            position: 'fixed', inset: 0, zIndex: 9979,
+            background: 'rgba(0,0,0,0.45)',
+            backdropFilter: 'blur(6px)',
+            WebkitBackdropFilter: 'blur(6px)',
+          }}
+        />
+      )}
       <button
         onClick={() => setOpen(v => !v)}
         title="Live support"
@@ -245,6 +265,11 @@ export default function SupportChatWidget() {
                   </div>
                 )}
               </div>
+              {uploadError && (
+                <div style={{ padding: '6px 14px', fontSize: 11, color: '#F87171', borderTop: '1px solid var(--fr-border-subtle)' }}>
+                  {uploadError}
+                </div>
+              )}
               <div style={{ padding: 10, borderTop: '1px solid var(--fr-border-subtle)', display: 'flex', gap: 8, alignItems: 'flex-end' }}>
                 <input ref={fileInputRef} type="file" accept="image/*" hidden onChange={handleFileSelect} />
                 <button
