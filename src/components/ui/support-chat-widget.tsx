@@ -28,6 +28,19 @@ function mergeMessages(prev: SupportMessage[], incoming: SupportMessage[]): Supp
   return fresh.length ? [...prev, ...fresh] : prev;
 }
 
+function SupportAvatar({ size = 28 }: { size?: number }) {
+  return (
+    <div style={{
+      width: size, height: size, borderRadius: '50%', flexShrink: 0,
+      background: 'linear-gradient(135deg, var(--fr-lime), #9ad900)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      boxShadow: '0 2px 8px rgba(204,255,0,0.25)',
+    }}>
+      <Headset size={size * 0.56} color="#000" weight="fill" />
+    </div>
+  );
+}
+
 export default function SupportChatWidget() {
   const { data: session } = useSession();
   const [open, setOpen] = useState(false);
@@ -43,6 +56,7 @@ export default function SupportChatWidget() {
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState('');
   const [error, setError] = useState('');
+  const [confirmClose, setConfirmClose] = useState(false);
   const lastFetchedAt = useRef(0);
   const bodyRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -126,7 +140,7 @@ export default function SupportChatWidget() {
   }
 
   async function sendMessage(text?: string, imageUrls?: string[]) {
-    if (!chatId) return;
+    if (!chatId || status === 'resolved') return;
     setSending(true);
     try {
       const res = await fetch(`/api/support/chats/${chatId}/messages`, {
@@ -138,7 +152,6 @@ export default function SupportChatWidget() {
       if (res.ok) {
         setMessages(prev => mergeMessages(prev, [data.data]));
         lastFetchedAt.current = new Date(data.data.createdAt).getTime();
-        if (status === 'resolved') setStatus('open');
       }
     } finally {
       setSending(false);
@@ -147,14 +160,14 @@ export default function SupportChatWidget() {
 
   async function handleSend() {
     const text = draft.trim();
-    if (!text) return;
+    if (!text || status === 'resolved') return;
     setDraft('');
     await sendMessage(text);
   }
 
   async function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
-    if (!file) return;
+    if (!file || status === 'resolved') return;
     setUploading(true);
     setUploadError('');
     try {
@@ -168,27 +181,30 @@ export default function SupportChatWidget() {
     }
   }
 
-  function endChat() {
+  function startNewChat() {
     localStorage.removeItem(STORAGE_KEY);
     setChatId(null);
     setMessages([]);
     setReason('');
+    setConfirmClose(false);
+    setStatus('open');
   }
 
   return (
     <>
-      {open && (
-        <div
-          onClick={() => setOpen(false)}
-          aria-hidden="true"
-          style={{
-            position: 'fixed', inset: 0, zIndex: 9979,
-            background: 'rgba(0,0,0,0.45)',
-            backdropFilter: 'blur(6px)',
-            WebkitBackdropFilter: 'blur(6px)',
-          }}
-        />
-      )}
+      <div
+        onClick={() => setOpen(false)}
+        aria-hidden="true"
+        style={{
+          position: 'fixed', inset: 0, zIndex: 9979,
+          background: 'rgba(0,0,0,0.45)',
+          backdropFilter: 'blur(6px)',
+          WebkitBackdropFilter: 'blur(6px)',
+          opacity: open ? 1 : 0,
+          pointerEvents: open ? 'auto' : 'none',
+          transition: 'opacity 0.25s ease',
+        }}
+      />
       <button
         onClick={() => setOpen(v => !v)}
         title="Live support"
@@ -197,91 +213,130 @@ export default function SupportChatWidget() {
           width: 50, height: 50, borderRadius: '50%',
           background: 'var(--fr-lime)', border: 'none', cursor: 'pointer',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          boxShadow: '0 4px 20px rgba(204,255,0,0.45)',
+          boxShadow: open ? '0 4px 24px rgba(204,255,0,0.6)' : '0 4px 20px rgba(204,255,0,0.45)',
+          transform: open ? 'scale(1.06) rotate(90deg)' : 'scale(1) rotate(0deg)',
+          transition: 'transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.3s ease',
           animation: open ? 'none' : 'supportPulse 3s ease-in-out infinite',
         }}
       >
-        {open ? <X size={22} color="#000" weight="bold" /> : <Headset size={22} color="#000" weight="fill" />}
+        <span style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          transform: open ? 'rotate(-90deg)' : 'rotate(0deg)',
+          transition: 'transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)',
+        }}>
+          {open ? <X size={22} color="#000" weight="bold" /> : <Headset size={22} color="#000" weight="fill" />}
+        </span>
       </button>
 
-      {open && (
+      <div style={{
+        position: 'fixed', bottom: 144, right: 20, zIndex: 9981,
+        width: 360, maxWidth: 'calc(100vw - 32px)', maxHeight: 'min(560px, calc(100dvh - 180px))',
+        background: 'var(--fr-dark-0)', border: '1px solid var(--fr-border-md)', borderRadius: 18,
+        display: 'flex', flexDirection: 'column', overflow: 'hidden',
+        boxShadow: '0 24px 60px rgba(0,0,0,0.6)',
+        opacity: open ? 1 : 0,
+        transform: open ? 'translateY(0) scale(1)' : 'translateY(16px) scale(0.96)',
+        pointerEvents: open ? 'auto' : 'none',
+        transformOrigin: 'bottom right',
+        transition: 'opacity 0.28s cubic-bezier(0.16, 1, 0.3, 1), transform 0.28s cubic-bezier(0.16, 1, 0.3, 1)',
+      }}>
         <div style={{
-          position: 'fixed', bottom: 144, right: 20, zIndex: 9981,
-          width: 360, maxWidth: 'calc(100vw - 32px)', maxHeight: 'min(560px, calc(100dvh - 180px))',
-          background: 'var(--fr-dark-0)', border: '1px solid var(--fr-border-md)', borderRadius: 16,
-          display: 'flex', flexDirection: 'column', overflow: 'hidden',
-          boxShadow: '0 24px 60px rgba(0,0,0,0.6)',
+          padding: '14px 16px', borderBottom: '1px solid var(--fr-border-subtle)',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          background: 'linear-gradient(180deg, rgba(204,255,0,0.06), transparent)',
         }}>
-          <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--fr-border-subtle)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{ position: 'relative' }}>
+              <SupportAvatar size={34} />
+              <span style={{
+                position: 'absolute', bottom: -1, right: -1, width: 10, height: 10,
+                borderRadius: '50%', background: status === 'resolved' ? 'var(--fr-text-disabled)' : '#22C55E',
+                border: '2px solid var(--fr-dark-0)',
+              }} />
+            </div>
             <div>
               <div style={{ fontSize: 14, fontWeight: 800 }}>SwappINR Support</div>
-              <div style={{ fontSize: 11, color: 'var(--fr-text-tertiary)', display: 'flex', alignItems: 'center', gap: 5 }}>
-                <span style={{ width: 6, height: 6, borderRadius: '50%', background: status === 'resolved' ? 'var(--fr-text-disabled)' : '#22C55E', display: 'inline-block' }} />
+              <div style={{ fontSize: 11, color: 'var(--fr-text-tertiary)' }}>
                 {status === 'resolved' ? 'Chat resolved' : 'Usually replies in minutes'}
               </div>
             </div>
-            <button onClick={() => setOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--fr-text-tertiary)' }}>
-              <X size={18} />
-            </button>
           </div>
+          <button onClick={() => setOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--fr-text-tertiary)', padding: 4 }}>
+            <X size={18} />
+          </button>
+        </div>
 
-          {!chatId ? (
-            <form onSubmit={handleStartChat} style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 10, overflowY: 'auto' }}>
-              <p style={{ fontSize: 12, color: 'var(--fr-text-secondary)', margin: '0 0 4px', lineHeight: 1.5 }}>
-                Tell us a bit about yourself and what you need help with — an agent will join the chat shortly.
-              </p>
-              {error && <div className="fr-alert fr-alert--error" style={{ fontSize: 12 }}>{error}</div>}
-              <input
-                placeholder="Your name" value={name} onChange={e => setName(e.target.value)}
-                style={inputStyle} required
-              />
-              <input
-                type="email" placeholder="Your email" value={email} onChange={e => setEmail(e.target.value)}
-                style={inputStyle} required
-              />
-              <textarea
-                placeholder="What can we help you with?" value={reason} onChange={e => setReason(e.target.value)}
-                rows={3} style={{ ...inputStyle, resize: 'none', fontFamily: 'inherit' }} required
-              />
-              <button type="submit" disabled={starting} className="fr-btn fr-btn--primary fr-btn--full" style={{ marginTop: 2 }}>
-                {starting ? 'Starting…' : 'Start chat'}
-              </button>
-            </form>
-          ) : (
-            <>
-              <div ref={bodyRef} style={{ flex: 1, overflowY: 'auto', padding: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
-                {messages.map(m => (
-                  <div key={m._id} style={{ display: 'flex', justifyContent: m.role === 'user' ? 'flex-end' : 'flex-start' }}>
-                    <div style={{
-                      maxWidth: '78%', padding: '8px 12px', borderRadius: 12, fontSize: 13, lineHeight: 1.45,
-                      background: m.role === 'user' ? 'var(--fr-lime)' : 'var(--fr-faint)',
-                      color: m.role === 'user' ? '#000' : 'var(--fr-text-primary)',
-                    }}>
-                      {m.text && <div>{m.text}</div>}
-                      {m.imageUrls.map(url => (
-                        <img key={url} src={url} alt="attachment" style={{ maxWidth: '100%', borderRadius: 8, marginTop: m.text ? 6 : 0 }} />
-                      ))}
-                    </div>
+        {!chatId ? (
+          <form onSubmit={handleStartChat} style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 10, overflowY: 'auto' }}>
+            <p style={{ fontSize: 12, color: 'var(--fr-text-secondary)', margin: '0 0 4px', lineHeight: 1.5 }}>
+              Tell us a bit about yourself and what you need help with — an agent will join the chat shortly.
+            </p>
+            {error && <div className="fr-alert fr-alert--error" style={{ fontSize: 12 }}>{error}</div>}
+            <input
+              placeholder="Your name" value={name} onChange={e => setName(e.target.value)}
+              style={inputStyle} required
+            />
+            <input
+              type="email" placeholder="Your email" value={email} onChange={e => setEmail(e.target.value)}
+              style={inputStyle} required
+            />
+            <textarea
+              placeholder="What can we help you with?" value={reason} onChange={e => setReason(e.target.value)}
+              rows={3} style={{ ...inputStyle, resize: 'none', fontFamily: 'inherit' }} required
+            />
+            <button type="submit" disabled={starting} className="fr-btn fr-btn--primary fr-btn--full" style={{ marginTop: 2 }}>
+              {starting ? 'Starting…' : 'Start chat'}
+            </button>
+          </form>
+        ) : (
+          <>
+            <div ref={bodyRef} style={{ flex: 1, overflowY: 'auto', padding: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {messages.map(m => (
+                <div key={m._id} style={{ display: 'flex', gap: 7, alignItems: 'flex-end', justifyContent: m.role === 'user' ? 'flex-end' : 'flex-start' }}>
+                  {m.role !== 'user' && <SupportAvatar size={24} />}
+                  <div style={{
+                    maxWidth: '74%', padding: '8px 12px', borderRadius: 14, fontSize: 13, lineHeight: 1.45,
+                    background: m.role === 'user' ? 'var(--fr-lime)' : 'var(--fr-faint)',
+                    color: m.role === 'user' ? '#000' : 'var(--fr-text-primary)',
+                    boxShadow: m.role === 'user' ? '0 2px 10px rgba(204,255,0,0.18)' : '0 1px 4px rgba(0,0,0,0.2)',
+                  }}>
+                    {m.text && <div>{m.text}</div>}
+                    {m.imageUrls.map(url => (
+                      <img key={url} src={url} alt="attachment" style={{ maxWidth: '100%', borderRadius: 8, marginTop: m.text ? 6 : 0 }} />
+                    ))}
                   </div>
-                ))}
-                {status === 'resolved' && (
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, fontSize: 11, color: 'var(--fr-text-tertiary)', padding: '4px 0' }}>
-                    <CheckCircle size={14} /> This chat was marked resolved. Send a message to reopen it.
+                </div>
+              ))}
+              {status === 'resolved' && (
+                <div style={{
+                  display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8,
+                  padding: '16px 10px 4px', textAlign: 'center',
+                }}>
+                  <CheckCircle size={22} color="var(--fr-lime)" weight="fill" />
+                  <div style={{ fontSize: 12, color: 'var(--fr-text-secondary)', lineHeight: 1.5 }}>
+                    This chat has been resolved.<br />Start a new chat if you need more help.
                   </div>
-                )}
-              </div>
-              {uploadError && (
-                <div style={{ padding: '6px 14px', fontSize: 11, color: '#F87171', borderTop: '1px solid var(--fr-border-subtle)' }}>
-                  {uploadError}
+                  <button onClick={startNewChat} className="fr-btn fr-btn--primary" style={{ fontSize: 12, padding: '7px 16px', marginTop: 2 }}>
+                    Start a new chat
+                  </button>
                 </div>
               )}
+            </div>
+
+            {uploadError && (
+              <div style={{ padding: '6px 14px', fontSize: 11, color: '#F87171', borderTop: '1px solid var(--fr-border-subtle)' }}>
+                {uploadError}
+              </div>
+            )}
+
+            {status !== 'resolved' && (
               <div style={{ padding: 10, borderTop: '1px solid var(--fr-border-subtle)', display: 'flex', gap: 8, alignItems: 'flex-end' }}>
                 <input ref={fileInputRef} type="file" accept="image/*" hidden onChange={handleFileSelect} />
                 <button
                   onClick={() => fileInputRef.current?.click()}
                   disabled={uploading}
                   title="Attach image"
-                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--fr-text-tertiary)', padding: 6 }}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--fr-text-tertiary)', padding: 6, opacity: uploading ? 0.5 : 1 }}
                 >
                   <ImageIcon size={20} />
                 </button>
@@ -301,13 +356,26 @@ export default function SupportChatWidget() {
                   <PaperPlaneRight size={15} color="#000" weight="fill" />
                 </button>
               </div>
-              <button onClick={endChat} style={{ background: 'none', border: 'none', borderTop: '1px solid var(--fr-border-subtle)', padding: '8px 0', fontSize: 11, color: 'var(--fr-text-disabled)', cursor: 'pointer' }}>
-                End chat & start a new one
+            )}
+
+            {confirmClose ? (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, borderTop: '1px solid var(--fr-border-subtle)', padding: '8px 0', fontSize: 11 }}>
+                <span style={{ color: 'var(--fr-text-tertiary)' }}>End this chat?</span>
+                <button onClick={startNewChat} style={{ background: 'none', border: 'none', color: '#F87171', fontWeight: 700, cursor: 'pointer', fontSize: 11 }}>
+                  Yes, end chat
+                </button>
+                <button onClick={() => setConfirmClose(false)} style={{ background: 'none', border: 'none', color: 'var(--fr-text-tertiary)', cursor: 'pointer', fontSize: 11 }}>
+                  Cancel
+                </button>
+              </div>
+            ) : (
+              <button onClick={() => setConfirmClose(true)} style={{ background: 'none', border: 'none', borderTop: '1px solid var(--fr-border-subtle)', padding: '8px 0', fontSize: 11, color: 'var(--fr-text-disabled)', cursor: 'pointer' }}>
+                Close chat & start a new one
               </button>
-            </>
-          )}
-        </div>
-      )}
+            )}
+          </>
+        )}
+      </div>
     </>
   );
 }
