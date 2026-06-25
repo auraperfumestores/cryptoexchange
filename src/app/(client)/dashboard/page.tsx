@@ -72,25 +72,25 @@ export default async function DashboardPage() {
           <div className="dash-secondary" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 
             {/* Quick stats */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div className="dash-stats-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
               {[
                 { label: 'Total orders', value: txDocs.length, color: '#60A5FA' },
                 { label: 'Completed',    value: txDocs.filter(t => t.status === 'completed').length, color: 'var(--fr-lime)' },
                 { label: 'Pending',      value: txDocs.filter(t => !['completed','cancelled'].includes(t.status)).length, color: 'var(--fr-text-warning)' },
                 { label: 'Volume (INR)', value: `₹${txDocs.reduce((s,t) => s + (t.inrAmount ?? 0), 0).toLocaleString('en-IN')}`, color: '#B78FFF' },
               ].map(({ label, value, color }) => (
-                <div key={label} style={{ background: 'var(--fr-dark-2)', border: '1px solid var(--fr-border-default)', borderRadius: 'var(--fr-radius-lg)', padding: '16px 18px' }}>
-                  <p style={{ fontSize: 20, fontWeight: 800, color: 'var(--fr-text-primary)', margin: '0 0 3px', fontFamily: 'var(--fr-font-mono)' }}>{value}</p>
-                  <p style={{ fontSize: 11, color: color, margin: 0, fontWeight: 600 }}>{label}</p>
+                <div key={label} className="dash-stat-card" style={{ background: 'var(--fr-dark-2)', border: '1px solid var(--fr-border-default)', borderRadius: 'var(--fr-radius-lg)', padding: '16px 18px' }}>
+                  <p className="dash-stat-value" style={{ fontSize: 20, fontWeight: 800, color: 'var(--fr-text-primary)', margin: '0 0 3px', fontFamily: 'var(--fr-font-mono)' }}>{value}</p>
+                  <p className="dash-stat-label" style={{ fontSize: 11, color: color, margin: 0, fontWeight: 600 }}>{label}</p>
                 </div>
               ))}
             </div>
 
             {/* Recent trades */}
-            <div style={{ background: 'var(--fr-dark-2)', border: '1px solid var(--fr-border-default)', borderRadius: 'var(--fr-radius-xl)', overflow: 'hidden' }}>
-              <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--fr-border-subtle)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--fr-text-primary)', margin: 0 }}>Recent trades</p>
-                <Link href="/transactions" style={{ fontSize: 12, color: 'var(--fr-lime)', textDecoration: 'none', fontWeight: 600 }}>View all →</Link>
+            <div className="dash-trades-panel" style={{ background: 'var(--fr-dark-2)', border: '1px solid var(--fr-border-default)', borderRadius: 'var(--fr-radius-xl)', overflow: 'hidden' }}>
+              <div className="dash-trades-head" style={{ padding: '16px 20px', borderBottom: '1px solid var(--fr-border-subtle)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <p className="dash-trades-title" style={{ fontSize: 13, fontWeight: 700, color: 'var(--fr-text-primary)', margin: 0 }}>Recent trades</p>
+                <Link href="/transactions" className="dash-trades-viewall" style={{ fontSize: 12, color: 'var(--fr-lime)', textDecoration: 'none', fontWeight: 600 }}>View all →</Link>
               </div>
 
               {txDocs.length === 0 ? (
@@ -102,20 +102,20 @@ export default async function DashboardPage() {
                 txDocs.map((tx, i) => {
                   const s = STATUS_STYLES[tx.status] ?? STATUS_STYLES.cancelled;
                   return (
-                    <Link key={tx._id} href={`/transactions/${tx._id}`} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 20px', textDecoration: 'none', borderBottom: i < txDocs.length - 1 ? '1px solid var(--fr-border-subtle)' : 'none' }}>
-                      <div style={{ width: 34, height: 34, borderRadius: 'var(--fr-radius-md)', background: tx.type === 'buy' ? 'rgba(204,255,0,0.10)' : 'rgba(96,165,250,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: tx.type === 'buy' ? 'var(--fr-lime)' : '#60A5FA' }}>
+                    <Link key={tx._id} href={`/transactions/${tx._id}`} className="dash-trade-row" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 20px', textDecoration: 'none', borderBottom: i < txDocs.length - 1 ? '1px solid var(--fr-border-subtle)' : 'none' }}>
+                      <div className="dash-trade-icon" style={{ width: 34, height: 34, borderRadius: 'var(--fr-radius-md)', background: tx.type === 'buy' ? 'rgba(204,255,0,0.10)' : 'rgba(96,165,250,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: tx.type === 'buy' ? 'var(--fr-lime)' : '#60A5FA' }}>
                         {tx.type === 'buy'
                           ? <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 2V12M7 12L3 8M7 12L11 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
                           : <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 12V2M7 2L3 6M7 2L11 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
                         }
                       </div>
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--fr-text-primary)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        <p className="dash-trade-name" style={{ fontSize: 12, fontWeight: 700, color: 'var(--fr-text-primary)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                           {formatCrypto(tx.cryptoAmount, tx.cryptoSymbol)} {tx.cryptoSymbol}
                         </p>
-                        <p style={{ fontSize: 11, color: 'var(--fr-text-tertiary)', margin: '1px 0 0' }}>{tx.network} · {formatINR(tx.inrAmount)}</p>
+                        <p className="dash-trade-sub" style={{ fontSize: 11, color: 'var(--fr-text-tertiary)', margin: '1px 0 0' }}>{tx.network} · {formatINR(tx.inrAmount)}</p>
                       </div>
-                      <span style={{ fontSize: 11, fontWeight: 700, color: s.color, background: s.bg, borderRadius: 999, padding: '3px 8px', flexShrink: 0 }}>
+                      <span className="dash-trade-status" style={{ fontSize: 11, fontWeight: 700, color: s.color, background: s.bg, borderRadius: 999, padding: '3px 8px', flexShrink: 0 }}>
                         {s.label}
                       </span>
                     </Link>

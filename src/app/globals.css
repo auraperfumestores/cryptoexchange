@@ -339,10 +339,23 @@
   /* Recenter dashboard content into the space freed up by the vertical feed */
   @media (min-width: 1750px) {
     .dash-content-wrap {
-      max-width: 1040px !important;
-      margin-left: calc((100vw - 1180px) / 2 + 16px) !important;
+      max-width: 1120px !important;
+      margin-left: 32px !important;
       margin-right: auto !important;
     }
+    .user-dash-grid { grid-template-columns: minmax(0,480px) 1.3fr !important; gap: 32px !important; }
+    .dash-stats-grid { gap: 16px !important; }
+    .dash-stat-card { padding: 22px 24px !important; }
+    .dash-stat-value { font-size: 28px !important; margin-bottom: 6px !important; }
+    .dash-stat-label { font-size: 13px !important; }
+    .dash-trades-head { padding: 20px 24px !important; }
+    .dash-trades-title { font-size: 16px !important; }
+    .dash-trades-viewall { font-size: 13px !important; }
+    .dash-trade-row { padding: 16px 24px !important; gap: 16px !important; }
+    .dash-trade-icon { width: 42px !important; height: 42px !important; }
+    .dash-trade-name { font-size: 14px !important; }
+    .dash-trade-sub { font-size: 12.5px !important; }
+    .dash-trade-status { font-size: 12px !important; padding: 4px 10px !important; }
   }
 
   /* ── Navbar ── */
