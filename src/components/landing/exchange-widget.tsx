@@ -5,6 +5,7 @@ import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { TokenIcon, NetworkIcon } from '@/components/ui/token-icon';
 import { SellFlowModal } from '@/components/ui/sell-flow-modal';
+import { BuyFlowModal } from '@/components/ui/buy-flow-modal';
 
 interface AdminRate {
   symbol: string;
@@ -86,6 +87,7 @@ export default function ExchangeWidget() {
   const [lastUpdate, setLastUpdate] = useState('');
   const [showSummary,  setShowSummary]  = useState(false);
   const [showSellFlow, setShowSellFlow] = useState(false);
+  const [showBuyFlow, setShowBuyFlow] = useState(false);
   const [attemptedSubmit, setAttemptedSubmit] = useState(false);
   const fetchRef = useRef<AbortController | null>(null);
 
@@ -425,24 +427,20 @@ export default function ExchangeWidget() {
             </svg>
           </button>
         ) : (
-          <a
-            href={isAuthed && !belowMin ? `/checkout?amount=${encodeURIComponent(amount)}&mode=${mode}&network=${network}` : undefined}
-            onClick={e => {
-              if (status === 'loading') { e.preventDefault(); return; }
-              if (!isAuthed) {
-                e.preventDefault();
-                goToLogin(`/checkout?amount=${encodeURIComponent(amount)}&mode=${mode}&network=${network}`);
-                return;
-              }
-              if (belowMin) { e.preventDefault(); setAttemptedSubmit(true); }
+          <button
+            onClick={() => {
+              if (status === 'loading') return;
+              if (!isAuthed) { goToLogin('/dashboard'); return; }
+              if (belowMin) { setAttemptedSubmit(true); return; }
+              setShowBuyFlow(true);
             }}
             className="ew-cta"
             style={{
               display:'flex', alignItems:'center', justifyContent:'center', gap:8,
               width:'100%', padding:'15px 0', borderRadius:12,
               background: FR.lime, color: '#000',
-              cursor:'pointer',
-              fontSize:15, fontWeight:800, textDecoration:'none', letterSpacing:'-0.01em',
+              border:'none', cursor:'pointer',
+              fontSize:15, fontWeight:800, letterSpacing:'-0.01em',
               transition:'all 0.15s',
               boxShadow: `0 4px 20px rgba(204,255,0,0.22)`,
               fontFamily: FR.sans,
@@ -452,7 +450,7 @@ export default function ExchangeWidget() {
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
               <path d="M3 8H13M9 4L13 8L9 12" stroke="#000" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
-          </a>
+          </button>
         )}
 
         {/* ── Payment Methods ── */}
@@ -486,6 +484,17 @@ export default function ExchangeWidget() {
           inrAmount={outputAmount ?? '0'}
           rate={rate}
           onClose={() => setShowSellFlow(false)}
+        />
+      )}
+
+      {/* ── Buy Flow Modal ── */}
+      {showBuyFlow && rate && (
+        <BuyFlowModal
+          network={network}
+          usdtAmount={numAmt}
+          inrAmount={outputAmount ?? '0'}
+          rate={rate}
+          onClose={() => setShowBuyFlow(false)}
         />
       )}
     </div>

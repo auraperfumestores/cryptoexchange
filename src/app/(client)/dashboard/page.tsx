@@ -111,7 +111,7 @@ export default async function DashboardPage() {
                       </div>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <p className="dash-trade-name" style={{ fontSize: 12, fontWeight: 700, color: 'var(--fr-text-primary)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {formatCrypto(tx.cryptoAmount, tx.cryptoSymbol)} {tx.cryptoSymbol}
+                          {formatCrypto(tx.cryptoAmount, tx.cryptoSymbol)}
                         </p>
                         <p className="dash-trade-sub" style={{ fontSize: 11, color: 'var(--fr-text-tertiary)', margin: '1px 0 0' }}>{tx.network} · {formatINR(tx.inrAmount)}</p>
                       </div>
