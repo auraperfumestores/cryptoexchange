@@ -19,8 +19,14 @@ interface SupportMessage {
   createdAt: string;
 }
 
-const STORAGE_KEY = 'swappinr_support_chat_id';
+const STORAGE_PREFIX = 'swappinr_support_chat_id';
 const POLL_MS = 4000;
+
+/** Keys the stored chat id by the logged-in user (or 'guest') so switching accounts on
+ *  the same browser never resurfaces a previous account's chat. */
+function storageKeyFor(userId?: string | null) {
+  return `${STORAGE_PREFIX}:${userId || 'guest'}`;
+}
 
 function mergeMessages(prev: SupportMessage[], incoming: SupportMessage[]): SupportMessage[] {
   const existingIds = new Set(prev.map(m => m._id));
@@ -56,7 +62,7 @@ function SupportAvatar({ size = 28 }: { size?: number }) {
 }
 
 export default function SupportChatWidget() {
-  const { data: session } = useSession();
+  const { data: session, status: sessionStatus } = useSession();
   const [open, setOpen] = useState(false);
   const [chatId, setChatId] = useState<string | null>(null);
   const [status, setStatus] = useState<'open' | 'resolved'>('open');
@@ -82,9 +88,11 @@ export default function SupportChatWidget() {
   }, []);
 
   useEffect(() => {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) setChatId(stored);
-  }, []);
+    if (sessionStatus === 'loading') return;
+    const stored = localStorage.getItem(storageKeyFor(session?.user?.id));
+    setChatId(stored || null);
+    setMessages([]);
+  }, [sessionStatus, session?.user?.id]);
 
   useEffect(() => {
     if (session?.user) {
@@ -143,7 +151,7 @@ export default function SupportChatWidget() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Could not start chat');
-      localStorage.setItem(STORAGE_KEY, data.data._id);
+      localStorage.setItem(storageKeyFor(session?.user?.id), data.data._id);
       setChatId(data.data._id);
       setStatus('open');
     } catch (err: any) {
@@ -196,7 +204,7 @@ export default function SupportChatWidget() {
   }
 
   function startNewChat() {
-    localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(storageKeyFor(session?.user?.id));
     setChatId(null);
     setMessages([]);
     setReason('');

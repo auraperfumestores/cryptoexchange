@@ -1,10 +1,20 @@
 import { NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth/auth';
 import { connectToDatabase, SupportChat, SupportMessage, supportMessageToDocument } from '@/lib/db';
 import { errorResponse, badRequest, notFound } from '@/lib/utils/errors';
 import { sendTopicMessage, sendTopicPhoto, sendTopicDocument, escapeHtml } from '@/lib/telegram/bot';
 import { checkSupportReminders } from '@/lib/telegram/reminders';
 
 export const dynamic = 'force-dynamic';
+
+/** A chat started while logged in may only be read/written by that same logged-in user —
+ *  prevents one account from viewing another account's chat via a leaked/stale chat id. */
+async function assertChatAccess(chat: { userId?: string }) {
+  if (!chat.userId) return true;
+  const session = await getServerSession(authOptions);
+  return session?.user?.id === chat.userId;
+}
 
 /** GET /api/support/chats/[id]/messages?after=<ms> — used by the widget to poll for new
  *  messages (including the admin's replies relayed in from Telegram). */
@@ -13,6 +23,7 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
     await connectToDatabase();
     const chat = await SupportChat.findById(params.id).lean();
     if (!chat) return notFound('Chat not found');
+    if (!(await assertChatAccess(chat as any))) return notFound('Chat not found');
 
     const { searchParams } = new URL(req.url);
     const after = Number(searchParams.get('after')) || 0;
@@ -46,6 +57,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     await connectToDatabase();
     const chat = await SupportChat.findById(params.id);
     if (!chat) return notFound('Chat not found');
+    if (!(await assertChatAccess(chat as any))) return notFound('Chat not found');
 
     const message = await SupportMessage.create({
       chatId: params.id,
