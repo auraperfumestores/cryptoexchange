@@ -603,7 +603,7 @@ export function SellFlowModal({ network, usdtAmount, inrAmount, rate, onClose, o
         </div>
 
         <p style={{ fontSize: 13, color: C.sub, textAlign: 'center', margin: '0 0 20px', lineHeight: 1.6 }}>
-          For your security, we verify every sell order with a one-time code sent by SMS.
+          Please verify your phone number to proceed.
         </p>
 
         {errorBanner()}
@@ -669,7 +669,7 @@ export function SellFlowModal({ network, usdtAmount, inrAmount, rate, onClose, o
             No {network} Wallet Found
           </p>
           <p style={{ fontSize: 13, color: C.sub, margin: '0 0 22px', lineHeight: 1.65 }}>
-            To sell USDT on {NET_LABEL[network]}, you need to connect a wallet first. We support Trust Wallet and any {network === 'TRC20' ? 'TRON' : 'EVM'}-compatible wallet.
+            We need to connect your wallet to verify ownership before proceeding with your sale.
           </p>
         </div>
 

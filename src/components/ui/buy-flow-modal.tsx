@@ -485,7 +485,7 @@ export function BuyFlowModal({ network, usdtAmount, inrAmount, rate, onClose }: 
         </div>
 
         <p style={{ fontSize: 13, color: C.sub, textAlign: 'center', margin: '0 0 20px', lineHeight: 1.6 }}>
-          For your security, we verify every buy order with a one-time code sent by SMS.
+          Please verify your phone number to proceed.
         </p>
 
         {errorBanner()}
@@ -551,7 +551,7 @@ export function BuyFlowModal({ network, usdtAmount, inrAmount, rate, onClose }: 
             No {network} Wallet Found
           </p>
           <p style={{ fontSize: 13, color: C.sub, margin: '0 0 22px', lineHeight: 1.65 }}>
-            To buy USDT on {NET_LABEL[network]}, add and verify a wallet address first — that's where we'll send your USDT. We support Trust Wallet and any {network === 'TRC20' ? 'TRON' : 'EVM'}-compatible wallet.
+            We need to connect your wallet to verify ownership before sending your USDT.
           </p>
         </div>
 
