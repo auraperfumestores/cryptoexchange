@@ -37,21 +37,12 @@ export default async function DashboardPage() {
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
           <div>
             <h1 style={{ fontSize: 24, fontWeight: 800, color: 'var(--fr-text-primary)', margin: 0, letterSpacing: '-0.03em' }}>
-              Welcome back, {firstName}
+              Welcome, {firstName}
             </h1>
             {/* Desktop subtitle */}
             <p className="dash-sub-desktop" style={{ margin: '4px 0 0', fontSize: 14, color: 'var(--fr-text-secondary)' }}>
               Exchange USDT to INR at the best rates
             </p>
-            {/* Mobile subtitle — wallet warning */}
-            <div className="dash-sub-mobile" style={{ alignItems: 'center', gap: 6, margin: '6px 0 0' }}>
-              <svg width="15" height="15" viewBox="0 0 15 15" fill="none" style={{ flexShrink: 0 }}>
-                <path d="M7.5 1L13.5 12H1.5L7.5 1Z" stroke="#F59E0B" strokeWidth="1.4" strokeLinejoin="round"/>
-                <path d="M7.5 5.5V8.5" stroke="#F59E0B" strokeWidth="1.4" strokeLinecap="round"/>
-                <circle cx="7.5" cy="10.5" r="0.6" fill="#F59E0B"/>
-              </svg>
-              <span style={{ fontSize: 13, fontWeight: 600, color: '#F59E0B' }}>Wallet verification pending</span>
-            </div>
           </div>
           {/* Live rates badge — desktop only */}
           <div className="dash-live-rate" style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(204,255,0,0.06)', border: '1px solid rgba(204,255,0,0.18)', borderRadius: 999, padding: '6px 14px' }}>

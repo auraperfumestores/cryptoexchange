@@ -8,6 +8,7 @@ const inter = Inter({ subsets: ['latin'], variable: '--font-inter', display: 'sw
 const jetbrainsMono = JetBrains_Mono({ subsets: ['latin'], variable: '--font-mono', weight: ['400','500','600','700','800'], display: 'swap' });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || 'https://swappinr.com'),
   title: 'SwappINR — USDT to Indian Rupees Exchange',
   description: 'The fastest way to convert USDT to INR. Settle via UPI, bank transfer, or cash. Live rates, zero hidden fees.',
   keywords: ['USDT', 'INR', 'crypto exchange', 'India', 'UPI', 'buy USDT', 'sell USDT'],

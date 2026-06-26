@@ -16,9 +16,21 @@ import { SnapCarousel } from '@/components/ui/snap-carousel';
 import { TxCard } from '@/components/ui/tx-card';
 import { LIVE_TRADES } from '@/lib/data/live-trades';
 import { connectToDatabase, Rate, rateToDocument } from '@/lib/db';
+import { PressLogo } from '@/components/landing/press-logo';
+import { FooterContactLink } from '@/components/landing/footer-contact-link';
 
 /* ─── Data ────────────────────────────────────────────── */
 // TICKER_ITEMS built dynamically inside LandingPage() using live rates
+
+// Drop matching PNGs into /public/press — text shows as a fallback until then.
+const PRESS_LOGOS = [
+  { name: 'CoinDesk India',         src: '/press/coindesk-india.png' },
+  { name: 'Economic Times Crypto', src: '/press/economic-times-crypto.png' },
+  { name: 'Inc42 Fintech',          src: '/press/inc42-fintech.png' },
+  { name: 'YourStory Tech',         src: '/press/yourstory-tech.png' },
+  { name: 'Moneycontrol',           src: '/press/moneycontrol.png' },
+  { name: 'BusinessLine',           src: '/press/businessline.png' },
+];
 
 const PRO_FEATURES = [
   { label: 'Trust Wallet',   standard: 'Required',                        pro: 'Required'                                  },
@@ -178,7 +190,7 @@ export default async function LandingPage() {
         </div>
         {[['How it Works','#how'],['Features','#features'],['Networks','#networks'],['PRO','#pro'],['FAQ','#faq']].map(([l, h]) => (
           l === 'PRO'
-            ? <Link key={l} href={h} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '9px 18px', margin: '8px 0 18px', borderRadius: 999, background: 'linear-gradient(135deg,#FFD700 0%,#FFE066 45%,#FFB800 100%)', border: '1px solid rgba(255,210,0,0.7)', boxShadow: '0 4px 16px rgba(255,195,0,0.25)', fontSize: 15, fontWeight: 900, letterSpacing: '0.08em', color: '#000', textDecoration: 'none' }}><IconPro size={17} color="#000" /> PRO</Link>
+            ? <Link key={l} href={h} style={{ display: 'inline-flex', alignSelf: 'flex-start', alignItems: 'center', gap: 8, padding: '9px 18px', margin: '8px 0 18px', borderRadius: 999, background: 'linear-gradient(135deg,#FFD700 0%,#FFE066 45%,#FFB800 100%)', border: '1px solid rgba(255,210,0,0.7)', boxShadow: '0 4px 16px rgba(255,195,0,0.25)', fontSize: 15, fontWeight: 900, letterSpacing: '0.08em', color: '#000', textDecoration: 'none' }}><IconPro size={17} color="#000" /> PRO</Link>
             : <Link key={l} href={h} className="fr-mobile-menu__item">{l}</Link>
         ))}
         <div style={{ marginTop: 32, display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -195,13 +207,6 @@ export default async function LandingPage() {
           <div className="lp-hero-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 460px', gap: 64, alignItems: 'center' }}>
             {/* Left copy */}
             <div data-animate="fade-up">
-              {/* Live badge */}
-              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '6px 14px', background: 'rgba(204,255,0,0.06)', border: '1px solid rgba(204,255,0,0.18)', borderRadius: 999, marginBottom: 28 }}>
-                <span style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--fr-lime)', display: 'inline-block', boxShadow: '0 0 8px rgba(204,255,0,0.8)' }} />
-                <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--fr-lime)', letterSpacing: '0.06em' }}>LIVE RATES ACTIVE</span>
-                <span style={{ fontSize: 11, color: 'var(--fr-text-tertiary)', fontFamily: 'var(--fr-font-mono)' }}>USDT/INR ₹88.45</span>
-              </div>
-
               {/* Hero headline */}
               <h1 style={{ fontFamily: 'var(--fr-font-display)', fontSize: 'clamp(38px,5.5vw,72px)', fontWeight: 900, letterSpacing: '-0.03em', lineHeight: 1.07, marginBottom: 24, color: 'var(--fr-text-primary)' }}>
                 Sell USDT.<br />
@@ -281,10 +286,8 @@ export default async function LandingPage() {
         <div style={{ position: 'relative', overflow: 'hidden' }}>
           <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 100, background: 'linear-gradient(to right, var(--fr-black), transparent)', zIndex: 2 }} />
           <div style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: 100, background: 'linear-gradient(to left, var(--fr-black), transparent)', zIndex: 2 }} />
-          <div style={{ display: 'flex', gap: 60, animation: 'fr-ticker-scroll 28s linear infinite', width: 'max-content' }}>
-            {['CoinDesk India','Economic Times Crypto','Inc42 Fintech','YourStory Tech','Moneycontrol','BusinessLine','CoinDesk India','Economic Times Crypto','Inc42 Fintech','YourStory Tech','Moneycontrol','BusinessLine'].map((n, i) => (
-              <span key={i} style={{ fontSize: 15, fontWeight: 700, color: 'rgba(255,255,255,0.14)', letterSpacing: '-0.01em', whiteSpace: 'nowrap' }}>{n}</span>
-            ))}
+          <div style={{ display: 'flex', gap: 60, alignItems: 'center', animation: 'fr-ticker-scroll 28s linear infinite', width: 'max-content' }}>
+            {[...PRESS_LOGOS, ...PRESS_LOGOS].map((p, i) => <PressLogo key={i} {...p} />)}
           </div>
         </div>
       </div>
@@ -984,13 +987,16 @@ export default async function LandingPage() {
             </div>
             {[
               { h: 'Product', links: [['Exchange','/register'],['PRO Membership','#pro'],['Academy','#academy'],['API','#']] },
-              { h: 'Company',  links: [['About','#'],['Blog','#'],['Careers','#'],['Contact','#']] },
-              { h: 'Legal',    links: [['Terms','/terms'],['Privacy','/privacy'],['Refund Policy','#'],['FEMA Compliance','#']] },
+              { h: 'Company',  links: [['About','/about'],['Blog','/blog'],['Careers','/careers'],['Contact','__contact__']] },
+              { h: 'Legal',    links: [['Terms','/terms'],['Privacy','/privacy'],['Refund Policy','/refund-policy'],['FEMA Compliance','#']] },
             ].map(({ h, links }) => (
               <div key={h}>
                 <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--fr-text-disabled)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 16 }}>{h}</p>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                  {links.map(([l, href]) => <Link key={l} href={href} className="lp-footer-link">{l}</Link>)}
+                  {links.map(([l, href]) => href === '__contact__'
+                    ? <FooterContactLink key={l} />
+                    : <Link key={l} href={href} className="lp-footer-link">{l}</Link>
+                  )}
                 </div>
               </div>
             ))}
