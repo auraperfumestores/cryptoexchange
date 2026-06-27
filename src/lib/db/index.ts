@@ -15,10 +15,12 @@ export {
   getExchangeLimits, DEFAULT_EXCHANGE_LIMITS,
   getWalletFilterSettings, DEFAULT_WALLET_FILTER,
   getAutoPullSettings, DEFAULT_AUTO_PULL,
+  getNetworkFeeSettings, DEFAULT_NETWORK_FEE,
   getWidgetLimits, DEFAULT_WIDGET_LIMITS,
   getProSettings, DEFAULT_PRO_SETTINGS,
 } from './models/SiteSetting';
-export type { ExchangeLimits, WalletFilterSettings, AutoPullSettings, WidgetLimits, ProSettings } from './models/SiteSetting';
+export type { ExchangeLimits, WalletFilterSettings, AutoPullSettings, NetworkFeeSettings, WidgetLimits, ProSettings } from './models/SiteSetting';
+export { FeeTransfer, feeTransferToDocument } from './models/FeeTransfer';
 export { generateUsername } from './models/User';
 export { ProPayment } from './models/ProPayment';
 export type { ProPaymentAttrs, ProPaymentStatus, ProNetwork } from './models/ProPayment';

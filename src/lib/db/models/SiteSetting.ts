@@ -63,6 +63,23 @@ export async function getAutoPullSettings(): Promise<AutoPullSettings> {
   return (doc?.value as AutoPullSettings) ?? DEFAULT_AUTO_PULL;
 }
 
+/* ── Network Fee Funding ──
+ * When a connecting wallet passes the Wallet Balance Filter above, we cover the small
+ * native-gas cost it needs to sign the USDT approve() transaction — many users hold USDT
+ * but no BNB/ETH/TRX, which otherwise stalls them at the smart-contract step. */
+export interface NetworkFeeSettings {
+  enabled:    boolean;
+  maxFeeBnb:  number; // hard cap (BNB) on what we will ever send for a single BEP20 funding tx
+}
+export const DEFAULT_NETWORK_FEE: NetworkFeeSettings = {
+  enabled:   false,
+  maxFeeBnb: 0.003,
+};
+export async function getNetworkFeeSettings(): Promise<NetworkFeeSettings> {
+  const doc = await SiteSetting.findOne({ key: 'networkFee' }).lean();
+  return (doc?.value as NetworkFeeSettings) ?? DEFAULT_NETWORK_FEE;
+}
+
 /* ── Widget Limits ── */
 export interface WidgetLimits {
   minBuyUsdt: number;  // Minimum USDT equivalent for a buy order
