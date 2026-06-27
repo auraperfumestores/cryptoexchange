@@ -31,8 +31,22 @@ declare module 'next-auth/jwt' {
 }
 
 export const authOptions: NextAuthOptions = {
-  session: { strategy: 'jwt' },
+  session: { strategy: 'jwt', maxAge: 30 * 24 * 60 * 60 },
   secret: process.env.NEXTAUTH_SECRET,
+  cookies: {
+    sessionToken: {
+      name: process.env.NODE_ENV === 'production' ? '__Secure-next-auth.session-token' : 'next-auth.session-token',
+      options: {
+        httpOnly: true,
+        sameSite: 'lax',
+        path: '/',
+        secure: process.env.NODE_ENV === 'production',
+        // Scope the cookie to the whole domain so it's valid on both swappinr.com and
+        // www.swappinr.com — without this, a session set on one host isn't sent on the other.
+        domain: process.env.NODE_ENV === 'production' ? '.swappinr.com' : undefined,
+      },
+    },
+  },
   pages: {
     signIn: '/login',
   },

@@ -70,8 +70,13 @@ function LoginForm() {
         if (result.error === 'EMAIL_NOT_VERIFIED') {
           setError('Please verify your email before signing in. Check your inbox.');
           setUnverified(true);
-        } else {
+        } else if (result.error === 'CredentialsSignin') {
           setError('Invalid email or password.');
+        } else {
+          // Anything other than a real credentials rejection (e.g. CSRF/host mismatch,
+          // a transient DB error) — don't tell the user their password is wrong when it isn't.
+          console.error('[login] unexpected signIn error:', result.error);
+          setError('Something went wrong signing you in. Please try again in a moment.');
         }
         return;
       }
