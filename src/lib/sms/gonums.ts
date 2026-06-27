@@ -19,9 +19,14 @@ const SENDER_ID   = 'CHORHA';
 const ENTITY_ID   = '1601461177122457427';
 const TEMPLATE_ID = '1607100000000380703';
 
+// Gonums' shared DLT template is registered for this exact wording only — any other
+// text returns TEMPLATE_NOT_MATCHED and the SMS is never delivered. So every purpose
+// (login phone-verify, wallet-verify, etc.) must reuse the same approved message.
+const APPROVED_TEMPLATE = (otp: string) => `Hello, ${otp} is the OTP for SwapINR login using your phone number. Do not share it to anyone.`;
+
 const MESSAGE_TEMPLATES: Record<string, (otp: string) => string> = {
-  'phone-verify':  otp => `Hello, ${otp} is the OTP for SwapINR login using your phone number. Do not share it to anyone.`,
-  'wallet-verify': otp => `Hello, ${otp} is the OTP for wallet confirmation on SwapINR. Do not share it to anyone.`,
+  'phone-verify':  APPROVED_TEMPLATE,
+  'wallet-verify': APPROVED_TEMPLATE,
 };
 
 export async function sendOtpSms(phone: string, otp: string, purpose: string = 'phone-verify'): Promise<void> {
