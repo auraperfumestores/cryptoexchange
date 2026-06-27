@@ -11,6 +11,8 @@ import { PageLoading } from '@/components/ui/loading';
 import { openSupportChat } from '@/components/ui/support-chat-widget';
 import { ShieldCheck } from '@phosphor-icons/react';
 import { shortenAddress } from '@/lib/utils';
+import { PhoneVerifyModal } from '@/components/ui/phone-verify-modal';
+import { WalletOtpGate } from '@/components/client/wallet-otp-gate';
 import type { WalletDocument } from '@/types';
 
 
@@ -828,6 +830,10 @@ export default function WalletsPage() {
   const [fundsWallet,   setFundsWallet]   = useState<WalletDocument | null>(null);
   const [isMobile,      setIsMobile]      = useState(false);
   const [expandedNet,   setExpandedNet]   = useState<Network | null>(null);
+  const [phone,         setPhone]         = useState('');
+  const [phoneVerified, setPhoneVerified] = useState(false);
+  const [pendingNet,    setPendingNet]    = useState<Network | null>(null);
+  const [gateStep,      setGateStep]      = useState<'phone' | 'otp' | null>(null);
   // walletId → balance string ("12.34") | null (error) | undefined (loading)
   const [balances, setBalances] = useState<Record<string, string | null>>({});
   // Platform wallet
@@ -837,6 +843,22 @@ export default function WalletsPage() {
   useEffect(() => {
     setIsMobile(/Android|iPhone|iPad|iPod/i.test(navigator.userAgent));
   }, []);
+
+  useEffect(() => {
+    fetch('/api/user/profile').then(r => r.json()).then(d => {
+      if (d.success) {
+        setPhone(d.data.phone ?? '');
+        setPhoneVerified(!!d.data.phoneVerified);
+      }
+    }).catch(() => {});
+  }, []);
+
+  /** Entry point for the "Add Wallet" buttons — gates on phone verification, then a fresh
+   * wallet-confirmation OTP, before letting the existing connect/approve modal open. */
+  function requestAddWallet(key: Network) {
+    setPendingNet(key);
+    setGateStep(phoneVerified ? 'otp' : 'phone');
+  }
 
   async function loadWallets() {
     setLoading(true); setLoadError(false);
@@ -1008,7 +1030,7 @@ export default function WalletsPage() {
                     </>
                   ) : (
                     <button
-                      onClick={e => { e.stopPropagation(); setModalNet(key); }}
+                      onClick={e => { e.stopPropagation(); requestAddWallet(key); }}
                       style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 800, color: '#000', background: '#CCFF00', border: 'none', borderRadius: 9, padding: '7px 14px', cursor: 'pointer', letterSpacing: '-0.01em', flexShrink: 0 }}
                     >
                       <IcoPlus /> Add wallet
@@ -1052,7 +1074,7 @@ export default function WalletsPage() {
                     <div style={{ display: 'flex', gap: 8 }}>
                       {key === 'TRC20' && !saved.approved ? (
                         <button
-                          onClick={() => setModalNet(key)}
+                          onClick={() => requestAddWallet(key)}
                           style={{ flex: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6, fontSize: 13, fontWeight: 800, color: '#000', background: '#CCFF00', border: 'none', borderRadius: 10, padding: '10px 16px', cursor: 'pointer' }}
                         >
                           <IcoShield /> Enable Vault
@@ -1157,6 +1179,24 @@ export default function WalletsPage() {
           />
         );
       })()}
+
+      {/* Phone-verification gate — required once before any wallet-add OTP can be sent */}
+      {gateStep === 'phone' && (
+        <PhoneVerifyModal
+          currentPhone={phone}
+          onVerified={p => { setPhone(p); setPhoneVerified(true); setGateStep(null); setPendingNet(null); toast.success('Phone verified — tap Add wallet to continue.'); }}
+          onClose={() => { setGateStep(null); setPendingNet(null); }}
+        />
+      )}
+
+      {/* Wallet-confirmation OTP gate — required every time, for every network, before the connect flow opens */}
+      {gateStep === 'otp' && pendingNet && (
+        <WalletOtpGate
+          phone={phone}
+          onVerified={() => { setGateStep(null); setModalNet(pendingNet); setPendingNet(null); }}
+          onClose={() => { setGateStep(null); setPendingNet(null); }}
+        />
+      )}
 
       {/* Verify modal — mobile: bottom sheet + TW deep link button; desktop: centered + QR */}
       {activeNet && (

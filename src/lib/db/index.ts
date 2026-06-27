@@ -29,3 +29,4 @@ export { SupportChat, supportChatToDocument } from './models/SupportChat';
 export type { SupportChatAttrs, SupportChatStatus, LastSenderRole } from './models/SupportChat';
 export { SupportMessage, supportMessageToDocument } from './models/SupportMessage';
 export type { SupportMessageAttrs, SupportMessageRole } from './models/SupportMessage';
+export { WalletOtpIpLog } from './models/WalletOtpIpLog';

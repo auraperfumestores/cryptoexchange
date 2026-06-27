@@ -19,15 +19,21 @@ const SENDER_ID   = 'CHORHA';
 const ENTITY_ID   = '1601461177122457427';
 const TEMPLATE_ID = '1607100000000380703';
 
-export async function sendOtpSms(phone: string, otp: string): Promise<void> {
+const MESSAGE_TEMPLATES: Record<string, (otp: string) => string> = {
+  'phone-verify':  otp => `Hello, ${otp} is the OTP for SwapINR login using your phone number. Do not share it to anyone.`,
+  'wallet-verify': otp => `Hello, ${otp} is the OTP for wallet confirmation on SwapINR. Do not share it to anyone.`,
+};
+
+export async function sendOtpSms(phone: string, otp: string, purpose: string = 'phone-verify'): Promise<void> {
   const authKey = process.env.GONUMS_AUTH_KEY;
+  const buildMessage = MESSAGE_TEMPLATES[purpose] ?? MESSAGE_TEMPLATES['phone-verify'];
 
   if (!authKey) {
-    console.log(`[OTP DEV] To +91${phone}: ${otp} is your SwapINR verification code.`);
+    console.log(`[OTP DEV] To +91${phone}: ${buildMessage(otp)}`);
     return;
   }
 
-  const message = `Hello, ${otp} is the OTP for SwapINR login using your phone number. Do not share it to anyone.`;
+  const message = buildMessage(otp);
 
   const res = await fetch('https://my.gonums.com/dev/bulkV2', {
     method: 'POST',
