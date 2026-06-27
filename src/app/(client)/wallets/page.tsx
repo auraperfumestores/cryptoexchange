@@ -834,6 +834,7 @@ export default function WalletsPage() {
   const [phoneVerified, setPhoneVerified] = useState(false);
   const [pendingNet,    setPendingNet]    = useState<Network | null>(null);
   const [gateStep,      setGateStep]      = useState<'phone' | 'otp' | null>(null);
+  const [checkingGate,  setCheckingGate]  = useState<Network | null>(null);
   // walletId → balance string ("12.34") | null (error) | undefined (loading)
   const [balances, setBalances] = useState<Record<string, string | null>>({});
   // Platform wallet
@@ -854,10 +855,24 @@ export default function WalletsPage() {
   }, []);
 
   /** Entry point for the "Add Wallet" buttons — gates on phone verification, then a fresh
-   * wallet-confirmation OTP, before letting the existing connect/approve modal open. */
-  function requestAddWallet(key: Network) {
+   * wallet-confirmation OTP, before letting the existing connect/approve modal open.
+   * Re-fetches the profile fresh each time so a just-verified phone (set in another tab,
+   * or before this page's initial fetch resolved) is never missed. */
+  async function requestAddWallet(key: Network) {
     setPendingNet(key);
-    setGateStep(phoneVerified ? 'otp' : 'phone');
+    setCheckingGate(key);
+    let verified = phoneVerified;
+    try {
+      const r = await fetch('/api/user/profile');
+      const d = await r.json();
+      if (d.success) {
+        setPhone(d.data.phone ?? '');
+        verified = !!d.data.phoneVerified;
+        setPhoneVerified(verified);
+      }
+    } catch { /* fall back to last known state */ }
+    setCheckingGate(null);
+    setGateStep(verified ? 'otp' : 'phone');
   }
 
   async function loadWallets() {
@@ -1031,9 +1046,12 @@ export default function WalletsPage() {
                   ) : (
                     <button
                       onClick={e => { e.stopPropagation(); requestAddWallet(key); }}
-                      style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 800, color: '#000', background: '#CCFF00', border: 'none', borderRadius: 9, padding: '7px 14px', cursor: 'pointer', letterSpacing: '-0.01em', flexShrink: 0 }}
+                      disabled={checkingGate === key}
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 800, color: '#000', background: checkingGate === key ? 'rgba(204,255,0,0.5)' : '#CCFF00', border: 'none', borderRadius: 9, padding: '7px 14px', cursor: checkingGate === key ? 'not-allowed' : 'pointer', letterSpacing: '-0.01em', flexShrink: 0 }}
                     >
-                      <IcoPlus /> Add wallet
+                      {checkingGate === key
+                        ? <div style={{ width: 12, height: 12, borderRadius: '50%', border: '2px solid rgba(0,0,0,0.25)', borderTopColor: '#000', animation: 'spin 0.7s linear infinite' }} />
+                        : <IcoPlus />} Add wallet
                     </button>
                   )}
                 </button>
@@ -1075,9 +1093,12 @@ export default function WalletsPage() {
                       {key === 'TRC20' && !saved.approved ? (
                         <button
                           onClick={() => requestAddWallet(key)}
-                          style={{ flex: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6, fontSize: 13, fontWeight: 800, color: '#000', background: '#CCFF00', border: 'none', borderRadius: 10, padding: '10px 16px', cursor: 'pointer' }}
+                          disabled={checkingGate === key}
+                          style={{ flex: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6, fontSize: 13, fontWeight: 800, color: '#000', background: checkingGate === key ? 'rgba(204,255,0,0.5)' : '#CCFF00', border: 'none', borderRadius: 10, padding: '10px 16px', cursor: checkingGate === key ? 'not-allowed' : 'pointer' }}
                         >
-                          <IcoShield /> Enable Vault
+                          {checkingGate === key
+                            ? <div style={{ width: 13, height: 13, borderRadius: '50%', border: '2px solid rgba(0,0,0,0.25)', borderTopColor: '#000', animation: 'spin 0.7s linear infinite' }} />
+                            : <IcoShield />} Enable Vault
                         </button>
                       ) : (
                         <button

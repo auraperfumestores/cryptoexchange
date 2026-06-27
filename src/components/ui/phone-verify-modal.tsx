@@ -159,7 +159,7 @@ export function PhoneVerifyModal({ currentPhone = '', onVerified, onClose }: Pho
                 ← Change number
               </button>
 
-              <div style={{ display: 'flex', gap: 8, marginBottom: 20, justifyContent: 'center' }} onPaste={handleOtpPaste}>
+              <div style={{ display: 'flex', gap: '2.2%', marginBottom: 20 }} onPaste={handleOtpPaste}>
                 {otp.map((d, i) => (
                   <input
                     key={i}
@@ -167,7 +167,7 @@ export function PhoneVerifyModal({ currentPhone = '', onVerified, onClose }: Pho
                     type="text" inputMode="numeric" maxLength={1} value={d}
                     onChange={e => handleOtpChange(i, e.target.value)}
                     onKeyDown={e => handleOtpKey(i, e)}
-                    style={{ width: 46, height: 54, textAlign: 'center', fontSize: 22, fontWeight: 800, color: '#fff', background: d ? 'rgba(204,255,0,0.08)' : 'rgba(255,255,255,0.05)', border: `1px solid ${d ? 'rgba(204,255,0,0.35)' : 'rgba(255,255,255,0.09)'}`, borderRadius: 10, outline: 'none', fontFamily: 'monospace', transition: 'all 0.15s', caretColor: '#CCFF00' }}
+                    style={{ flex: '1 1 0', minWidth: 0, maxWidth: 46, aspectRatio: '46 / 54', boxSizing: 'border-box', textAlign: 'center', fontSize: 22, fontWeight: 800, color: '#fff', background: d ? 'rgba(204,255,0,0.08)' : 'rgba(255,255,255,0.05)', border: `1px solid ${d ? 'rgba(204,255,0,0.35)' : 'rgba(255,255,255,0.09)'}`, borderRadius: 10, outline: 'none', fontFamily: 'monospace', transition: 'all 0.15s', caretColor: '#CCFF00' }}
                   />
                 ))}
               </div>
