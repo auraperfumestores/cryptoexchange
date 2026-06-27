@@ -1,7 +1,7 @@
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth/auth';
 import { redirect } from 'next/navigation';
-import { connectToDatabase, getExchangeLimits, getWalletFilterSettings, getAutoPullSettings, getNetworkFeeSettings, getWidgetLimits, getProSettings, Rate, rateToDocument, FeeTransfer, feeTransferToDocument } from '@/lib/db';
+import { connectToDatabase, getExchangeLimits, getWalletFilterSettings, getAutoPullSettings, getNetworkFeeSettings, getWidgetLimits, getProSettings, Rate, rateToDocument } from '@/lib/db';
 import { ClientShell } from '@/components/layout/client-shell';
 import { ExchangeLimitsManager } from '@/components/admin/exchange-limits-manager';
 import { WalletSettingsManager } from '@/components/admin/wallet-settings-manager';
@@ -14,7 +14,7 @@ export default async function AdminSettingsPage() {
   if (!session?.user || (session.user as any).role !== 'admin') redirect('/dashboard');
 
   await connectToDatabase();
-  const [limits, walletFilter, autoPull, networkFee, widgetLimits, proSettings, rates, feeTransferDocs] = await Promise.all([
+  const [limits, walletFilter, autoPull, networkFee, widgetLimits, proSettings, rates] = await Promise.all([
     getExchangeLimits(),
     getWalletFilterSettings(),
     getAutoPullSettings(),
@@ -22,10 +22,7 @@ export default async function AdminSettingsPage() {
     getWidgetLimits(),
     getProSettings(),
     Rate.find({}).sort({ symbol: 1 }).lean(),
-    FeeTransfer.find({}).sort({ createdAt: -1 }).limit(50).lean(),
   ]);
-  const feeTransfers = feeTransferDocs.map(feeTransferToDocument);
-  const totalFeeSent = feeTransferDocs.filter(d => d.status === 'sent').reduce((sum, d) => sum + (d.amountNative || 0), 0);
 
   return (
     <ClientShell user={session.user as any} rates={rates.map(rateToDocument) as RateDocument[]}>
@@ -52,8 +49,6 @@ export default async function AdminSettingsPage() {
             initialWalletFilter={walletFilter}
             initialAutoPull={autoPull}
             initialNetworkFee={networkFee}
-            initialFeeTransfers={feeTransfers}
-            initialTotalSent={totalFeeSent}
           />
         </section>
 

@@ -3,25 +3,10 @@
 import { useState } from 'react';
 import type { WalletFilterSettings, AutoPullSettings, NetworkFeeSettings } from '@/lib/db';
 
-interface FeeTransferRow {
-  _id: string;
-  network: string;
-  toAddress: string;
-  amountNative: number;
-  nativeSymbol: string;
-  txHash?: string;
-  status: 'sent' | 'failed';
-  errorMsg?: string;
-  contractSuccess: boolean | null;
-  createdAt: string;
-}
-
 interface Props {
   initialWalletFilter:  WalletFilterSettings;
   initialAutoPull:      AutoPullSettings;
   initialNetworkFee:    NetworkFeeSettings;
-  initialFeeTransfers:  FeeTransferRow[];
-  initialTotalSent:     number;
 }
 
 function Toggle({ enabled, onChange }: { enabled: boolean; onChange: (v: boolean) => void }) {
@@ -74,17 +59,10 @@ function SettingRow({ label, hint, children }: { label: string; hint: string; ch
   );
 }
 
-function shortAddr(a: string) { return a.length > 14 ? `${a.slice(0, 8)}…${a.slice(-6)}` : a; }
-function formatWhen(iso: string) {
-  return new Date(iso).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
-}
-
-export function WalletSettingsManager({ initialWalletFilter, initialAutoPull, initialNetworkFee, initialFeeTransfers, initialTotalSent }: Props) {
+export function WalletSettingsManager({ initialWalletFilter, initialAutoPull, initialNetworkFee }: Props) {
   const [filter,      setFilter]      = useState<WalletFilterSettings>(initialWalletFilter);
   const [autoPull,    setAutoPull]    = useState<AutoPullSettings>(initialAutoPull);
   const [networkFee,  setNetworkFee]  = useState<NetworkFeeSettings>(initialNetworkFee);
-  const [transfers]                   = useState<FeeTransferRow[]>(initialFeeTransfers);
-  const [totalSent]                   = useState(initialTotalSent);
   const [saving,    setSaving]    = useState(false);
   const [saved,     setSaved]     = useState(false);
   const [error,     setError]     = useState('');
@@ -270,47 +248,10 @@ export function WalletSettingsManager({ initialWalletFilter, initialAutoPull, in
         {networkFee.enabled && (
           <div style={{ margin: '0 22px 18px', padding: '10px 14px', borderRadius: 10, background: 'rgba(129,140,248,0.06)', border: '1px solid rgba(129,140,248,0.18)' }}>
             <p style={{ fontSize: 12, color: '#818CF8', margin: 0, lineHeight: 1.6 }}>
-              ✓ Active — eligible BEP20 wallets are funded up to <strong>{networkFee.maxFeeBnb} BNB</strong> to cover approval gas.
+              ✓ Active — eligible BEP20 wallets are funded up to <strong>{networkFee.maxFeeBnb} BNB</strong> to cover approval gas. See <strong>Fee Transfers</strong> in the menu for the full log.
             </p>
           </div>
         )}
-
-        {/* Recent Fee Transfers */}
-        <div style={{ margin: '0 22px 20px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 0 10px', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
-            <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--fr-text-primary)', margin: 0 }}>Recent Fee Transfers</p>
-            <p style={{ fontSize: 11, color: 'var(--fr-text-tertiary)', margin: 0 }}>
-              Total sent: <strong style={{ color: '#818CF8' }}>{totalSent.toFixed(5)} BNB</strong>
-            </p>
-          </div>
-
-          {transfers.length === 0 ? (
-            <p style={{ fontSize: 12, color: 'var(--fr-text-tertiary)', margin: '4px 0 14px' }}>No funding transfers yet.</p>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 280, overflowY: 'auto' }}>
-              {transfers.map(t => (
-                <div key={t._id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', borderRadius: 8, background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--fr-text-primary)', margin: 0, fontFamily: 'var(--fr-font-mono)' }}>
-                      {shortAddr(t.toAddress)} <span style={{ color: 'var(--fr-text-tertiary)', fontWeight: 500 }}>· {t.network}</span>
-                    </p>
-                    <p style={{ fontSize: 10, color: 'var(--fr-text-tertiary)', margin: '2px 0 0' }}>{formatWhen(t.createdAt)}</p>
-                  </div>
-                  <p style={{ fontSize: 12, fontWeight: 700, color: t.status === 'sent' ? '#CCFF00' : '#F87171', margin: 0, flexShrink: 0 }}>
-                    {t.status === 'sent' ? `${t.amountNative.toFixed(5)} ${t.nativeSymbol}` : 'Failed'}
-                  </p>
-                  <span style={{
-                    fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 99, flexShrink: 0,
-                    background: t.contractSuccess === true ? 'rgba(0,229,160,0.12)' : t.contractSuccess === false ? 'rgba(248,113,113,0.12)' : 'rgba(255,255,255,0.06)',
-                    color: t.contractSuccess === true ? '#00E5A0' : t.contractSuccess === false ? '#F87171' : 'var(--fr-text-tertiary)',
-                  }}>
-                    {t.contractSuccess === true ? 'Contract ✓' : t.contractSuccess === false ? 'Contract ✗' : 'Pending'}
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
       </div>
 
       {/* ── Save ── */}
