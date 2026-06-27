@@ -29,7 +29,7 @@ export default function ForgotPasswordPage() {
 
   return (
     <div style={{ minHeight: '100vh', background: '#080808', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px 16px', position: 'relative', overflow: 'hidden' }}>
-      <StaticMesh />
+      <StaticMesh style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }} />
 
       <div style={{ width: '100%', maxWidth: 440, position: 'relative', zIndex: 1 }}>
 
