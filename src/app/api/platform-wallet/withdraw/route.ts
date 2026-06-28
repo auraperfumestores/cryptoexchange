@@ -11,7 +11,7 @@ export const dynamic = 'force-dynamic';
 type Network = 'ERC20' | 'BEP20' | 'TRC20';
 
 const NET_CHAIN: Record<Network, number> = { ERC20: 1, BEP20: 56, TRC20: 195 };
-export const NETWORK_FEE: Record<Network, number> = { ERC20: 3, BEP20: 0.5, TRC20: 1 };
+const NETWORK_FEE: Record<Network, number> = { ERC20: 3, BEP20: 0.5, TRC20: 1 };
 
 /** POST /api/platform-wallet/withdraw — final step of the withdrawal flow.
  *  Requires a freshly-verified withdraw-OTP record for the caller's phone;
