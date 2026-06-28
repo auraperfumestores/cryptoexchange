@@ -28,6 +28,8 @@ export async function POST(_req: Request, { params }: { params: { id: string } }
           frontImageUrl: 1,
           backImageUrl: 1,
           faceImageUrl: 1,
+          faceImageUrlRight: 1,
+          faceImageUrlLeft: 1,
           rejectionReason: 1,
           submittedAt: 1,
           reviewedAt: 1,

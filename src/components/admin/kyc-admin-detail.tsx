@@ -26,6 +26,8 @@ interface Submission {
   frontImageUrl?: string;
   backImageUrl?: string;
   faceImageUrl?: string;
+  faceImageUrlRight?: string;
+  faceImageUrlLeft?: string;
   status: string;
   rejectionReason?: string;
   submittedAt?: string | null;
@@ -205,10 +207,14 @@ export function KycAdminDetail({ submissionId }: { submissionId: string }) {
             Submitted {submission.submittedAt ? formatDate(submission.submittedAt) : '—'}
             {submission.resetCount > 0 && ` · reset ${submission.resetCount}×`}
           </p>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 12, marginBottom: 12 }}>
             <ImageCard label="Front" url={submission.frontImageUrl} />
             <ImageCard label="Back" url={submission.backImageUrl} />
-            <ImageCard label="Live Face" url={submission.faceImageUrl} />
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12 }}>
+            <ImageCard label="Live Face — Center" url={submission.faceImageUrl} />
+            <ImageCard label="Live Face — Right" url={submission.faceImageUrlRight} />
+            <ImageCard label="Live Face — Left" url={submission.faceImageUrlLeft} />
           </div>
         </div>
 

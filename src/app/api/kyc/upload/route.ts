@@ -14,12 +14,18 @@ const FIELD: Record<Side, 'frontImageUrl' | 'backImageUrl' | 'faceImageUrl'> = {
   face: 'faceImageUrl',
 };
 
-/** POST /api/kyc/upload — stores one captured image (front/back/face) against
- *  the user's in-progress KYC submission. */
+/** POST /api/kyc/upload — stores captured image(s) against the user's
+ *  in-progress KYC submission. For side "face" the liveness check captures
+ *  three angles (front/right/left) in one guided sequence on the same
+ *  device, so imageDataUrlRight and imageDataUrlLeft may be sent alongside
+ *  imageDataUrl in the same request and are all saved together. */
 export async function POST(req: Request) {
   try {
     const user = await requireAuth();
-    const { side, imageDataUrl } = (await req.json()) as { side?: Side; imageDataUrl?: string };
+    const body = (await req.json()) as {
+      side?: Side; imageDataUrl?: string; imageDataUrlRight?: string; imageDataUrlLeft?: string;
+    };
+    const { side, imageDataUrl, imageDataUrlRight, imageDataUrlLeft } = body;
     if (!side || !SIDES.includes(side) || !imageDataUrl) {
       return badRequest('Missing side or image');
     }
@@ -30,11 +36,15 @@ export async function POST(req: Request) {
     if (!submission) return notFound('Start KYC before uploading documents');
     if (submission.status !== 'collecting') return forbidden();
 
-    const url = await uploadKycImage(user.id, side, imageDataUrl);
+    const set: Record<string, string> = { [FIELD[side]]: await uploadKycImage(user.id, side, imageDataUrl) };
+    if (side === 'face') {
+      if (imageDataUrlRight) set.faceImageUrlRight = await uploadKycImage(user.id, 'face-right', imageDataUrlRight);
+      if (imageDataUrlLeft) set.faceImageUrlLeft = await uploadKycImage(user.id, 'face-left', imageDataUrlLeft);
+    }
 
     const updated = await KycSubmission.findOneAndUpdate(
       { userId: user.id },
-      { $set: { [FIELD[side]]: url } },
+      { $set: set },
       { new: true },
     ).lean();
 

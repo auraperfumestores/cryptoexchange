@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth/require-auth';
 import { connectToDatabase, KycSubmission, kycSubmissionToDocument, User } from '@/lib/db';
 import { errorResponse, forbidden, notFound, badRequest } from '@/lib/utils/errors';
+import { sendKycApprovedEmail, sendKycRejectedEmail } from '@/lib/email';
 
 export const dynamic = 'force-dynamic';
 
@@ -40,7 +41,21 @@ export async function POST(req: Request, { params }: { params: { id: string } })
 
     const updated = await KycSubmission.findByIdAndUpdate(params.id, update, { new: true }).lean();
 
-    await User.findByIdAndUpdate(submission.userId, { kycStatus: nextStatus });
+    const targetUser = await User.findByIdAndUpdate(submission.userId, { kycStatus: nextStatus }, { new: true })
+      .select('name email')
+      .lean();
+
+    if (targetUser) {
+      try {
+        if (action === 'verify') {
+          await sendKycApprovedEmail(targetUser.email, targetUser.name);
+        } else {
+          await sendKycRejectedEmail(targetUser.email, targetUser.name, reason!.trim());
+        }
+      } catch (e) {
+        console.error('[kyc] Failed to send decision email', e);
+      }
+    }
 
     return NextResponse.json({ success: true, data: kycSubmissionToDocument(updated) });
   } catch (err) {

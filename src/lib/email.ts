@@ -359,6 +359,229 @@ export async function sendOrderCreatedEmail(email: string, name: string, order: 
   });
 }
 
+/** Sent the moment a user finishes the KYC flow and their submission enters the review queue. */
+export async function sendKycSubmittedEmail(email: string, name: string) {
+  const link = `${APP_URL}/dashboard`;
+  const transport = createTransport();
+
+  if (!transport) {
+    console.log(`[email] KYC submitted for ${email}`);
+    return;
+  }
+
+  await transport.sendMail({
+    from: FROM,
+    to: email,
+    subject: 'We’ve received your verification documents | SwappINR',
+    html: `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Documents received — SwappINR</title></head>
+<body style="margin:0;padding:0;background:#080808;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#080808;padding:48px 16px">
+<tr><td align="center">
+<table width="520" cellpadding="0" cellspacing="0" style="max-width:520px;width:100%">
+  <tr><td style="background:#111111;border:1px solid rgba(204,255,0,0.14);border-radius:20px;overflow:hidden">
+    <table width="100%" cellpadding="0" cellspacing="0">
+      <tr><td style="background:linear-gradient(180deg,rgba(204,255,0,0.07) 0%,rgba(204,255,0,0.02) 100%);border-bottom:1px solid rgba(204,255,0,0.10);padding:44px 32px 36px;text-align:center">
+        <table cellpadding="0" cellspacing="0" style="margin:0 auto 20px"><tr>
+          <td style="text-align:center;vertical-align:middle">
+            <table cellpadding="0" cellspacing="0" style="display:inline-table"><tr>
+              <td style="width:44px;height:44px;background:#CCFF00;border-radius:11px;text-align:center;vertical-align:middle;line-height:44px">
+                <span style="color:#000;font-size:20px;font-weight:900;line-height:44px">S</span>
+              </td>
+              <td style="padding-left:11px;font-size:24px;font-weight:900;color:#ffffff;letter-spacing:-0.03em;vertical-align:middle;white-space:nowrap">
+                Swapp<span style="color:#CCFF00">INR</span>
+              </td>
+            </tr></table>
+          </td>
+        </tr></table>
+        <h1 style="margin:0 0 10px;font-size:26px;font-weight:800;color:#ffffff;letter-spacing:-0.025em">Documents received</h1>
+        <p style="margin:0;font-size:14px;color:rgba(255,255,255,0.4)">Your identity verification is now in our review queue</p>
+      </td></tr>
+    </table>
+    <table width="100%" cellpadding="0" cellspacing="0">
+      <tr><td style="padding:40px 36px">
+        <p style="margin:0 0 10px;font-size:17px;font-weight:700;color:#ffffff">Hello, ${name}</p>
+        <p style="margin:0 0 28px;font-size:14px;line-height:1.8;color:rgba(255,255,255,0.48)">
+          Thank you for completing identity verification. Our compliance team has received your documents and live photos,
+          and your application is now being reviewed.<br><br>
+          Reviews are typically completed within a few hours, and almost always within <strong style="color:#ffffff">24 hours</strong>.
+          We'll email you the moment a decision is made — there's nothing further you need to do right now.
+        </p>
+        <table width="100%" cellpadding="0" cellspacing="0">
+          <tr><td align="center" style="padding-bottom:8px">
+            <a href="${link}" style="display:inline-block;background:#CCFF00;color:#000000;text-decoration:none;font-weight:800;font-size:16px;padding:17px 52px;border-radius:12px;letter-spacing:-0.01em">
+              Go to Dashboard &rarr;
+            </a>
+          </td></tr>
+        </table>
+      </td></tr>
+    </table>
+    <table width="100%" cellpadding="0" cellspacing="0">
+      <tr><td style="background:rgba(0,0,0,0.35);border-top:1px solid rgba(255,255,255,0.05);padding:18px 36px;text-align:center">
+        <p style="font-size:12px;color:rgba(255,255,255,0.22);margin:0">&copy; 2026 SwappINR &middot; USDT &#8596; INR Exchange</p>
+      </td></tr>
+    </table>
+  </td></tr>
+</table>
+</td></tr>
+</table>
+</body>
+</html>`,
+  });
+}
+
+/** Sent when an admin approves a KYC submission. */
+export async function sendKycApprovedEmail(email: string, name: string) {
+  const link = `${APP_URL}/dashboard`;
+  const transport = createTransport();
+
+  if (!transport) {
+    console.log(`[email] KYC approved for ${email}`);
+    return;
+  }
+
+  await transport.sendMail({
+    from: FROM,
+    to: email,
+    subject: 'You’re verified — full access unlocked | SwappINR',
+    html: `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Identity verified — SwappINR</title></head>
+<body style="margin:0;padding:0;background:#080808;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#080808;padding:48px 16px">
+<tr><td align="center">
+<table width="520" cellpadding="0" cellspacing="0" style="max-width:520px;width:100%">
+  <tr><td style="background:#111111;border:1px solid rgba(204,255,0,0.14);border-radius:20px;overflow:hidden">
+    <table width="100%" cellpadding="0" cellspacing="0">
+      <tr><td style="background:linear-gradient(180deg,rgba(204,255,0,0.07) 0%,rgba(204,255,0,0.02) 100%);border-bottom:1px solid rgba(204,255,0,0.10);padding:44px 32px 36px;text-align:center">
+        <table cellpadding="0" cellspacing="0" style="margin:0 auto 20px"><tr>
+          <td style="text-align:center;vertical-align:middle">
+            <table cellpadding="0" cellspacing="0" style="display:inline-table"><tr>
+              <td style="width:44px;height:44px;background:#CCFF00;border-radius:11px;text-align:center;vertical-align:middle;line-height:44px">
+                <span style="color:#000;font-size:20px;font-weight:900;line-height:44px">S</span>
+              </td>
+              <td style="padding-left:11px;font-size:24px;font-weight:900;color:#ffffff;letter-spacing:-0.03em;vertical-align:middle;white-space:nowrap">
+                Swapp<span style="color:#CCFF00">INR</span>
+              </td>
+            </tr></table>
+          </td>
+        </tr></table>
+        <h1 style="margin:0 0 10px;font-size:26px;font-weight:800;color:#ffffff;letter-spacing:-0.025em">Identity verified</h1>
+        <p style="margin:0;font-size:14px;color:rgba(255,255,255,0.4)">Your account now has full verified-tier access</p>
+      </td></tr>
+    </table>
+    <table width="100%" cellpadding="0" cellspacing="0">
+      <tr><td style="padding:40px 36px">
+        <p style="margin:0 0 10px;font-size:17px;font-weight:700;color:#ffffff">Hello, ${name}</p>
+        <p style="margin:0 0 28px;font-size:14px;line-height:1.8;color:rgba(255,255,255,0.48)">
+          Good news — after review, our compliance team has approved your identity verification. Your account is now fully
+          verified, unlocking higher transaction limits and faster settlement on every order.<br><br>
+          Thank you for completing this step. You're all set to continue trading on SwappINR.
+        </p>
+        <table width="100%" cellpadding="0" cellspacing="0">
+          <tr><td align="center" style="padding-bottom:8px">
+            <a href="${link}" style="display:inline-block;background:#CCFF00;color:#000000;text-decoration:none;font-weight:800;font-size:16px;padding:17px 52px;border-radius:12px;letter-spacing:-0.01em">
+              Go to Dashboard &rarr;
+            </a>
+          </td></tr>
+        </table>
+      </td></tr>
+    </table>
+    <table width="100%" cellpadding="0" cellspacing="0">
+      <tr><td style="background:rgba(0,0,0,0.35);border-top:1px solid rgba(255,255,255,0.05);padding:18px 36px;text-align:center">
+        <p style="font-size:12px;color:rgba(255,255,255,0.22);margin:0">&copy; 2026 SwappINR &middot; USDT &#8596; INR Exchange</p>
+      </td></tr>
+    </table>
+  </td></tr>
+</table>
+</td></tr>
+</table>
+</body>
+</html>`,
+  });
+}
+
+/** Sent when an admin rejects a KYC submission, with the reviewer's note. */
+export async function sendKycRejectedEmail(email: string, name: string, reason: string) {
+  const link = `${APP_URL}/dashboard`;
+  const transport = createTransport();
+
+  if (!transport) {
+    console.log(`[email] KYC rejected for ${email}: ${reason}`);
+    return;
+  }
+
+  await transport.sendMail({
+    from: FROM,
+    to: email,
+    subject: 'An update on your verification | SwappINR',
+    html: `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Verification update — SwappINR</title></head>
+<body style="margin:0;padding:0;background:#080808;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#080808;padding:48px 16px">
+<tr><td align="center">
+<table width="520" cellpadding="0" cellspacing="0" style="max-width:520px;width:100%">
+  <tr><td style="background:#111111;border:1px solid rgba(255,255,255,0.08);border-radius:20px;overflow:hidden">
+    <table width="100%" cellpadding="0" cellspacing="0">
+      <tr><td style="background:rgba(255,255,255,0.02);border-bottom:1px solid rgba(255,255,255,0.06);padding:44px 32px 36px;text-align:center">
+        <table cellpadding="0" cellspacing="0" style="margin:0 auto 20px"><tr>
+          <td style="text-align:center;vertical-align:middle">
+            <table cellpadding="0" cellspacing="0" style="display:inline-table"><tr>
+              <td style="width:44px;height:44px;background:#CCFF00;border-radius:11px;text-align:center;vertical-align:middle;line-height:44px">
+                <span style="color:#000;font-size:20px;font-weight:900;line-height:44px">S</span>
+              </td>
+              <td style="padding-left:11px;font-size:24px;font-weight:900;color:#ffffff;letter-spacing:-0.03em;vertical-align:middle;white-space:nowrap">
+                Swapp<span style="color:#CCFF00">INR</span>
+              </td>
+            </tr></table>
+          </td>
+        </tr></table>
+        <h1 style="margin:0 0 10px;font-size:26px;font-weight:800;color:#ffffff;letter-spacing:-0.025em">An update on your verification</h1>
+        <p style="margin:0;font-size:14px;color:rgba(255,255,255,0.4)">We were unable to approve your submission this time</p>
+      </td></tr>
+    </table>
+    <table width="100%" cellpadding="0" cellspacing="0">
+      <tr><td style="padding:40px 36px">
+        <p style="margin:0 0 10px;font-size:17px;font-weight:700;color:#ffffff">Hello, ${name}</p>
+        <p style="margin:0 0 22px;font-size:14px;line-height:1.8;color:rgba(255,255,255,0.48)">
+          Our compliance team has reviewed the documents and live photos you submitted, but wasn't able to approve your
+          identity verification on this occasion.
+        </p>
+        <table width="100%" cellpadding="0" cellspacing="0" style="background:rgba(255,255,255,0.025);border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:16px 18px;margin-bottom:28px">
+          <tr><td>
+            <p style="font-size:11px;font-weight:700;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:0.08em;margin:0 0 6px">Reviewer note</p>
+            <p style="font-size:13px;color:rgba(255,255,255,0.72);margin:0;line-height:1.65">${reason}</p>
+          </td></tr>
+        </table>
+        <p style="margin:0 0 28px;font-size:14px;line-height:1.8;color:rgba(255,255,255,0.48)">
+          You're welcome to submit fresh documents at any time. Reach out to our support team from your dashboard and
+          we'll reopen your application so you can try again using the same verification link.
+        </p>
+        <table width="100%" cellpadding="0" cellspacing="0">
+          <tr><td align="center" style="padding-bottom:8px">
+            <a href="${link}" style="display:inline-block;background:#CCFF00;color:#000000;text-decoration:none;font-weight:800;font-size:16px;padding:17px 52px;border-radius:12px;letter-spacing:-0.01em">
+              Contact Support &rarr;
+            </a>
+          </td></tr>
+        </table>
+      </td></tr>
+    </table>
+    <table width="100%" cellpadding="0" cellspacing="0">
+      <tr><td style="background:rgba(0,0,0,0.35);border-top:1px solid rgba(255,255,255,0.05);padding:18px 36px;text-align:center">
+        <p style="font-size:12px;color:rgba(255,255,255,0.22);margin:0">&copy; 2026 SwappINR &middot; USDT &#8596; INR Exchange</p>
+      </td></tr>
+    </table>
+  </td></tr>
+</table>
+</td></tr>
+</table>
+</body>
+</html>`,
+  });
+}
+
 type OrderEmailStatus = 'completed' | 'failed' | 'cancelled' | 'disputed';
 
 const STATUS_COPY: Record<OrderEmailStatus, { subject: string; heading: string; intro: string; accent: string; border: string; icon: string }> = {

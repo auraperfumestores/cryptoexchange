@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import { compressImageFile } from '@/lib/kyc/client-image';
-import { LiveCamera } from './live-camera';
+import { LiveCamera, type LiveFaceCapture } from './live-camera';
 import type { KycDocType } from '@/types';
 
 const C = {
@@ -34,6 +34,8 @@ interface Submission {
   frontImageUrl?: string;
   backImageUrl?: string;
   faceImageUrl?: string;
+  faceImageUrlRight?: string;
+  faceImageUrlLeft?: string;
   status: string;
   rejectionReason?: string;
 }
@@ -86,7 +88,7 @@ export function KycFlow({ token }: { token: string }) {
     setDocType(sub.docType);
     if (!sub.frontImageUrl) { setStep('frontCapture'); return; }
     if (!sub.backImageUrl) { setStep('backCapture'); return; }
-    if (!sub.faceImageUrl) { setStep('faceIntro'); return; }
+    if (!sub.faceImageUrl || !sub.faceImageUrlRight || !sub.faceImageUrlLeft) { setStep('faceIntro'); return; }
     setStep('review');
   }
 
@@ -114,7 +116,7 @@ export function KycFlow({ token }: { token: string }) {
         if (sub?.backImageUrl) {
           stopPolling();
           setQrOpen(false);
-          setStep(sub.faceImageUrl ? 'review' : 'faceIntro');
+          setStep(sub.faceImageUrl && sub.faceImageUrlRight && sub.faceImageUrlLeft ? 'review' : 'faceIntro');
         } else if (sub?.frontImageUrl) {
           setStep('backCapture');
         }
@@ -155,14 +157,17 @@ export function KycFlow({ token }: { token: string }) {
     }
   }
 
-  async function handleFaceCapture(dataUrl: string) {
+  async function handleFaceCapture(images: LiveFaceCapture) {
     setStep('processingFace'); setError('');
     setBusyMessage('Checking liveness…');
     try {
       await wait(1100);
       setBusyMessage('Matching face to document photo…');
       await wait(1000);
-      const json = await api('/api/kyc/upload', { method: 'POST', body: JSON.stringify({ side: 'face', imageDataUrl: dataUrl }) });
+      const json = await api('/api/kyc/upload', {
+        method: 'POST',
+        body: JSON.stringify({ side: 'face', imageDataUrl: images.front, imageDataUrlRight: images.right, imageDataUrlLeft: images.left }),
+      });
       setSubmission(json.data);
       setStep('review');
     } catch (e: any) {
@@ -536,10 +541,10 @@ function FaceIntroStep({ onStart }: { onStart: () => void }) {
       <p style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: C.lime, margin: '0 0 8px' }}>Step 4 of 5</p>
       <h2 style={{ fontSize: 19, fontWeight: 900, color: '#fff', margin: '0 0 10px', letterSpacing: '-0.02em' }}>Live face verification</h2>
       <p style={{ fontSize: 13, color: C.sub, margin: '0 0 22px', lineHeight: 1.65 }}>
-        We'll open your camera to capture a live photo and confirm it matches your ID. This step can't be done with an uploaded photo.
+        We'll open your camera and guide you through three quick poses — front, right, and left — to confirm a real person matches your ID. This step can't be done with an uploaded photo.
       </p>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 26 }}>
-        {['Find a well-lit space and face the camera directly', 'Remove sunglasses, masks, or hats', 'Hold still for a moment once your face is in the outline'].map(t => (
+        {['Find a well-lit space and face the camera directly', 'Remove sunglasses, masks, or hats', 'Follow the on-screen prompt and turn your head when asked'].map(t => (
           <div key={t} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, fontSize: 12.5, color: C.sub }}>
             <span style={{ width: 16, height: 16, borderRadius: '50%', background: 'rgba(204,255,0,0.1)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', marginTop: 1, color: C.lime, fontSize: 9, fontWeight: 800 }}>•</span>
             {t}
@@ -562,14 +567,28 @@ function ReviewStep({ docType, submission, onSubmit }: { docType: KycDocType | n
         Confirm everything looks clear before sending this to our compliance team for review.
       </p>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: 22 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10, marginBottom: 14 }}>
         {[
-          { url: submission.frontImageUrl, label: 'Front' },
-          { url: submission.backImageUrl, label: 'Back' },
-          { url: submission.faceImageUrl, label: 'Face' },
+          { url: submission.frontImageUrl, label: 'Document — Front' },
+          { url: submission.backImageUrl, label: 'Document — Back' },
         ].map(({ url, label }) => (
           <div key={label} style={{ textAlign: 'center' }}>
             <div style={{ aspectRatio: '4/3', borderRadius: 10, overflow: 'hidden', background: '#000', border: `1px solid ${C.border}`, marginBottom: 6 }}>
+              {url && <img src={url} alt={label} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
+            </div>
+            <span style={{ fontSize: 10.5, color: C.dim }}>{label}</span>
+          </div>
+        ))}
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: 22 }}>
+        {[
+          { url: submission.faceImageUrl, label: 'Face — Center' },
+          { url: submission.faceImageUrlRight, label: 'Face — Right' },
+          { url: submission.faceImageUrlLeft, label: 'Face — Left' },
+        ].map(({ url, label }) => (
+          <div key={label} style={{ textAlign: 'center' }}>
+            <div style={{ aspectRatio: '1/1', borderRadius: 10, overflow: 'hidden', background: '#000', border: `1px solid ${C.border}`, marginBottom: 6 }}>
               {url && <img src={url} alt={label} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
             </div>
             <span style={{ fontSize: 10.5, color: C.dim }}>{label}</span>
@@ -594,16 +613,17 @@ function ReviewStep({ docType, submission, onSubmit }: { docType: KycDocType | n
 
 function PendingStep() {
   return (
-    <div style={{ textAlign: 'center', padding: '12px 0' }}>
-      <div style={{ width: 60, height: 60, borderRadius: '50%', background: 'rgba(251,191,36,0.08)', border: '2px solid rgba(251,191,36,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px' }}>
-        <svg width="26" height="26" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke={C.warn} strokeWidth="1.6"/><path d="M12 7V12L15.5 14" stroke={C.warn} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/></svg>
-      </div>
-      <h2 style={{ fontSize: 19, fontWeight: 900, color: '#fff', margin: '0 0 10px' }}>Your application is under review</h2>
-      <p style={{ fontSize: 13, color: C.sub, margin: '0 0 4px', lineHeight: 1.65 }}>
-        Our compliance team has received your documents and live photo. Reviews typically complete within a few business hours.
+    <div>
+      <p style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: C.warn, margin: '0 0 10px' }}>Under review</p>
+      <h2 style={{ fontSize: 21, fontWeight: 900, color: '#fff', margin: '0 0 14px', letterSpacing: '-0.02em' }}>
+        Your application is with our compliance team
+      </h2>
+      <p style={{ fontSize: 13.5, color: C.sub, margin: '0 0 16px', lineHeight: 1.7 }}>
+        We've received your documents and live photos, and your verification has entered our review queue. Most applications
+        are reviewed within a few hours, and almost always within 24 hours.
       </p>
-      <p style={{ fontSize: 12, color: C.dim, lineHeight: 1.6 }}>
-        You'll see your updated status on this page and in your account settings — no further action is needed from you right now.
+      <p style={{ fontSize: 13, color: C.dim, margin: 0, lineHeight: 1.7 }}>
+        We'll email you the moment a decision is made. There's nothing further to do here — feel free to close this tab.
       </p>
     </div>
   );
@@ -611,13 +631,17 @@ function PendingStep() {
 
 function VerifiedStep() {
   return (
-    <div style={{ textAlign: 'center', padding: '12px 0' }}>
-      <div style={{ width: 60, height: 60, borderRadius: '50%', background: 'rgba(0,229,160,0.08)', border: '2px solid rgba(0,229,160,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px' }}>
-        <svg width="26" height="26" viewBox="0 0 24 24" fill="none"><path d="M4 12L10 18L20 6" stroke={C.success} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"/></svg>
-      </div>
-      <h2 style={{ fontSize: 19, fontWeight: 900, color: '#fff', margin: '0 0 10px' }}>Identity verified</h2>
-      <p style={{ fontSize: 13, color: C.sub, lineHeight: 1.65 }}>
-        Your account has full verified-tier access, including higher transaction limits. You can close this tab and return to your dashboard.
+    <div>
+      <p style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: C.success, margin: '0 0 10px' }}>Verification complete</p>
+      <h2 style={{ fontSize: 21, fontWeight: 900, color: '#fff', margin: '0 0 14px', letterSpacing: '-0.02em' }}>
+        Your identity has been verified
+      </h2>
+      <p style={{ fontSize: 13.5, color: C.sub, margin: '0 0 16px', lineHeight: 1.7 }}>
+        Thank you for completing identity verification. Your account now has full verified-tier access, including higher
+        transaction limits and faster settlement on every order.
+      </p>
+      <p style={{ fontSize: 13, color: C.dim, margin: 0, lineHeight: 1.7 }}>
+        You can close this tab and return to your SwappINR dashboard to continue trading.
       </p>
     </div>
   );
@@ -625,19 +649,23 @@ function VerifiedStep() {
 
 function RejectedStep({ reason }: { reason?: string }) {
   return (
-    <div style={{ textAlign: 'center', padding: '12px 0' }}>
-      <div style={{ width: 60, height: 60, borderRadius: '50%', background: 'rgba(248,113,113,0.08)', border: '2px solid rgba(248,113,113,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px' }}>
-        <svg width="26" height="26" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke={C.danger} strokeWidth="1.6"/><path d="M9 9L15 15M15 9L9 15" stroke={C.danger} strokeWidth="1.6" strokeLinecap="round"/></svg>
-      </div>
-      <h2 style={{ fontSize: 19, fontWeight: 900, color: '#fff', margin: '0 0 10px' }}>Verification was not approved</h2>
+    <div>
+      <p style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: C.danger, margin: '0 0 10px' }}>Not approved</p>
+      <h2 style={{ fontSize: 21, fontWeight: 900, color: '#fff', margin: '0 0 14px', letterSpacing: '-0.02em' }}>
+        We couldn't approve this submission
+      </h2>
+      <p style={{ fontSize: 13.5, color: C.sub, margin: '0 0 18px', lineHeight: 1.7 }}>
+        Our compliance team reviewed your documents and live photos but wasn't able to approve them this time.
+      </p>
       {reason && (
-        <div style={{ background: 'rgba(248,113,113,0.06)', border: '1px solid rgba(248,113,113,0.2)', borderRadius: 12, padding: '12px 16px', margin: '0 0 16px', textAlign: 'left' }}>
-          <p style={{ fontSize: 11, fontWeight: 800, color: C.danger, textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 4px' }}>Reviewer note</p>
-          <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.75)', margin: 0, lineHeight: 1.6 }}>{reason}</p>
+        <div style={{ background: C.card2, border: `1px solid ${C.border}`, borderRadius: 12, padding: '14px 16px', marginBottom: 18 }}>
+          <p style={{ fontSize: 11, fontWeight: 800, color: C.dim, textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 6px' }}>Reviewer note</p>
+          <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.78)', margin: 0, lineHeight: 1.65 }}>{reason}</p>
         </div>
       )}
-      <p style={{ fontSize: 12.5, color: C.dim, lineHeight: 1.6 }}>
-        Please contact support to request a resubmission. Once they reopen your application, this same link will let you submit fresh documents.
+      <p style={{ fontSize: 13, color: C.dim, margin: 0, lineHeight: 1.7 }}>
+        Please reach out to our support team to request a resubmission. Once your application is reopened, this same link
+        will let you submit fresh documents.
       </p>
     </div>
   );

@@ -33,7 +33,7 @@ export async function POST(req: Request) {
       $setOnInsert: { resetCount: 0 },
     };
     if (!sameDocType) {
-      update.$unset = { frontImageUrl: 1, backImageUrl: 1, faceImageUrl: 1 };
+      update.$unset = { frontImageUrl: 1, backImageUrl: 1, faceImageUrl: 1, faceImageUrlRight: 1, faceImageUrlLeft: 1 };
     }
 
     const submission = await KycSubmission.findOneAndUpdate(

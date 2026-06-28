@@ -9,6 +9,8 @@ export interface KycSubmissionAttrs {
   frontImageUrl?: string;
   backImageUrl?: string;
   faceImageUrl?: string;
+  faceImageUrlRight?: string;
+  faceImageUrlLeft?: string;
   status: KycSubmissionStatus;
   rejectionReason?: string;
   submittedAt?: Date | null;
@@ -27,6 +29,8 @@ const KycSubmissionSchema = new Schema<KycSubmissionAttrs>(
     frontImageUrl: { type: String },
     backImageUrl: { type: String },
     faceImageUrl: { type: String },
+    faceImageUrlRight: { type: String },
+    faceImageUrlLeft: { type: String },
     status: {
       type: String,
       enum: ['collecting', 'pending_review', 'verified', 'rejected'],
@@ -55,6 +59,8 @@ export interface KycSubmissionDocument {
   frontImageUrl?: string;
   backImageUrl?: string;
   faceImageUrl?: string;
+  faceImageUrlRight?: string;
+  faceImageUrlLeft?: string;
   status: KycSubmissionStatus;
   rejectionReason?: string;
   submittedAt?: string | null;
@@ -73,6 +79,8 @@ export function kycSubmissionToDocument(doc: any): KycSubmissionDocument {
     frontImageUrl: doc.frontImageUrl,
     backImageUrl: doc.backImageUrl,
     faceImageUrl: doc.faceImageUrl,
+    faceImageUrlRight: doc.faceImageUrlRight,
+    faceImageUrlLeft: doc.faceImageUrlLeft,
     status: doc.status,
     rejectionReason: doc.rejectionReason,
     submittedAt: doc.submittedAt ? new Date(doc.submittedAt).toISOString() : null,
