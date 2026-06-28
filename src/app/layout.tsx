@@ -7,11 +7,65 @@ import PageLoader from '@/components/ui/page-loader';
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter', display: 'swap' });
 const jetbrainsMono = JetBrains_Mono({ subsets: ['latin'], variable: '--font-mono', weight: ['400','500','600','700','800'], display: 'swap' });
 
+const SITE_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://swappinr.com';
+
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || 'https://swappinr.com'),
-  title: 'SwappINR — USDT to Indian Rupees Exchange',
-  description: 'The fastest way to convert USDT to INR. Settle via UPI, bank transfer, or cash. Live rates, zero hidden fees.',
-  keywords: ['USDT', 'INR', 'crypto exchange', 'India', 'UPI', 'buy USDT', 'sell USDT'],
+  metadataBase: new URL(SITE_URL),
+  title: {
+    default: 'SwappINR — USDT to INR Exchange | Sell USDT for Rupees Instantly',
+    template: '%s | SwappINR',
+  },
+  description: 'Convert USDT to INR in under 15 minutes. Live market rates, zero hidden fees, instant UPI/bank settlement. Supports ERC-20, BEP-20, and TRC-20 networks. India\'s most trusted crypto-to-rupee exchange.',
+  keywords: [
+    'USDT to INR', 'sell USDT for INR', 'buy USDT India', 'crypto to INR exchange',
+    'USDT INR converter', 'Tether to rupees', 'crypto exchange India', 'UPI crypto payout',
+    'TRC-20 USDT', 'BEP-20 USDT', 'ERC-20 USDT', 'P2P USDT INR',
+  ],
+  authors: [{ name: 'SwappINR' }],
+  creator: 'SwappINR',
+  publisher: 'SwappINR',
+  alternates: { canonical: '/' },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: { index: true, follow: true, 'max-image-preview': 'large', 'max-snippet': -1, 'max-video-preview': -1 },
+  },
+  openGraph: {
+    type: 'website',
+    locale: 'en_IN',
+    url: SITE_URL,
+    siteName: 'SwappINR',
+    title: 'SwappINR — USDT to INR Exchange | Sell USDT for Rupees Instantly',
+    description: 'Convert USDT to INR in under 15 minutes. Live market rates, zero hidden fees, instant UPI/bank settlement.',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'SwappINR — USDT to INR Exchange',
+    description: 'Convert USDT to INR in under 15 minutes. Live rates, zero hidden fees, instant UPI payouts.',
+  },
+  category: 'finance',
+};
+
+const ORG_JSON_LD = {
+  '@context': 'https://schema.org',
+  '@type': 'Organization',
+  name: 'SwappINR',
+  url: SITE_URL,
+  logo: `${SITE_URL}/icon`,
+  description: 'SwappINR is India\'s USDT-to-INR exchange platform, enabling fast conversion of USDT (Tether) to Indian Rupees via UPI, bank transfer, and cash settlement.',
+  areaServed: { '@type': 'Country', name: 'India' },
+};
+
+const WEBSITE_JSON_LD = {
+  '@context': 'https://schema.org',
+  '@type': 'WebSite',
+  name: 'SwappINR',
+  url: SITE_URL,
+  potentialAction: {
+    '@type': 'SearchAction',
+    target: { '@type': 'EntryPoint', urlTemplate: `${SITE_URL}/blog?q={search_term_string}` },
+    'query-input': 'required name=search_term_string',
+  },
 };
 
 export const viewport: Viewport = {
@@ -29,6 +83,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" className={`${inter.variable} ${jetbrainsMono.variable}`}>
       <body style={{ background: 'var(--fr-black)', color: 'var(--fr-text-primary)', minHeight: '100vh', fontFamily: "var(--font-inter), system-ui, -apple-system, sans-serif" }}>
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(ORG_JSON_LD) }} />
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(WEBSITE_JSON_LD) }} />
         <PageLoader />
         {/* Noise texture overlay — film-grain depth at 3% opacity */}
         <div aria-hidden="true" style={{

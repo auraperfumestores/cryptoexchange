@@ -8,9 +8,23 @@ export default function robots(): MetadataRoute.Robots {
       {
         userAgent: '*',
         allow: '/',
-        disallow: ['/api/', '/admin/', '/dashboard/'],
+        disallow: [
+          '/api/',
+          '/admin/',
+          '/dashboard',
+          '/checkout',
+          '/settings',
+          '/transactions',
+          '/wallets',
+          '/trade',
+          '/kyc/',
+          '/verify-email',
+          '/reset-password',
+          '/forgot-password',
+        ],
       },
     ],
     sitemap: `${SITE_URL}/sitemap.xml`,
+    host: SITE_URL,
   };
 }

@@ -4,6 +4,7 @@ import type { Metadata } from 'next';
 export const metadata: Metadata = {
   title: 'Terms of Service — SwappINR',
   description: 'Terms of Service governing the use of the SwappINR USDT to INR exchange platform.',
+  alternates: { canonical: '/terms' },
 };
 
 const SECTIONS = [

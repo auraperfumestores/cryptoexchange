@@ -141,8 +141,38 @@ export default async function LandingPage() {
     </div>
   );
 
+  const SITE_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://swappinr.com';
+  const faqJsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    mainEntity: FAQ_ITEMS.map(item => ({
+      '@type': 'Question',
+      name: item.q,
+      acceptedAnswer: { '@type': 'Answer', text: item.a },
+    })),
+  };
+  const serviceJsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'Service',
+    serviceType: 'Cryptocurrency Exchange',
+    provider: { '@type': 'Organization', name: 'SwappINR', url: SITE_URL },
+    areaServed: { '@type': 'Country', name: 'India' },
+    name: 'USDT to INR Exchange',
+    description: 'Convert USDT (Tether) to Indian Rupees via UPI, bank transfer, or cash settlement. Supports ERC-20, BEP-20, and TRC-20 networks.',
+  };
+  const breadcrumbJsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: 'Home', item: SITE_URL },
+    ],
+  };
+
   return (
     <main style={{ background: 'var(--fr-black)', overflowX: 'hidden', fontFamily: 'var(--fr-font-sans)' }}>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(serviceJsonLd) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }} />
       <LandingScripts />
 
       {/* ══ 1. TICKER ══ */}
