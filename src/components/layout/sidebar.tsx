@@ -20,6 +20,8 @@ const ADMIN_NAV: NavItem[] = [
     icon: <svg width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M7.5 1L2 3.5V7.5C2 11 4.5 13.6 7.5 14.5C10.5 13.6 13 11 13 7.5V3.5L7.5 1Z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round"/><path d="M5 7.5L6.8 9.3L10.5 5.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/></svg> },
   { href: '/admin/payments', label: 'Payment Methods',
     icon: <svg width="15" height="15" viewBox="0 0 15 15" fill="none"><rect x="1" y="3.5" width="13" height="8" rx="1.5" stroke="currentColor" strokeWidth="1.3"/><path d="M1 6.5H14" stroke="currentColor" strokeWidth="1.3"/><rect x="3" y="9" width="3" height="1.5" rx="0.5" fill="currentColor"/></svg> },
+  { href: '/admin/withdrawals', label: 'Withdrawals',
+    icon: <svg width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M7.5 13V2M7.5 2L3.5 6M7.5 2L11.5 6" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/><path d="M2 13H13" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg> },
   { href: '/admin/fee-transfers', label: 'Fee Transfers',
     icon: <svg width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M7.5 1.5L2 4v4c0 3 2.4 5.4 5.5 6.5 3.1-1.1 5.5-3.5 5.5-6.5V4L7.5 1.5z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round"/><path d="M5 7.5l1.8 1.8L10 6" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/></svg> },
   { href: '/admin/settings', label: 'Settings',

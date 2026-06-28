@@ -7,6 +7,7 @@ import { useEffect, useState } from 'react';
 import { Crown } from '@phosphor-icons/react';
 import type { SessionUser } from '@/types';
 import { ProUpgradeModal } from '@/components/ui/pro-upgrade-modal';
+import { WalletPopup } from '@/components/ui/wallet-popup';
 
 interface UserShellProps {
   user: SessionUser;
@@ -65,18 +66,23 @@ function IcoBalanceCoin({ size = 14 }: { size?: number }) {
     </svg>
   );
 }
-function BalanceChip({ balance }: { balance: number | null }) {
+function BalanceChip({ balance, onClick }: { balance: number | null; onClick: () => void }) {
   return (
-    <div
+    <button
+      onClick={onClick}
       className="user-balance-chip"
-      title="SwappINR Wallet Balance"
+      title="Open SwappINR Wallet"
       style={{
         display: 'flex', alignItems: 'center', gap: 7,
         minWidth: 110, padding: '7px 14px', borderRadius: 8,
         background: 'rgba(204,255,0,0.05)',
         border: '1px solid rgba(204,255,0,0.35)',
-        flexShrink: 0,
+        flexShrink: 0, cursor: 'pointer',
+        transition: 'transform 0.15s, background 0.15s',
       }}
+      onMouseDown={e => { e.currentTarget.style.transform = 'scale(0.96)'; }}
+      onMouseUp={e => { e.currentTarget.style.transform = 'scale(1)'; }}
+      onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; }}
     >
       <span style={{ color: 'var(--fr-lime)', display: 'flex', flexShrink: 0 }}>
         <IcoBalanceCoin size={16} />
@@ -85,7 +91,7 @@ function BalanceChip({ balance }: { balance: number | null }) {
         {balance === null ? '…' : balance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
       </span>
       <span style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.55)', letterSpacing: '0.04em' }}>USDT</span>
-    </div>
+    </button>
   );
 }
 
@@ -116,6 +122,7 @@ export function UserShell({ user, children }: UserShellProps) {
   const [showProModal, setShowProModal] = useState(false);
   const [isPro, setIsPro] = useState<boolean | null>(null);
   const [balance, setBalance] = useState<number | null>(null);
+  const [showWalletPopup, setShowWalletPopup] = useState(false);
 
   useEffect(() => {
     fetch('/api/pro/status').then(r => r.json()).then(d => {
@@ -189,7 +196,7 @@ export function UserShell({ user, children }: UserShellProps) {
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
 
             {/* ── Wallet balance chip (always visible, PC + mobile) ── */}
-            <BalanceChip balance={balance} />
+            <BalanceChip balance={balance} onClick={() => setShowWalletPopup(true)} />
 
             {/* ── Mobile-only PRO crown button ── */}
             {isPro === false && (
@@ -297,6 +304,15 @@ export function UserShell({ user, children }: UserShellProps) {
 
       {/* ── PRO modal ── */}
       {showProModal && <ProUpgradeModal onClose={() => setShowProModal(false)} />}
+
+      {/* ── Website wallet popup ── */}
+      {showWalletPopup && (
+        <WalletPopup
+          balance={balance ?? 0}
+          onClose={() => setShowWalletPopup(false)}
+          onBalanceChange={setBalance}
+        />
+      )}
 
       <style>{`
         @keyframes pro-shimmer { 0% { background-position: -200% center; } 100% { background-position: 200% center; } }

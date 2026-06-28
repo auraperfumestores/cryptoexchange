@@ -32,3 +32,7 @@ export type { SupportMessageAttrs, SupportMessageRole } from './models/SupportMe
 export { WalletOtpIpLog } from './models/WalletOtpIpLog';
 export { KycSubmission, kycSubmissionToDocument } from './models/KycSubmission';
 export type { KycDocType, KycSubmissionStatus, KycSubmissionDocument } from './models/KycSubmission';
+export { PlatformWallet } from './models/PlatformWallet';
+export type { PlatformWalletAttrs, PlatformTx } from './models/PlatformWallet';
+export { WithdrawalRequest } from './models/WithdrawalRequest';
+export type { WithdrawalRequestAttrs } from './models/WithdrawalRequest';

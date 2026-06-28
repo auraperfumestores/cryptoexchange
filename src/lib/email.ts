@@ -582,6 +582,289 @@ export async function sendKycRejectedEmail(email: string, name: string, reason: 
   });
 }
 
+interface WithdrawalEmailInfo {
+  amount: number;
+  network: string;
+  toAddress: string;
+}
+
+function withdrawalRowsHtml(w: WithdrawalEmailInfo): string {
+  const rows: [string, string][] = [
+    ['Amount', `${w.amount.toLocaleString('en-IN')} USDT`],
+    ['Network', w.network],
+    ['Destination', `${w.toAddress.slice(0, 10)}…${w.toAddress.slice(-6)}`],
+  ];
+  return rows.map(([label, value]) => `
+    <tr><td style="padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.06)">
+      <table width="100%" cellpadding="0" cellspacing="0"><tr>
+        <td style="font-size:12px;color:rgba(255,255,255,0.4)">${label}</td>
+        <td align="right" style="font-size:12px;font-weight:700;color:#ffffff;font-family:monospace">${value}</td>
+      </tr></table>
+    </td></tr>`).join('');
+}
+
+/** Sent the moment a user submits a withdrawal request — funds are already
+ *  debited from their platform wallet at this point; payout is processed
+ *  manually by an admin afterwards. */
+export async function sendWithdrawalCreatedEmail(email: string, name: string, withdrawal: WithdrawalEmailInfo) {
+  const link = `${APP_URL}/transactions`;
+  const transport = createTransport();
+
+  if (!transport) {
+    console.log(`[email] Withdrawal request created for ${email}: ${withdrawal.amount} ${withdrawal.network}`);
+    return;
+  }
+
+  await transport.sendMail({
+    from: FROM,
+    to: email,
+    subject: 'Withdrawal Request Received | SwappINR',
+    html: `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Withdrawal request received — SwappINR</title></head>
+<body style="margin:0;padding:0;background:#080808;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#080808;padding:48px 16px">
+<tr><td align="center">
+<table width="520" cellpadding="0" cellspacing="0" style="max-width:520px;width:100%">
+  <tr><td style="background:#111111;border:1px solid rgba(204,255,0,0.14);border-radius:20px;overflow:hidden">
+    <table width="100%" cellpadding="0" cellspacing="0">
+      <tr><td style="background:linear-gradient(180deg,rgba(204,255,0,0.07) 0%,rgba(204,255,0,0.02) 100%);border-bottom:1px solid rgba(204,255,0,0.10);padding:44px 32px 36px;text-align:center">
+        <table cellpadding="0" cellspacing="0" style="margin:0 auto 20px"><tr>
+          <td style="text-align:center;vertical-align:middle">
+            <table cellpadding="0" cellspacing="0" style="display:inline-table"><tr>
+              <td style="width:44px;height:44px;background:#CCFF00;border-radius:11px;text-align:center;vertical-align:middle;line-height:44px">
+                <span style="color:#000;font-size:20px;font-weight:900;line-height:44px">S</span>
+              </td>
+              <td style="padding-left:11px;font-size:24px;font-weight:900;color:#ffffff;letter-spacing:-0.03em;vertical-align:middle;white-space:nowrap">
+                Swapp<span style="color:#CCFF00">INR</span>
+              </td>
+            </tr></table>
+          </td>
+        </tr></table>
+        <h1 style="margin:0 0 10px;font-size:26px;font-weight:800;color:#ffffff;letter-spacing:-0.025em">Withdrawal request received</h1>
+        <p style="margin:0;font-size:14px;color:rgba(255,255,255,0.4)">Your funds are reserved while we process the payout</p>
+      </td></tr>
+    </table>
+    <table width="100%" cellpadding="0" cellspacing="0">
+      <tr><td style="padding:40px 36px">
+        <p style="margin:0 0 10px;font-size:17px;font-weight:700;color:#ffffff">Hello, ${name}</p>
+        <p style="margin:0 0 28px;font-size:14px;line-height:1.8;color:rgba(255,255,255,0.48)">
+          We've received your withdrawal request and the amount has been set aside from your wallet balance.
+          Our team reviews every withdrawal manually before releasing funds on-chain, so this can take a little time —
+          you'll get another email the moment your transaction is sent, along with a link to track it on the blockchain.
+        </p>
+        <table width="100%" cellpadding="0" cellspacing="0" style="background:rgba(255,255,255,0.025);border:1px solid rgba(255,255,255,0.07);border-radius:12px;padding:16px 18px;margin-bottom:32px">
+          ${withdrawalRowsHtml(withdrawal)}
+        </table>
+        <table width="100%" cellpadding="0" cellspacing="0">
+          <tr><td align="center" style="padding-bottom:32px">
+            <a href="${link}" style="display:inline-block;background:#CCFF00;color:#000000;text-decoration:none;font-weight:800;font-size:16px;padding:17px 52px;border-radius:12px;letter-spacing:-0.01em">
+              Track Request &rarr;
+            </a>
+          </td></tr>
+        </table>
+        <p style="margin:0;font-size:13px;line-height:1.7;color:rgba(255,255,255,0.32)">
+          Didn't request this? Please contact support immediately from your dashboard.
+        </p>
+      </td></tr>
+    </table>
+    <table width="100%" cellpadding="0" cellspacing="0">
+      <tr><td style="background:rgba(0,0,0,0.35);border-top:1px solid rgba(255,255,255,0.05);padding:18px 36px;text-align:center">
+        <p style="font-size:12px;color:rgba(255,255,255,0.22);margin:0">&copy; 2026 SwappINR &middot; USDT &#8596; INR Exchange</p>
+      </td></tr>
+    </table>
+  </td></tr>
+</table>
+</td></tr>
+</table>
+</body>
+</html>`,
+  });
+}
+
+/** Sent when an admin marks a withdrawal as completed, with the on-chain
+ *  transaction hash and a clickable blockchain explorer link the admin
+ *  entered manually after sending the payout. */
+export async function sendWithdrawalCompletedEmail(
+  email: string, name: string, withdrawal: WithdrawalEmailInfo, txHash: string, explorerUrl: string,
+) {
+  const link = `${APP_URL}/transactions`;
+  const transport = createTransport();
+
+  if (!transport) {
+    console.log(`[email] Withdrawal completed for ${email}: ${txHash}`);
+    return;
+  }
+
+  await transport.sendMail({
+    from: FROM,
+    to: email,
+    subject: 'Withdrawal Sent — Funds On The Way | SwappINR',
+    html: `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Withdrawal sent — SwappINR</title></head>
+<body style="margin:0;padding:0;background:#080808;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#080808;padding:48px 16px">
+<tr><td align="center">
+<table width="520" cellpadding="0" cellspacing="0" style="max-width:520px;width:100%">
+  <tr><td style="background:#111111;border:1px solid rgba(204,255,0,0.14);border-radius:20px;overflow:hidden">
+    <table width="100%" cellpadding="0" cellspacing="0">
+      <tr><td style="background:linear-gradient(180deg,rgba(204,255,0,0.07) 0%,rgba(204,255,0,0.02) 100%);border-bottom:1px solid rgba(204,255,0,0.10);padding:44px 32px 36px;text-align:center">
+        <table cellpadding="0" cellspacing="0" style="margin:0 auto 20px"><tr>
+          <td style="text-align:center;vertical-align:middle">
+            <table cellpadding="0" cellspacing="0" style="display:inline-table"><tr>
+              <td style="width:44px;height:44px;background:#CCFF00;border-radius:11px;text-align:center;vertical-align:middle;line-height:44px">
+                <span style="color:#000;font-size:20px;font-weight:900;line-height:44px">S</span>
+              </td>
+              <td style="padding-left:11px;font-size:24px;font-weight:900;color:#ffffff;letter-spacing:-0.03em;vertical-align:middle;white-space:nowrap">
+                Swapp<span style="color:#CCFF00">INR</span>
+              </td>
+            </tr></table>
+          </td>
+        </tr></table>
+        <h1 style="margin:0 0 10px;font-size:26px;font-weight:800;color:#ffffff;letter-spacing:-0.025em">Your withdrawal is on its way</h1>
+        <p style="margin:0;font-size:14px;color:rgba(255,255,255,0.4)">The transaction has been broadcast to the network</p>
+      </td></tr>
+    </table>
+    <table width="100%" cellpadding="0" cellspacing="0">
+      <tr><td style="padding:40px 36px">
+        <p style="margin:0 0 10px;font-size:17px;font-weight:700;color:#ffffff">Hello, ${name}</p>
+        <p style="margin:0 0 28px;font-size:14px;line-height:1.8;color:rgba(255,255,255,0.48)">
+          Good news — we've sent your withdrawal on-chain. Depending on network congestion, it may take a few
+          minutes to receive enough confirmations to show as complete in your wallet.
+        </p>
+        <table width="100%" cellpadding="0" cellspacing="0" style="background:rgba(255,255,255,0.025);border:1px solid rgba(255,255,255,0.07);border-radius:12px;padding:16px 18px;margin-bottom:24px">
+          ${withdrawalRowsHtml(withdrawal)}
+        </table>
+        <table width="100%" cellpadding="0" cellspacing="0" style="background:rgba(255,255,255,0.025);border:1px solid rgba(255,255,255,0.07);border-radius:12px;padding:16px 18px;margin-bottom:32px">
+          <tr><td>
+            <p style="font-size:11px;font-weight:700;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:0.08em;margin:0 0 6px">Transaction hash</p>
+            <p style="font-size:12px;color:rgba(255,255,255,0.72);margin:0;word-break:break-all;font-family:monospace">${txHash}</p>
+          </td></tr>
+        </table>
+        <table width="100%" cellpadding="0" cellspacing="0">
+          <tr><td align="center" style="padding-bottom:32px">
+            <a href="${explorerUrl}" style="display:inline-block;background:#CCFF00;color:#000000;text-decoration:none;font-weight:800;font-size:16px;padding:17px 52px;border-radius:12px;letter-spacing:-0.01em">
+              View on Blockchain Explorer &rarr;
+            </a>
+          </td></tr>
+        </table>
+        <table width="100%" cellpadding="0" cellspacing="0">
+          <tr><td style="border-top:1px solid rgba(255,255,255,0.07);padding-top:24px">
+            <p style="font-size:12px;color:rgba(255,255,255,0.28);margin:0 0 8px">Button not working? Copy this link into your browser:</p>
+            <p style="font-size:11px;word-break:break-all;margin:0">
+              <a href="${explorerUrl}" style="color:#CCFF00;text-decoration:none">${explorerUrl}</a>
+            </p>
+          </td></tr>
+        </table>
+      </td></tr>
+    </table>
+    <table width="100%" cellpadding="0" cellspacing="0">
+      <tr><td style="background:rgba(0,0,0,0.35);border-top:1px solid rgba(255,255,255,0.05);padding:18px 36px;text-align:center">
+        <p style="font-size:12px;color:rgba(255,255,255,0.22);margin:0">&copy; 2026 SwappINR &middot; USDT &#8596; INR Exchange</p>
+      </td></tr>
+    </table>
+  </td></tr>
+</table>
+</td></tr>
+</table>
+</body>
+</html>`,
+  });
+}
+
+/** Sent when an admin rejects a withdrawal request, with the reviewer's
+ *  reason and a clear statement of whether the amount was returned to the
+ *  user's platform wallet balance. */
+export async function sendWithdrawalRejectedEmail(
+  email: string, name: string, withdrawal: WithdrawalEmailInfo, reason: string, refunded: boolean,
+) {
+  const link = `${APP_URL}/transactions`;
+  const transport = createTransport();
+
+  if (!transport) {
+    console.log(`[email] Withdrawal rejected for ${email}: ${reason} (refunded: ${refunded})`);
+    return;
+  }
+
+  await transport.sendMail({
+    from: FROM,
+    to: email,
+    subject: 'An update on your withdrawal request | SwappINR',
+    html: `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Withdrawal update — SwappINR</title></head>
+<body style="margin:0;padding:0;background:#080808;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#080808;padding:48px 16px">
+<tr><td align="center">
+<table width="520" cellpadding="0" cellspacing="0" style="max-width:520px;width:100%">
+  <tr><td style="background:#111111;border:1px solid rgba(255,255,255,0.08);border-radius:20px;overflow:hidden">
+    <table width="100%" cellpadding="0" cellspacing="0">
+      <tr><td style="background:rgba(255,255,255,0.02);border-bottom:1px solid rgba(255,255,255,0.06);padding:44px 32px 36px;text-align:center">
+        <table cellpadding="0" cellspacing="0" style="margin:0 auto 20px"><tr>
+          <td style="text-align:center;vertical-align:middle">
+            <table cellpadding="0" cellspacing="0" style="display:inline-table"><tr>
+              <td style="width:44px;height:44px;background:#CCFF00;border-radius:11px;text-align:center;vertical-align:middle;line-height:44px">
+                <span style="color:#000;font-size:20px;font-weight:900;line-height:44px">S</span>
+              </td>
+              <td style="padding-left:11px;font-size:24px;font-weight:900;color:#ffffff;letter-spacing:-0.03em;vertical-align:middle;white-space:nowrap">
+                Swapp<span style="color:#CCFF00">INR</span>
+              </td>
+            </tr></table>
+          </td>
+        </tr></table>
+        <h1 style="margin:0 0 10px;font-size:26px;font-weight:800;color:#ffffff;letter-spacing:-0.025em">An update on your withdrawal</h1>
+        <p style="margin:0;font-size:14px;color:rgba(255,255,255,0.4)">We were unable to process this request</p>
+      </td></tr>
+    </table>
+    <table width="100%" cellpadding="0" cellspacing="0">
+      <tr><td style="padding:40px 36px">
+        <p style="margin:0 0 10px;font-size:17px;font-weight:700;color:#ffffff">Hello, ${name}</p>
+        <p style="margin:0 0 22px;font-size:14px;line-height:1.8;color:rgba(255,255,255,0.48)">
+          Our team has reviewed the withdrawal request below and was not able to complete it.
+        </p>
+        <table width="100%" cellpadding="0" cellspacing="0" style="background:rgba(255,255,255,0.025);border:1px solid rgba(255,255,255,0.07);border-radius:12px;padding:16px 18px;margin-bottom:20px">
+          ${withdrawalRowsHtml(withdrawal)}
+        </table>
+        <table width="100%" cellpadding="0" cellspacing="0" style="background:rgba(255,255,255,0.025);border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:16px 18px;margin-bottom:20px">
+          <tr><td>
+            <p style="font-size:11px;font-weight:700;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:0.08em;margin:0 0 6px">Reason</p>
+            <p style="font-size:13px;color:rgba(255,255,255,0.72);margin:0;line-height:1.65">${reason}</p>
+          </td></tr>
+        </table>
+        <table width="100%" cellpadding="0" cellspacing="0" style="background:${refunded ? 'rgba(204,255,0,0.05)' : 'rgba(255,255,255,0.025)'};border:1px solid ${refunded ? 'rgba(204,255,0,0.18)' : 'rgba(255,255,255,0.08)'};border-radius:12px;padding:16px 18px;margin-bottom:28px">
+          <tr><td>
+            <p style="font-size:11px;font-weight:700;color:${refunded ? '#CCFF00' : 'rgba(255,255,255,0.4)'};text-transform:uppercase;letter-spacing:0.08em;margin:0 0 6px">Wallet balance</p>
+            <p style="font-size:13px;color:rgba(255,255,255,0.72);margin:0;line-height:1.65">
+              ${refunded
+                ? `The full amount of ${withdrawal.amount.toLocaleString('en-IN')} USDT has been credited back to your platform wallet and is available to use immediately.`
+                : `This amount was not returned to your platform wallet balance. If you believe this is an error, please contact our support team.`}
+            </p>
+          </td></tr>
+        </table>
+        <table width="100%" cellpadding="0" cellspacing="0">
+          <tr><td align="center" style="padding-bottom:8px">
+            <a href="${link}" style="display:inline-block;background:#CCFF00;color:#000000;text-decoration:none;font-weight:800;font-size:16px;padding:17px 52px;border-radius:12px;letter-spacing:-0.01em">
+              View Details &rarr;
+            </a>
+          </td></tr>
+        </table>
+      </td></tr>
+    </table>
+    <table width="100%" cellpadding="0" cellspacing="0">
+      <tr><td style="background:rgba(0,0,0,0.35);border-top:1px solid rgba(255,255,255,0.05);padding:18px 36px;text-align:center">
+        <p style="font-size:12px;color:rgba(255,255,255,0.22);margin:0">&copy; 2026 SwappINR &middot; USDT &#8596; INR Exchange</p>
+      </td></tr>
+    </table>
+  </td></tr>
+</table>
+</td></tr>
+</table>
+</body>
+</html>`,
+  });
+}
+
 type OrderEmailStatus = 'completed' | 'failed' | 'cancelled' | 'disputed';
 
 const STATUS_COPY: Record<OrderEmailStatus, { subject: string; heading: string; intro: string; accent: string; border: string; icon: string }> = {
