@@ -115,6 +115,8 @@ export function KycFlow({ token }: { token: string }) {
           stopPolling();
           setQrOpen(false);
           setStep(sub.faceImageUrl ? 'review' : 'faceIntro');
+        } else if (sub?.frontImageUrl) {
+          setStep('backCapture');
         }
       } catch { /* keep polling silently */ }
     }, 3000);
@@ -240,6 +242,8 @@ export function KycFlow({ token }: { token: string }) {
               isDesktop={isDesktop}
               onFile={file => uploadSide(step === 'frontCapture' ? 'front' : 'back', file)}
               onOpenQr={openMobileQr}
+              onBack={() => setStep(step === 'frontCapture' ? 'intro' : 'frontCapture')}
+              backLabel={step === 'frontCapture' ? '← Change document type' : '← Retake front photo'}
             />
           )}
           {step === 'faceIntro' && <FaceIntroStep onStart={() => setStep('faceCapture')} />}
@@ -442,7 +446,7 @@ function ExampleThumb({ slug, label, kind }: { slug: string; label: string; kind
 }
 
 function DocCaptureStep({
-  side, docType, busy, busyMessage, isDesktop, onFile, onOpenQr,
+  side, docType, busy, busyMessage, isDesktop, onFile, onOpenQr, onBack, backLabel,
 }: {
   side: 'front' | 'back';
   docType: KycDocType | null;
@@ -451,6 +455,8 @@ function DocCaptureStep({
   isDesktop: boolean;
   onFile: (file: File) => void;
   onOpenQr: () => void;
+  onBack: () => void;
+  backLabel: string;
 }) {
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -466,6 +472,14 @@ function DocCaptureStep({
 
   return (
     <div>
+      <button
+        onClick={onBack}
+        style={{ display: 'inline-flex', alignItems: 'center', fontSize: 12, fontWeight: 700, color: C.dim, background: 'none', border: 'none', cursor: 'pointer', padding: 0, marginBottom: 14 }}
+        onMouseEnter={e => { e.currentTarget.style.color = C.sub; }}
+        onMouseLeave={e => { e.currentTarget.style.color = C.dim; }}
+      >
+        {backLabel}
+      </button>
       <p style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: C.lime, margin: '0 0 8px' }}>
         Step {side === 'front' ? '2' : '3'} of 5
       </p>
