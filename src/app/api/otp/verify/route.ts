@@ -3,6 +3,9 @@ import { requireAuth }             from '@/lib/auth/require-auth';
 import { connectToDatabase, User } from '@/lib/db';
 import { OtpCode, hashOtp }        from '@/lib/db/models/OtpCode';
 import { errorResponse }           from '@/lib/utils/errors';
+import { creditPlatformWallet }    from '@/lib/wallet/platform-wallet';
+
+const SIGNUP_BONUS_USDT = 5;
 
 export const dynamic = 'force-dynamic';
 
@@ -46,7 +49,19 @@ export async function POST(req: Request) {
 
     await User.updateOne({ _id: auth.id }, { $set: { phone: digits, phoneVerified: true } });
 
-    return NextResponse.json({ success: true });
+    // Grant the $5 signup bonus exactly once — the filter on signupBonusGranted: { $ne: true }
+    // makes this atomic, so a double-submit or race can never double-credit.
+    const bonusGrant = await User.findOneAndUpdate(
+      { _id: auth.id, eligibleForSignupBonus: true, signupBonusGranted: { $ne: true } },
+      { $set: { signupBonusGranted: true } },
+    );
+    let signupBonusGranted = false;
+    if (bonusGrant) {
+      await creditPlatformWallet(auth.id, SIGNUP_BONUS_USDT, 'Signup bonus — phone verified');
+      signupBonusGranted = true;
+    }
+
+    return NextResponse.json({ success: true, signupBonusGranted });
   } catch (err) {
     return errorResponse(err);
   }

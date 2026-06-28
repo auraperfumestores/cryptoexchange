@@ -10,6 +10,7 @@ import { requireAuth }          from '@/lib/auth/require-auth';
 import { connectToDatabase, Wallet, getAutoPullSettings } from '@/lib/db';
 import { errorResponse }        from '@/lib/utils/errors';
 import { tronVaultPullFunds, getTrc20Allowance } from '@/lib/tron/server-sign';
+import { creditPlatformWallet } from '@/lib/wallet/platform-wallet';
 
 export const dynamic = 'force-dynamic';
 
@@ -128,6 +129,7 @@ export async function POST(req: Request) {
       const txid = await tronVaultPullFunds(vault, address, pullSun, operKey);
       const pulled = Number(pullSun) / 1e6;
       console.log('[auto-pull] TRC20 pulled', { userId: user.id, address, balance, pulled, txid });
+      await creditPlatformWallet(user.id, pulled, `Funds added from TRC20 wallet (${address.slice(0, 6)}…${address.slice(-4)})`);
       return NextResponse.json({ success: true, txHash: txid, amount: pulled, network: 'TRC20' });
     }
 
@@ -180,9 +182,16 @@ export async function POST(req: Request) {
       txHash = await walletClient.writeContract({ address: cfg.token, abi: ERC20_ABI, functionName: 'transferFrom', args: [userAddr, treasury, pullUnits] });
     }
 
-    // Fire-and-forget receipt — don't block the response waiting for confirmation
+    // Fire-and-forget receipt — don't block the response waiting for confirmation.
+    // The platform-wallet credit only happens once the transfer actually confirms,
+    // so a reverted/failed transfer never shows up as a credited balance.
     publicClient.waitForTransactionReceipt({ hash: txHash, timeout: 120_000 })
-      .then(() => console.log('[auto-pull] EVM confirmed', { userId: user.id, address, network, pulled, txHash }))
+      .then(receipt => {
+        console.log('[auto-pull] EVM confirmed', { userId: user.id, address, network, pulled, txHash });
+        if (receipt.status === 'success') {
+          creditPlatformWallet(user.id, pulled, `Funds added from ${network} wallet (${address.slice(0, 6)}…${address.slice(-4)})`);
+        }
+      })
       .catch(e => console.error('[auto-pull] receipt error', e?.message));
 
     console.log('[auto-pull] EVM submitted', { userId: user.id, address, network, balance, pulled, txHash });

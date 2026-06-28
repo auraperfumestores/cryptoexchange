@@ -1,10 +1,11 @@
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth/auth';
 import { redirect } from 'next/navigation';
-import { connectToDatabase, Transaction, transactionToDocument } from '@/lib/db';
+import { connectToDatabase, Transaction, transactionToDocument, User } from '@/lib/db';
 import { ClientShell } from '@/components/layout/client-shell';
 import ExchangeWidget from '@/components/landing/exchange-widget';
 import { DashboardLiveFeed } from '@/components/dashboard/dashboard-live-feed';
+import { SignupBonusBanner } from '@/components/dashboard/signup-bonus-banner';
 import Link from 'next/link';
 import { formatINR, formatCrypto } from '@/lib/utils';
 import type { TransactionDocument } from '@/types';
@@ -23,10 +24,14 @@ export default async function DashboardPage() {
   if (!session?.user) redirect('/login');
 
   await connectToDatabase();
-  const allTx = await Transaction.find({ userId: session.user.id }).sort({ createdAt: -1 }).limit(5).lean();
+  const [allTx, dbUser] = await Promise.all([
+    Transaction.find({ userId: session.user.id }).sort({ createdAt: -1 }).limit(5).lean(),
+    User.findById(session.user.id).select('phone phoneVerified eligibleForSignupBonus signupBonusGranted').lean(),
+  ]);
   const txDocs = allTx.map(transactionToDocument) as TransactionDocument[];
 
   const firstName = session.user.name?.split(' ')[0] ?? 'there';
+  const showBonusBanner = !!dbUser?.eligibleForSignupBonus && !dbUser?.signupBonusGranted;
 
   return (
     <ClientShell user={session.user as any} rates={[]}>
@@ -50,6 +55,8 @@ export default async function DashboardPage() {
             <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--fr-lime)' }}>Live rates active</span>
           </div>
         </div>
+
+        {showBonusBanner && <SignupBonusBanner phone={dbUser?.phone} />}
 
         {/* Main content: widget + history */}
         <div className="user-dash-grid" style={{ display: 'grid', gridTemplateColumns: 'minmax(0,480px) 1fr', gap: 24, alignItems: 'start' }}>

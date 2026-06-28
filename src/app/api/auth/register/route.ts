@@ -42,6 +42,9 @@ export async function POST(req: Request) {
       emailVerifyToken: verifyToken,
       emailVerifyExpiresAt: verifyExpiresAt,
       verifyEmailLastSentAt: Date.now(),
+      // Only accounts created from this point on are eligible for the $5
+      // phone-verification signup bonus — pre-existing users never get this field.
+      eligibleForSignupBonus: true,
     });
 
     // Must be awaited — on serverless (Vercel) the function execution is frozen

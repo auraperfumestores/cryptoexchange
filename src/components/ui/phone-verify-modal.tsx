@@ -4,19 +4,21 @@ import { useEffect, useRef, useState } from 'react';
 
 interface PhoneVerifyModalProps {
   currentPhone?: string;
-  onVerified: (phone: string) => void;
+  bonusAmount?: number;
+  onVerified: (phone: string, bonusGranted: boolean) => void;
   onClose: () => void;
 }
 
 type Step = 'input' | 'otp' | 'done';
 
-export function PhoneVerifyModal({ currentPhone = '', onVerified, onClose }: PhoneVerifyModalProps) {
+export function PhoneVerifyModal({ currentPhone = '', bonusAmount, onVerified, onClose }: PhoneVerifyModalProps) {
   const [step,        setStep]        = useState<Step>('input');
   const [phone,       setPhone]       = useState(currentPhone.replace(/\D/g,'').replace(/^91/,''));
   const [otp,         setOtp]         = useState(['','','','','','']);
   const [loading,     setLoading]     = useState(false);
   const [error,       setError]       = useState('');
   const [countdown,   setCountdown]   = useState(0);
+  const [bonusGranted, setBonusGranted] = useState(false);
   const otpRefs       = useRef<(HTMLInputElement | null)[]>([]);
   const containerRef  = useRef<HTMLDivElement>(null);
 
@@ -62,8 +64,9 @@ export function PhoneVerifyModal({ currentPhone = '', onVerified, onClose }: Pho
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data?.error || 'Verification failed.');
+      setBonusGranted(!!data?.signupBonusGranted);
       setStep('done');
-      onVerified(digits);
+      onVerified(digits, !!data?.signupBonusGranted);
     } catch (err: any) {
       setError(err?.message ?? 'Verification failed.');
     } finally {
@@ -200,7 +203,13 @@ export function PhoneVerifyModal({ currentPhone = '', onVerified, onClose }: Pho
                 <svg width="28" height="28" viewBox="0 0 28 28" fill="none"><path d="M4 14L11 21L24 8" stroke="#00E5A0" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
               </div>
               <p style={{ fontSize: 17, fontWeight: 900, color: '#fff', margin: '0 0 8px' }}>+91 {phone} verified!</p>
-              <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.45)', margin: '0 0 22px', lineHeight: 1.6 }}>Your mobile number has been verified and saved to your profile.</p>
+              {bonusGranted && bonusAmount ? (
+                <div style={{ background: 'rgba(204,255,0,0.07)', border: '1px solid rgba(204,255,0,0.25)', borderRadius: 12, padding: '12px 16px', margin: '0 0 16px' }}>
+                  <p style={{ fontSize: 14, color: '#CCFF00', fontWeight: 800, margin: 0 }}>+${bonusAmount} USDT credited to your wallet 🎉</p>
+                </div>
+              ) : (
+                <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.45)', margin: '0 0 22px', lineHeight: 1.6 }}>Your mobile number has been verified and saved to your profile.</p>
+              )}
               <button onClick={onClose} style={{ padding: '11px 24px', borderRadius: 11, background: '#CCFF00', color: '#000', fontSize: 14, fontWeight: 800, border: 'none', cursor: 'pointer' }}>
                 Done →
               </button>

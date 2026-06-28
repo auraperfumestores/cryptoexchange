@@ -27,6 +27,8 @@ export interface UserAttrs {
   passwordResetExpiresAt?: number;
   phoneVerified?: boolean;
   proStatus?: ProStatus;
+  eligibleForSignupBonus?: boolean;
+  signupBonusGranted?: boolean;
 }
 
 const UserSchema = new Schema<UserAttrs>(
@@ -58,6 +60,11 @@ const UserSchema = new Schema<UserAttrs>(
     passwordResetToken: { type: String, select: false },
     passwordResetExpiresAt: { type: Number, select: false },
     phoneVerified: { type: Boolean, default: false },
+    // Set true only at signup time (see /api/auth/register) — existing users created
+    // before this feature shipped never get this field, so they're correctly excluded
+    // from the $5 phone-verification signup bonus.
+    eligibleForSignupBonus: { type: Boolean, default: false },
+    signupBonusGranted:     { type: Boolean, default: false },
     proStatus: {
       active:      { type: Boolean, default: false },
       activatedAt: { type: Date,    default: null  },
