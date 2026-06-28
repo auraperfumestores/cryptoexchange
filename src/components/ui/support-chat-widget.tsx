@@ -41,6 +41,8 @@ function SupportAvatar({ size = 28 }: { size?: number }) {
       <img
         src="/support-avatar.png"
         alt="Support"
+        width={size}
+        height={size}
         onError={() => setImgFailed(true)}
         style={{
           width: size, height: size, borderRadius: '50%', flexShrink: 0,

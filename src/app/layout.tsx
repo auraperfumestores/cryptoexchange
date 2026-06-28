@@ -12,10 +12,10 @@ const SITE_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://swappinr.com';
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
-    default: 'SwappINR — USDT to INR Exchange | Sell USDT for Rupees Instantly',
+    default: 'USDT to INR Exchange in India | SwappINR',
     template: '%s | SwappINR',
   },
-  description: 'Convert USDT to INR in under 15 minutes. Live market rates, zero hidden fees, instant UPI/bank settlement. Supports ERC-20, BEP-20, and TRC-20 networks. India\'s most trusted crypto-to-rupee exchange.',
+  description: 'Convert USDT to INR in under 15 minutes. Live rates, zero hidden fees, instant UPI/bank settlement. Supports TRC-20, BEP-20 and ERC-20 networks in India.',
   keywords: [
     'USDT to INR', 'sell USDT for INR', 'buy USDT India', 'crypto to INR exchange',
     'USDT INR converter', 'Tether to rupees', 'crypto exchange India', 'UPI crypto payout',
@@ -35,12 +35,12 @@ export const metadata: Metadata = {
     locale: 'en_IN',
     url: SITE_URL,
     siteName: 'SwappINR',
-    title: 'SwappINR — USDT to INR Exchange | Sell USDT for Rupees Instantly',
-    description: 'Convert USDT to INR in under 15 minutes. Live market rates, zero hidden fees, instant UPI/bank settlement.',
+    title: 'USDT to INR Exchange in India | SwappINR',
+    description: 'Convert USDT to INR in under 15 minutes. Live rates, zero hidden fees, instant UPI/bank settlement.',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'SwappINR — USDT to INR Exchange',
+    title: 'USDT to INR Exchange in India | SwappINR',
     description: 'Convert USDT to INR in under 15 minutes. Live rates, zero hidden fees, instant UPI payouts.',
   },
   category: 'finance',

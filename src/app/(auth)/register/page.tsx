@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import StaticMesh from '@/components/ui/static-mesh';
 import { pageLoader } from '@/store/page-loader-store';
 import {
@@ -144,10 +145,12 @@ export default function RegisterPage() {
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 32, padding: '14px 18px', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--fr-border-subtle)', borderRadius: 12 }}>
             <div style={{ display: 'flex' }}>
               {REVIEWERS.map(({ photo, name }, i) => (
-                <img
+                <Image
                   key={name}
                   src={photo}
                   alt={name}
+                  width={30}
+                  height={30}
                   style={{ width: 30, height: 30, borderRadius: '50%', objectFit: 'cover', objectPosition: 'center 15%', border: '2px solid var(--fr-dark-0)', marginLeft: i > 0 ? -9 : 0 }}
                 />
               ))}

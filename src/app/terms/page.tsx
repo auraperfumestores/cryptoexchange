@@ -2,8 +2,8 @@ import Link from 'next/link';
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Terms of Service — SwappINR',
-  description: 'Terms of Service governing the use of the SwappINR USDT to INR exchange platform.',
+  title: 'Terms of Service — Trading Rules & Policies',
+  description: 'Read the Terms of Service governing account registration, KYC, fees, settlement, and acceptable use of the SwappINR USDT to INR exchange platform.',
   alternates: { canonical: '/terms' },
 };
 

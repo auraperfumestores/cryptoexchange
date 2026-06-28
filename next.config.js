@@ -31,6 +31,33 @@ function resolveAppUrl() {
 const APP_URL = resolveAppUrl();
 console.log('[next.config] Resolved APP_URL:', APP_URL);
 
+// Permissive-but-present CSP: satisfies the "header exists" SEO/security audit
+// without breaking next/font inline styles, inline JSON-LD <script> tags,
+// NextAuth, Cloudflare, or the WalletConnect/Tron wss: relay connections.
+// Tighten (drop unsafe-inline/unsafe-eval, move to nonces) once a stricter
+// policy has been verified against every flow — see SEO brief P4.
+const securityHeaders = [
+  { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
+  { key: 'X-Content-Type-Options', value: 'nosniff' },
+  { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+  { key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains; preload' },
+  { key: 'Permissions-Policy', value: 'camera=(self), microphone=(), geolocation=()' },
+  {
+    key: 'Content-Security-Policy',
+    value: [
+      "default-src 'self'",
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https:",
+      "style-src 'self' 'unsafe-inline' https:",
+      "img-src 'self' data: blob: https:",
+      "font-src 'self' data: https:",
+      "connect-src 'self' https: wss:",
+      "frame-ancestors 'self'",
+      "base-uri 'self'",
+      "form-action 'self'",
+    ].join('; '),
+  },
+];
+
 const nextConfig = {
   reactStrictMode: true,
   // Bake the resolved URL at build time so NextAuth + emails are always correct.
@@ -48,6 +75,21 @@ const nextConfig = {
     remotePatterns: [
       { protocol: 'https', hostname: '**' },
     ],
+  },
+  async headers() {
+    return [
+      { source: '/(.*)', headers: securityHeaders },
+    ];
+  },
+  async rewrites() {
+    return [
+      // Browsers/crawlers probe these conventional paths directly regardless
+      // of the <link rel="icon"> tag pointing at the Next-generated /icon
+      // and /apple-icon routes — without this they 404 (Screaming Frog's
+      // "Internal Client Error 4xx" finding).
+      { source: '/favicon.ico', destination: '/icon' },
+      { source: '/apple-touch-icon.png', destination: '/apple-icon' },
+    ];
   },
 };
 

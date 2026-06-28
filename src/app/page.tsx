@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import Image from 'next/image';
 import { redirect } from 'next/navigation';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth/auth';
@@ -123,7 +124,7 @@ export default async function LandingPage() {
   const renderTestiCard = (t: (typeof TESTIMONIALS)[0], i: number) => (
     <div key={i} className="fr-video-card">
       <div style={{ position: 'relative', width: '100%', aspectRatio: '3/4', maxHeight: 260, overflow: 'hidden' }}>
-        <img src={t.photo} alt={t.name} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center 15%', display: 'block' }} />
+        <Image src={t.photo} alt={t.name} fill sizes="(max-width: 768px) 100vw, 320px" style={{ objectFit: 'cover', objectPosition: 'center 15%' }} />
         <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.72) 0%, transparent 55%)' }} />
         <div style={{ position: 'absolute', bottom: 12, left: 14, fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,0.85)', background: 'rgba(0,0,0,0.45)', borderRadius: 6, padding: '3px 9px', fontFamily: 'var(--fr-font-mono)', backdropFilter: 'blur(4px)' }}>Trade: {t.trade}</div>
       </div>
@@ -131,7 +132,7 @@ export default async function LandingPage() {
         <div className="fr-stars">{Array.from({length: t.rating}).map((_,j) => <IconStar key={j}/>)}</div>
         <p style={{ fontSize: 13, color: 'var(--fr-text-secondary)', lineHeight: 1.65, marginBottom: 14 }}>&ldquo;{t.quote}&rdquo;</p>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <img src={t.photo} alt={t.name} style={{ width: 30, height: 30, borderRadius: '50%', objectFit: 'cover', objectPosition: 'center 15%', flexShrink: 0 }} />
+          <Image src={t.photo} alt={t.name} width={30} height={30} style={{ width: 30, height: 30, borderRadius: '50%', objectFit: 'cover', objectPosition: 'center 15%', flexShrink: 0 }} />
           <div>
             <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--fr-text-primary)' }}>{t.name}</div>
             <div style={{ fontSize: 11, color: 'var(--fr-text-tertiary)' }}>🇮🇳 {t.location}</div>

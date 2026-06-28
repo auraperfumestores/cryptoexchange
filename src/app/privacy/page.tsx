@@ -2,8 +2,8 @@ import Link from 'next/link';
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Privacy Policy — SwappINR',
-  description: 'How SwappINR collects, uses, and protects your personal data.',
+  title: 'Privacy Policy — How We Protect Your Data',
+  description: 'Learn how SwappINR collects, uses, stores, and protects your personal data, including KYC information, in line with Indian data protection practices.',
   alternates: { canonical: '/privacy' },
 };
 

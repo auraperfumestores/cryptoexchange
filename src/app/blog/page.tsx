@@ -3,8 +3,8 @@ import type { Metadata } from 'next';
 import { BLOG_POSTS } from '@/lib/blog/posts';
 
 export const metadata: Metadata = {
-  title: 'Blog — SwappINR',
-  description: 'Guides and insights on converting USDT to INR, crypto tax in India, and navigating the Indian VDA regulatory landscape.',
+  title: 'Blog — USDT to INR Guides & Crypto Tips',
+  description: 'Practical guides on converting USDT to INR, crypto tax rules in India, network fees, P2P risks, and the latest VDA regulations explained simply.',
   alternates: { canonical: '/blog' },
 };
 

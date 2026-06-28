@@ -2,8 +2,8 @@ import Link from 'next/link';
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Refund Policy — SwappINR',
-  description: 'Refund and cancellation policy for transactions on the SwappINR USDT to INR exchange platform.',
+  title: 'Refund Policy — Order Cancellations & Refunds',
+  description: "Understand SwappINR's refund and cancellation policy for USDT to INR transactions, including failed settlements and when refunds apply.",
   alternates: { canonical: '/refund-policy' },
 };
 

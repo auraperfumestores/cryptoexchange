@@ -27,8 +27,17 @@ export default function ResetPasswordPage() {
   return (
     <Suspense fallback={
       <div style={{ minHeight: '100vh', background: '#080808', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 14 }}>
+        <Link href="/" style={{ display: 'inline-flex', alignItems: 'center', gap: 10, textDecoration: 'none', marginBottom: 8 }}>
+          <div style={{ width: 36, height: 36, borderRadius: 9, background: '#CCFF00', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <span style={{ color: '#000', fontSize: 15, fontWeight: 900 }}>S</span>
+          </div>
+          <span style={{ color: '#fff', fontSize: 18, fontWeight: 900, letterSpacing: '-0.03em' }}>
+            Swapp<span style={{ color: '#CCFF00' }}>INR</span>
+          </span>
+        </Link>
         <div style={{ width: 36, height: 36, border: '2.5px solid rgba(204,255,0,0.15)', borderTopColor: '#CCFF00', borderRadius: '50%', animation: 'fr-spin 0.75s linear infinite' }} />
         <p style={{ color: 'rgba(255,255,255,0.35)', fontSize: 13, margin: 0 }}>Loading…</p>
+        <Link href="/login" style={{ color: 'rgba(255,255,255,0.3)', fontSize: 13, textDecoration: 'none' }}>← Back to sign in</Link>
         <style>{`@keyframes fr-spin{to{transform:rotate(360deg)}}`}</style>
       </div>
     }>

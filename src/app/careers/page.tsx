@@ -3,8 +3,8 @@ import type { Metadata } from 'next';
 import { IconArrow, IconGlobe, IconZap, IconShield, IconChart } from '@/components/landing/page-icons';
 
 export const metadata: Metadata = {
-  title: 'Careers — SwappINR',
-  description: 'Help build the fastest, most trusted USDT-to-INR exchange in India. See open roles at SwappINR.',
+  title: 'Careers — Work on USDT to INR Infrastructure',
+  description: "Help build the fastest, most trusted USDT-to-INR exchange in India. See open roles, perks, and how we're growing the team at SwappINR.",
   alternates: { canonical: '/careers' },
 };
 

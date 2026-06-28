@@ -3,8 +3,8 @@ import type { Metadata } from 'next';
 import { IconArrow, IconShield, IconClock, IconZap } from '@/components/landing/page-icons';
 
 export const metadata: Metadata = {
-  title: 'About Us — SwappINR',
-  description: "SwappINR is India's USDT-to-INR exchange, built to make converting crypto to rupees fast, transparent, and secure.",
+  title: 'About Us — USDT to INR Exchange in India',
+  description: "SwappINR is India's USDT-to-INR exchange, built to make converting crypto to rupees fast, transparent, and secure for every trader.",
   alternates: { canonical: '/about' },
 };
 

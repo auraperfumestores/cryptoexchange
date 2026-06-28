@@ -27,7 +27,7 @@ export const BLOG_POSTS: BlogPost[] = [
   },
   {
     slug: 'usdt-inr-tax-india',
-    title: 'Tax on USDT-to-INR Conversions in India: What You Need to Know',
+    title: 'USDT to INR Tax in India: What You Need to Know',
     description: 'An overview of how converting USDT to INR is treated under Indian tax law, including TDS on VDA transfers and reporting obligations.',
     date: '2026-04-02',
     readingMinutes: 5,
@@ -73,7 +73,7 @@ export const BLOG_POSTS: BlogPost[] = [
   },
   {
     slug: 'binance-to-bank-account-india',
-    title: 'How to Transfer USDT from Binance to Your Bank Account in India',
+    title: 'Transfer USDT from Binance to Your Bank Account in India',
     description: 'A practical walkthrough for moving USDT held on Binance into your Indian bank account or UPI, including network selection and common mistakes to avoid.',
     date: '2026-06-18',
     readingMinutes: 6,

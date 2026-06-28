@@ -23,7 +23,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 
   const url = `${SITE_URL}/blog/${post.slug}`;
   return {
-    title: `${post.title} — SwappINR Blog`,
+    title: { absolute: post.title },
     description: post.description,
     alternates: { canonical: `/blog/${post.slug}` },
     openGraph: {
