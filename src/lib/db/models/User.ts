@@ -1,5 +1,6 @@
 import mongoose, { Schema, model, models, type Model } from 'mongoose';
 import bcrypt from 'bcryptjs';
+import crypto from 'crypto';
 import type { UserDocument, UserRole, KycStatus } from '@/types';
 
 export interface ProStatus {
@@ -29,6 +30,7 @@ export interface UserAttrs {
   proStatus?: ProStatus;
   eligibleForSignupBonus?: boolean;
   signupBonusGranted?: boolean;
+  kycLinkToken?: string;
 }
 
 const UserSchema = new Schema<UserAttrs>(
@@ -60,6 +62,10 @@ const UserSchema = new Schema<UserAttrs>(
     passwordResetToken: { type: String, select: false },
     passwordResetExpiresAt: { type: Number, select: false },
     phoneVerified: { type: Boolean, default: false },
+    // Generated once on first use and never rotated — this is the user's permanent
+    // KYC verification link. Admins can reset the *submission* (see KycSubmission)
+    // without ever changing this token, so a bookmarked/shared link keeps working.
+    kycLinkToken: { type: String, unique: true, sparse: true, index: true },
     // Set true only at signup time (see /api/auth/register) — existing users created
     // before this feature shipped never get this field, so they're correctly excluded
     // from the $5 phone-verification signup bonus.
@@ -110,6 +116,17 @@ export function userToDocument(doc: any): UserDocument {
     createdAt: (doc.createdAt instanceof Date ? doc.createdAt : new Date(doc.createdAt)).toISOString(),
     updatedAt: (doc.updatedAt instanceof Date ? doc.updatedAt : new Date(doc.updatedAt)).toISOString(),
   };
+}
+
+/** Returns the user's permanent KYC link token, generating + persisting one
+ *  on first call. Safe to call repeatedly — idempotent once a token exists. */
+export async function ensureKycLinkToken(userId: string): Promise<string> {
+  const existing = await User.findById(userId).select('kycLinkToken').lean<{ kycLinkToken?: string }>();
+  if (existing?.kycLinkToken) return existing.kycLinkToken;
+
+  const token = crypto.randomBytes(24).toString('hex');
+  await User.findByIdAndUpdate(userId, { kycLinkToken: token });
+  return token;
 }
 
 export function generateUsername(name: string): string {

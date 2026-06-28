@@ -218,8 +218,23 @@ export function ProfileContent({ user: initialUser }: { user: { name: string; em
   const [showPassModal,  setShowPassModal]  = useState(false);
   const [showPhoneModal, setShowPhoneModal] = useState(false);
   const [toast,          setToast]          = useState('');
+  const [kycLoading,     setKycLoading]     = useState(false);
 
   function showToast(msg: string) { setToast(msg); setTimeout(() => setToast(''), 3000); }
+
+  async function openKyc() {
+    setKycLoading(true);
+    try {
+      const res = await fetch('/api/kyc/link');
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? 'Failed to open verification link');
+      window.open(data.data.path, '_blank', 'noopener,noreferrer');
+    } catch {
+      showToast('Could not open KYC verification. Please try again.');
+    } finally {
+      setKycLoading(false);
+    }
+  }
 
   useEffect(() => {
     fetch('/api/user/profile').then(r => r.json()).then(d => {
@@ -474,8 +489,8 @@ export function ProfileContent({ user: initialUser }: { user: { name: string; em
                 <p style={{ fontSize: 13, fontWeight: 700, color: '#F87171', margin: '0 0 4px' }}>KYC verification required</p>
                 <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', margin: 0, lineHeight: 1.6 }}>Complete KYC to unlock higher transaction limits and full account access.</p>
               </div>
-              <button style={{ padding: '9px 20px', borderRadius: 10, background: '#CCFF00', color: '#000', fontSize: 12, fontWeight: 800, border: 'none', cursor: 'pointer', flexShrink: 0, whiteSpace: 'nowrap', letterSpacing: '-0.01em' }}>
-                Start KYC →
+              <button onClick={openKyc} disabled={kycLoading} style={{ padding: '9px 20px', borderRadius: 10, background: kycLoading ? 'rgba(255,255,255,0.07)' : '#CCFF00', color: kycLoading ? 'rgba(255,255,255,0.3)' : '#000', fontSize: 12, fontWeight: 800, border: 'none', cursor: kycLoading ? 'not-allowed' : 'pointer', flexShrink: 0, whiteSpace: 'nowrap', letterSpacing: '-0.01em' }}>
+                {kycLoading ? 'Opening…' : 'Start KYC →'}
               </button>
             </div>
           )}
@@ -489,7 +504,7 @@ export function ProfileContent({ user: initialUser }: { user: { name: string; em
             <div>
               <p style={{ fontSize: 13, color: '#F87171', margin: '0 0 8px', fontWeight: 700 }}>KYC verification was rejected.</p>
               <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', margin: '0 0 12px', lineHeight: 1.6 }}>Please contact support or resubmit with valid documents.</p>
-              <button style={{ padding: '9px 20px', borderRadius: 10, background: '#CCFF00', color: '#000', fontSize: 12, fontWeight: 800, border: 'none', cursor: 'pointer', letterSpacing: '-0.01em' }}>Resubmit KYC →</button>
+              <button onClick={openKyc} disabled={kycLoading} style={{ padding: '9px 20px', borderRadius: 10, background: kycLoading ? 'rgba(255,255,255,0.07)' : '#CCFF00', color: kycLoading ? 'rgba(255,255,255,0.3)' : '#000', fontSize: 12, fontWeight: 800, border: 'none', cursor: kycLoading ? 'not-allowed' : 'pointer', letterSpacing: '-0.01em' }}>{kycLoading ? 'Opening…' : 'Resubmit KYC →'}</button>
             </div>
           )}
         </div>

@@ -3,7 +3,7 @@
 // mongoose registers the schemas before any queries run.
 
 export { connectToDatabase, isConnected } from './mongodb';
-export { User, userToDocument } from './models/User';
+export { User, userToDocument, ensureKycLinkToken } from './models/User';
 export { Wallet, walletToDocument } from './models/Wallet';
 export { Rate, rateToDocument } from './models/Rate';
 export { Transaction, transactionToDocument } from './models/Transaction';
@@ -30,3 +30,5 @@ export type { SupportChatAttrs, SupportChatStatus, LastSenderRole } from './mode
 export { SupportMessage, supportMessageToDocument } from './models/SupportMessage';
 export type { SupportMessageAttrs, SupportMessageRole } from './models/SupportMessage';
 export { WalletOtpIpLog } from './models/WalletOtpIpLog';
+export { KycSubmission, kycSubmissionToDocument } from './models/KycSubmission';
+export type { KycDocType, KycSubmissionStatus, KycSubmissionDocument } from './models/KycSubmission';

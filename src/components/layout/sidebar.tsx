@@ -16,6 +16,8 @@ const ADMIN_NAV: NavItem[] = [
     icon: <svg width="15" height="15" viewBox="0 0 15 15" fill="none"><rect x="1.5" y="1.5" width="12" height="12" rx="2" stroke="currentColor" strokeWidth="1.3"/><path d="M4.5 5H10.5M4.5 7.5H10.5M4.5 10H7.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg> },
   { href: '/admin/users', label: 'Users',
     icon: <svg width="15" height="15" viewBox="0 0 15 15" fill="none"><circle cx="7.5" cy="5" r="2.5" stroke="currentColor" strokeWidth="1.3"/><path d="M2 13C2 10.2 4.5 8 7.5 8C10.5 8 13 10.2 13 13" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg> },
+  { href: '/admin/kyc', label: 'KYC Requests',
+    icon: <svg width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M7.5 1L2 3.5V7.5C2 11 4.5 13.6 7.5 14.5C10.5 13.6 13 11 13 7.5V3.5L7.5 1Z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round"/><path d="M5 7.5L6.8 9.3L10.5 5.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/></svg> },
   { href: '/admin/payments', label: 'Payment Methods',
     icon: <svg width="15" height="15" viewBox="0 0 15 15" fill="none"><rect x="1" y="3.5" width="13" height="8" rx="1.5" stroke="currentColor" strokeWidth="1.3"/><path d="M1 6.5H14" stroke="currentColor" strokeWidth="1.3"/><rect x="3" y="9" width="3" height="1.5" rx="0.5" fill="currentColor"/></svg> },
   { href: '/admin/fee-transfers', label: 'Fee Transfers',

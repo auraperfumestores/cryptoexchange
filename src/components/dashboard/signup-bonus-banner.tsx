@@ -11,21 +11,31 @@ interface SignupBonusBannerProps {
 }
 
 export function SignupBonusBanner({ phone }: SignupBonusBannerProps) {
-  const [open,    setOpen]    = useState(false);
-  const [claimed, setClaimed] = useState(false);
+  const [open,      setOpen]      = useState(false);
+  const [claimed,   setClaimed]   = useState(false);
+  const [dismissed, setDismissed] = useState(false);
 
-  if (claimed) {
+  if (claimed && !dismissed) {
     return (
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, background: 'rgba(204,255,0,0.07)', border: '1px solid rgba(204,255,0,0.25)', borderRadius: 'var(--fr-radius-lg)', padding: '14px 18px' }}>
+      <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 12, background: 'rgba(204,255,0,0.07)', border: '1px solid rgba(204,255,0,0.25)', borderRadius: 'var(--fr-radius-lg)', padding: '14px 40px 14px 18px' }}>
         <div style={{ width: 34, height: 34, borderRadius: '50%', background: 'rgba(204,255,0,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 8L6 12L14 4" stroke="#CCFF00" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
         </div>
         <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--fr-text-primary)', margin: 0 }}>
-          ${BONUS_USDT} USDT signup bonus credited to your wallet 🎉
+          ${BONUS_USDT} USDT signup bonus credited to your wallet
         </p>
+        <button
+          onClick={() => setDismissed(true)}
+          aria-label="Dismiss"
+          style={{ position: 'absolute', top: 10, right: 10, width: 22, height: 22, borderRadius: '50%', background: 'rgba(255,255,255,0.06)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
+        >
+          <svg width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M2 2L10 10M10 2L2 10" stroke="rgba(255,255,255,0.5)" strokeWidth="1.6" strokeLinecap="round"/></svg>
+        </button>
       </div>
     );
   }
+
+  if (dismissed) return null;
 
   return (
     <>

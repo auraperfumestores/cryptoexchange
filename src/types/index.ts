@@ -15,6 +15,8 @@ import type { Types } from 'mongoose';
 
 export type UserRole = 'client' | 'admin';
 export type KycStatus = 'unverified' | 'pending' | 'verified' | 'rejected';
+export type KycDocType = 'aadhaar' | 'pan' | 'driving_license';
+export type KycSubmissionStatus = 'collecting' | 'pending_review' | 'verified' | 'rejected';
 export type CryptoSymbol = 'USDT' | 'BNB';
 export type Network = 'ERC20' | 'BEP20' | 'TRC20';
 export type ChainId = 1 | 56;
