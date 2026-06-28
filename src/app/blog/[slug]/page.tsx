@@ -5,6 +5,13 @@ import { BLOG_POSTS, getPostBySlug } from '@/lib/blog/posts';
 
 const SITE_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://swappinr.com';
 
+function renderInline(text: string) {
+  const parts = text.split(/\*\*(.+?)\*\*/g);
+  return parts.map((part, i) =>
+    i % 2 === 1 ? <strong key={i} style={{ color: 'var(--fr-text-primary)', fontWeight: 700 }}>{part}</strong> : part,
+  );
+}
+
 export function generateStaticParams() {
   return BLOG_POSTS.map(p => ({ slug: p.slug }));
 }
@@ -79,7 +86,7 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
           {post.content.map((p, i) => (
-            <p key={i} style={{ fontSize: 15.5, color: 'var(--fr-text-secondary)', lineHeight: 1.85 }}>{p}</p>
+            <p key={i} style={{ fontSize: 15.5, color: 'var(--fr-text-secondary)', lineHeight: 1.85 }}>{renderInline(p)}</p>
           ))}
         </div>
 
