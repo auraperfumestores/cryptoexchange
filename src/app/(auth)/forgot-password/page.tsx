@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import StaticMesh from '@/components/ui/static-mesh';
+import { pageLoader } from '@/store/page-loader-store';
 
 export default function ForgotPasswordPage() {
   const [email,   setEmail]   = useState('');
@@ -14,6 +15,7 @@ export default function ForgotPasswordPage() {
     e.preventDefault();
     if (!email.trim()) { setError('Please enter your email address.'); return; }
     setLoading(true); setError('');
+    pageLoader.show();
     try {
       await fetch('/api/auth/forgot-password', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -24,6 +26,7 @@ export default function ForgotPasswordPage() {
       setError('Something went wrong. Please try again.');
     } finally {
       setLoading(false);
+      pageLoader.hide();
     }
   }
 

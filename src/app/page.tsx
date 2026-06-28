@@ -24,12 +24,12 @@ import { FooterContactLink } from '@/components/landing/footer-contact-link';
 
 // Drop matching PNGs into /public/press — text shows as a fallback until then.
 const PRESS_LOGOS = [
-  { name: 'CoinDesk India',         src: '/press/coindesk-india.png' },
-  { name: 'Economic Times Crypto', src: '/press/economic-times-crypto.png' },
-  { name: 'Inc42 Fintech',          src: '/press/inc42-fintech.png' },
-  { name: 'YourStory Tech',         src: '/press/yourstory-tech.png' },
-  { name: 'Moneycontrol',           src: '/press/moneycontrol.png' },
-  { name: 'BusinessLine',           src: '/press/businessline.png' },
+  { name: 'CoinDesk',          fontFamily: "'Arial Black', Arial, sans-serif", fontWeight: 900, letterSpacing: '-0.01em' },
+  { name: 'The Economic Times', fontFamily: "Georgia, 'Times New Roman', serif", fontWeight: 700, letterSpacing: '0' },
+  { name: 'Inc42',             fontFamily: "Arial, sans-serif", fontWeight: 800, letterSpacing: '-0.02em' },
+  { name: 'YourStory',         fontFamily: "'Trebuchet MS', sans-serif", fontWeight: 600, letterSpacing: '0', textTransform: 'lowercase' as const },
+  { name: 'moneycontrol',      fontFamily: "Arial, sans-serif", fontWeight: 700, letterSpacing: '-0.01em', textTransform: 'lowercase' as const },
+  { name: 'BusinessLine',      fontFamily: "Georgia, 'Times New Roman', serif", fontWeight: 700, fontStyle: 'italic' as const, letterSpacing: '0' },
 ];
 
 const PRO_FEATURES = [
@@ -255,7 +255,7 @@ export default async function LandingPage() {
 
             {/* Right: widget */}
             <div className="lp-hero-exchange" style={{ borderRadius: 'var(--fr-radius-xl)', overflow: 'hidden', boxShadow: '0 32px 80px rgba(0,0,0,0.6), 0 0 0 1px rgba(204,255,0,0.1), 0 0 60px rgba(204,255,0,0.04)' }}>
-              <ExchangeWidget />
+              <ExchangeWidget showMesh={false} />
             </div>
           </div>
         </div>

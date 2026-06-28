@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { PhoneVerifyModal } from '@/components/ui/phone-verify-modal';
+import { WavesBg } from '@/components/ui/waves-bg';
 
 const BONUS_USDT = 5;
 
@@ -28,8 +29,9 @@ export function SignupBonusBanner({ phone }: SignupBonusBannerProps) {
 
   return (
     <>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 14, background: 'linear-gradient(135deg, rgba(204,255,0,0.10), rgba(204,255,0,0.03))', border: '1px solid rgba(204,255,0,0.22)', borderRadius: 'var(--fr-radius-lg)', padding: '16px 20px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+      <div style={{ position: 'relative', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 14, border: '1px solid rgba(204,255,0,0.22)', borderRadius: 'var(--fr-radius-lg)', padding: '16px 20px' }}>
+        <WavesBg />
+        <div style={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center', gap: 14 }}>
           <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'rgba(204,255,0,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
             <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M10 1.5L12.4 6.4L17.8 7.2L13.9 11L14.8 16.4L10 13.8L5.2 16.4L6.1 11L2.2 7.2L7.6 6.4L10 1.5Z" stroke="#CCFF00" strokeWidth="1.4" strokeLinejoin="round"/></svg>
           </div>
@@ -44,7 +46,7 @@ export function SignupBonusBanner({ phone }: SignupBonusBannerProps) {
         </div>
         <button
           onClick={() => setOpen(true)}
-          style={{ flexShrink: 0, padding: '10px 18px', borderRadius: 'var(--fr-radius-md)', background: '#CCFF00', color: '#000', fontSize: 13, fontWeight: 800, border: 'none', cursor: 'pointer', whiteSpace: 'nowrap' }}
+          style={{ position: 'relative', zIndex: 1, flexShrink: 0, padding: '10px 18px', borderRadius: 'var(--fr-radius-md)', background: '#CCFF00', color: '#000', fontSize: 13, fontWeight: 800, border: 'none', cursor: 'pointer', whiteSpace: 'nowrap' }}
         >
           Verify Phone →
         </button>

@@ -1,38 +1,21 @@
 'use client';
 
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef } from 'react';
 import { usePathname } from 'next/navigation';
+import { usePageLoaderStore, pageLoader } from '@/store/page-loader-store';
 
 export default function PageLoader() {
   const pathname = usePathname();
-  const [visible, setVisible] = useState(false);
-  const [fading, setFading] = useState(false);
-  const timer = useRef<ReturnType<typeof setTimeout>>();
+  const visible = usePageLoaderStore(s => s.visible);
+  const fading = usePageLoaderStore(s => s.fading);
   const prevPath = useRef(pathname);
-
-  const clear = () => { if (timer.current) clearTimeout(timer.current); };
-
-  const start = useCallback(() => {
-    clear();
-    setFading(false);
-    setVisible(true);
-  }, []);
-
-  const finish = useCallback(() => {
-    clear();
-    setFading(true);
-    timer.current = setTimeout(() => {
-      setVisible(false);
-      setFading(false);
-    }, 380);
-  }, []);
 
   useEffect(() => {
     if (prevPath.current !== pathname) {
       prevPath.current = pathname;
-      finish();
+      pageLoader.hide();
     }
-  }, [pathname, finish]);
+  }, [pathname]);
 
   useEffect(() => {
     const onClick = (e: MouseEvent) => {
@@ -40,11 +23,11 @@ export default function PageLoader() {
       if (!a) return;
       const href = a.getAttribute('href') ?? '';
       const opensNewTab = a.getAttribute('target') === '_blank';
-      if (!opensNewTab && href.startsWith('/') && !href.startsWith('//') && href !== pathname) start();
+      if (!opensNewTab && href.startsWith('/') && !href.startsWith('//') && href !== pathname) pageLoader.show();
     };
     document.addEventListener('click', onClick, true);
     return () => document.removeEventListener('click', onClick, true);
-  }, [pathname, start]);
+  }, [pathname]);
 
   if (!visible) return null;
 

@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import StaticMesh from '@/components/ui/static-mesh';
+import { pageLoader } from '@/store/page-loader-store';
 import {
   User, Envelope, Lock, Eye, EyeSlash, ArrowRight,
   CheckCircle, Star, CurrencyInr, Lightning, ArrowsLeftRight,
@@ -42,6 +43,7 @@ export default function RegisterPage() {
     if (password.length < 8) { setError('Password must be at least 8 characters.'); return; }
     if (!agreed) { setError('Please accept the Terms of Service and Privacy Policy to continue.'); return; }
     setLoading(true);
+    pageLoader.show();
     try {
       const res = await fetch('/api/auth/register', {
         method: 'POST',
@@ -55,6 +57,7 @@ export default function RegisterPage() {
       setError('Network error. Please try again.');
     } finally {
       setLoading(false);
+      pageLoader.hide();
     }
   }
 

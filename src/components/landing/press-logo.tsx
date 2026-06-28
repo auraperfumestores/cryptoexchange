@@ -1,31 +1,33 @@
 'use client';
 
-import { useState } from 'react';
-
 interface PressLogoProps {
   name: string;
-  src: string;
+  fontFamily: string;
+  fontWeight: number;
+  letterSpacing?: string;
+  textTransform?: 'none' | 'uppercase' | 'lowercase' | 'capitalize';
+  fontStyle?: 'normal' | 'italic';
 }
 
-/** Renders a press logo PNG; falls back to the plain text name until the
- *  matching file is dropped into /public/press. */
-export function PressLogo({ name, src }: PressLogoProps) {
-  const [failed, setFailed] = useState(false);
-
-  if (failed) {
-    return (
-      <span style={{ fontSize: 15, fontWeight: 700, color: 'rgba(255,255,255,0.14)', letterSpacing: '-0.01em', whiteSpace: 'nowrap' }}>
-        {name}
-      </span>
-    );
-  }
-
+/** Text-only wordmark approximating each outlet's real logo typeface/case,
+ *  kept to a fixed line-height so spacing stays consistent across the strip. */
+export function PressLogo({ name, fontFamily, fontWeight, letterSpacing = '0', textTransform = 'none', fontStyle = 'normal' }: PressLogoProps) {
   return (
-    <img
-      src={src}
-      alt={name}
-      onError={() => setFailed(true)}
-      style={{ height: 22, width: 'auto', opacity: 0.4, filter: 'grayscale(1) brightness(1.6)', flexShrink: 0 }}
-    />
+    <span style={{
+      display: 'inline-flex',
+      alignItems: 'center',
+      height: 22,
+      fontSize: 18,
+      fontFamily,
+      fontWeight,
+      letterSpacing,
+      textTransform,
+      fontStyle,
+      color: 'rgba(255,255,255,0.32)',
+      whiteSpace: 'nowrap',
+      flexShrink: 0,
+    }}>
+      {name}
+    </span>
   );
 }

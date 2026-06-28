@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { TokenIcon, NetworkIcon } from '@/components/ui/token-icon';
 import { SellFlowModal } from '@/components/ui/sell-flow-modal';
 import { BuyFlowModal } from '@/components/ui/buy-flow-modal';
+import StaticMesh from '@/components/ui/static-mesh';
 
 interface AdminRate {
   symbol: string;
@@ -75,7 +76,7 @@ function InrIcon({ size=26 }:{ size?:number }) {
 }
 
 /* ── Main Widget ── */
-export default function ExchangeWidget() {
+export default function ExchangeWidget({ showMesh = true }: { showMesh?: boolean } = {}) {
   const { status } = useSession();
   const router = useRouter();
   const [mode, setMode]       = useState<Mode>('sell');
@@ -148,6 +149,7 @@ export default function ExchangeWidget() {
 
   return (
     <div style={{
+      position: 'relative',
       background: FR.dark1,
       borderRadius: 20,
       width: '100%',
@@ -156,6 +158,21 @@ export default function ExchangeWidget() {
       overflow: 'hidden',
       border: `1px solid ${FR.borderDef}`,
     }}>
+      {showMesh && (
+        <StaticMesh
+          cols={18} rows={14}
+          opacity={0.22}
+          lineColor="204,255,0"
+          waveAmp={60}
+          waveT={1.4}
+          diagonals={true}
+          style={{
+            position: 'absolute', left: 0, right: 0, bottom: 0, height: '50%', width: '100%',
+            WebkitMaskImage: 'linear-gradient(to bottom, transparent 0%, black 60%)',
+            maskImage: 'linear-gradient(to bottom, transparent 0%, black 60%)',
+          }}
+        />
+      )}
       <style>{`
         input[type=number]::-webkit-inner-spin-button,
         input[type=number]::-webkit-outer-spin-button { -webkit-appearance:none; margin:0; }
@@ -169,6 +186,8 @@ export default function ExchangeWidget() {
         .ew-swap-btn:hover { transform: rotate(180deg) !important; }
         .ew-cta:hover { filter: brightness(1.06); box-shadow: 0 8px 32px rgba(204,255,0,0.35) !important; }
       `}</style>
+
+      <div style={{ position: 'relative', zIndex: 1 }}>
 
       {/* ── Header ── */}
       <div style={{ padding:'18px 22px 0', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
@@ -473,6 +492,8 @@ export default function ExchangeWidget() {
             No hidden fees · Non-custodial escrow · KYC compliant
           </p>
         </div>
+
+      </div>
 
       </div>
 

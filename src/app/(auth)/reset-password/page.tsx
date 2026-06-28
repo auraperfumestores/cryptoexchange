@@ -4,6 +4,7 @@ import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import StaticMesh from '@/components/ui/static-mesh';
+import { pageLoader } from '@/store/page-loader-store';
 
 function StrengthBar({ password }: { password: string }) {
   const score = [/.{8,}/, /[A-Z]/, /[0-9]/, /[^A-Za-z0-9]/].filter(r => r.test(password)).length;
@@ -62,6 +63,7 @@ function ResetPasswordContent() {
     if (password.length < 8) { setError('Password must be at least 8 characters.'); return; }
     if (password !== confirm) { setError('Passwords do not match.'); return; }
     setLoading(true); setError('');
+    pageLoader.show();
     try {
       const res = await fetch('/api/auth/reset-password', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -75,6 +77,7 @@ function ResetPasswordContent() {
       setError(err.message ?? 'Something went wrong. Please try again.');
     } finally {
       setLoading(false);
+      pageLoader.hide();
     }
   }
 

@@ -5,6 +5,7 @@ import { signIn } from 'next-auth/react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import StaticMesh from '@/components/ui/static-mesh';
+import { pageLoader } from '@/store/page-loader-store';
 import {
   Envelope, Lock, Eye, EyeSlash, ArrowRight, Shield,
   CurrencyInr, Lightning, ArrowsLeftRight, Clock, Star,
@@ -64,6 +65,7 @@ function LoginForm() {
     setUnverified(false);
     if (!email || !password) { setError('Please enter your email and password.'); return; }
     setLoading(true);
+    pageLoader.show();
     try {
       const result = await signIn('credentials', { redirect: false, email, password });
       if (result?.error) {
@@ -78,15 +80,19 @@ function LoginForm() {
           console.error('[login] unexpected signIn error:', result.error);
           setError('Something went wrong signing you in. Please try again in a moment.');
         }
+        pageLoader.hide();
         return;
       }
       const sessionRes  = await fetch('/api/auth/me');
       const sessionData = await sessionRes.json();
       // Only honor callbackUrl if it's a same-site relative path — prevents open-redirect abuse.
       const safeCallback = callbackUrl && callbackUrl.startsWith('/') && !callbackUrl.startsWith('//') ? callbackUrl : null;
+      // Leave the loader showing — it fades out automatically once the
+      // pathname actually changes, so it covers the route-transition delay too.
       router.push(safeCallback ?? (sessionData.data?.role === 'admin' ? '/admin' : '/dashboard'));
     } catch {
       setError('Something went wrong. Please try again.');
+      pageLoader.hide();
     } finally {
       setLoading(false);
     }
