@@ -1,7 +1,7 @@
 'use client';
 
 import { useUIStore } from '@/store/ui-store';
-import { signOut } from 'next-auth/react';
+import { forceLogout } from '@/lib/auth/force-logout';
 import { useState } from 'react';
 import { usePathname } from 'next/navigation';
 import type { SessionUser } from '@/types';
@@ -109,7 +109,7 @@ export function Header({ user }: { user: SessionUser }) {
                   </div>
                 </div>
                 <button
-                  onClick={() => signOut({ callbackUrl: '/' })}
+                  onClick={() => forceLogout('/')}
                   style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '11px 16px', fontSize: 13, color: 'var(--fr-text-danger)', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', transition: 'background var(--fr-ease-fast)' }}
                   onMouseEnter={e => e.currentTarget.style.background = 'rgba(248,113,113,0.06)'}
                   onMouseLeave={e => e.currentTarget.style.background = 'transparent'}

@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { signOut } from 'next-auth/react';
+import { forceLogout } from '@/lib/auth/force-logout';
 import type { UserRole } from '@/types';
 
 interface NavItem { href: string; label: string; icon: React.ReactNode; }
@@ -112,7 +112,7 @@ export function Sidebar({ role, open, onClose }: { role: UserRole; open: boolean
         {/* Sign out */}
         <div style={{ padding: '10px', borderTop: '1px solid var(--fr-border-subtle)', flexShrink: 0 }}>
           <button
-            onClick={() => signOut({ callbackUrl: '/' })}
+            onClick={() => forceLogout('/')}
             style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '9px 12px', borderRadius: 'var(--fr-radius-md)', fontSize: 13, fontWeight: 500, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--fr-text-tertiary)', textAlign: 'left', transition: 'all var(--fr-ease-fast)' }}
             onMouseEnter={e => { e.currentTarget.style.background = 'rgba(248,113,113,0.08)'; e.currentTarget.style.color = 'var(--fr-text-danger)'; }}
             onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--fr-text-tertiary)'; }}
