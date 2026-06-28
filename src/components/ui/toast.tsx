@@ -4,12 +4,14 @@ import { useEffect, useState } from 'react';
 import { create } from 'zustand';
 
 type ToastVariant = 'success' | 'error' | 'info' | 'warning';
+type ToastPosition = 'top-right' | 'top-center';
 
 interface Toast {
   id: string;
   message: string;
   variant: ToastVariant;
   duration?: number;
+  position?: ToastPosition;
 }
 
 interface ToastStore {
@@ -28,10 +30,10 @@ export const useToastStore = create<ToastStore>((set) => ({
 }));
 
 export const toast = {
-  success: (message: string, duration?: number) => useToastStore.getState().add({ message, variant: 'success', duration }),
-  error:   (message: string, duration?: number) => useToastStore.getState().add({ message, variant: 'error',   duration }),
-  info:    (message: string, duration?: number) => useToastStore.getState().add({ message, variant: 'info',    duration }),
-  warning: (message: string, duration?: number) => useToastStore.getState().add({ message, variant: 'warning', duration }),
+  success: (message: string, duration?: number, position?: ToastPosition) => useToastStore.getState().add({ message, variant: 'success', duration, position }),
+  error:   (message: string, duration?: number, position?: ToastPosition) => useToastStore.getState().add({ message, variant: 'error',   duration, position }),
+  info:    (message: string, duration?: number, position?: ToastPosition) => useToastStore.getState().add({ message, variant: 'info',    duration, position }),
+  warning: (message: string, duration?: number, position?: ToastPosition) => useToastStore.getState().add({ message, variant: 'warning', duration, position }),
 };
 
 const THEME: Record<ToastVariant, { bg: string; border: string; icon: string; accent: string }> = {
@@ -65,17 +67,32 @@ export function ToastContainer() {
   const toasts = useToastStore((s) => s.toasts);
   const remove  = useToastStore((s) => s.remove);
 
+  const rightToasts  = toasts.filter((t) => (t.position ?? 'top-right') === 'top-right');
+  const centerToasts = toasts.filter((t) => t.position === 'top-center');
+
   return (
-    <div style={{
-      position: 'fixed', top: 16, right: 16, zIndex: 99999,
-      display: 'flex', flexDirection: 'column', gap: 8,
-      maxWidth: 360, width: 'calc(100vw - 32px)',
-      pointerEvents: 'none',
-    }}>
-      {toasts.map((t) => (
-        <ToastItem key={t.id} toast={t} onClose={() => remove(t.id)} />
-      ))}
-    </div>
+    <>
+      <div style={{
+        position: 'fixed', top: 16, right: 16, zIndex: 99999,
+        display: 'flex', flexDirection: 'column', gap: 8,
+        maxWidth: 360, width: 'calc(100vw - 32px)',
+        pointerEvents: 'none',
+      }}>
+        {rightToasts.map((t) => (
+          <ToastItem key={t.id} toast={t} onClose={() => remove(t.id)} />
+        ))}
+      </div>
+      <div style={{
+        position: 'fixed', top: 16, left: '50%', transform: 'translateX(-50%)', zIndex: 99999,
+        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8,
+        maxWidth: 420, width: 'calc(100vw - 32px)',
+        pointerEvents: 'none',
+      }}>
+        {centerToasts.map((t) => (
+          <ToastItem key={t.id} toast={t} onClose={() => remove(t.id)} />
+        ))}
+      </div>
+    </>
   );
 }
 

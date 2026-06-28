@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { Download, PaperPlaneTilt } from '@phosphor-icons/react';
 import { NetworkIcon } from './token-icon';
 import { toast } from './toast';
 
@@ -139,20 +140,13 @@ export function WalletPopup({ balance, onClose, onBalanceChange }: WalletPopupPr
   async function handleAddFunds() {
     setLoading(true);
     try {
-      const res = await fetch('/api/wallets');
-      const data = res.ok ? (await res.json()).data ?? [] : [];
-      const hasWallet = data.some((w: any) => w.isVerified);
       onClose();
       router.push('/wallets');
-      if (!hasWallet) {
-        toast.info(
-          'To add funds to your SwappINR wallet, you’ll first need to connect a crypto wallet. Once connected, you can transfer USDT directly into your account balance — securely and in just a few taps.',
-          7000,
-        );
-      }
-    } catch {
-      onClose();
-      router.push('/wallets');
+      toast.info(
+        'You’re on the Wallets tab. Add funds by connecting a crypto wallet and transferring USDT to it — your SwappINR balance updates automatically once the deposit is confirmed on-chain.',
+        7000,
+        'top-center',
+      );
     } finally {
       setLoading(false);
     }
@@ -329,13 +323,13 @@ export function WalletPopup({ balance, onClose, onBalanceChange }: WalletPopupPr
         <div style={{ display: 'flex', gap: 10 }}>
           <button onClick={handleAddFunds} disabled={loading} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, padding: '18px 12px', background: C.faint, border: `1px solid ${C.border}`, borderRadius: 14, cursor: loading ? 'not-allowed' : 'pointer' }}>
             <div style={{ width: 38, height: 38, borderRadius: 10, background: 'rgba(0,229,160,0.1)', border: '1px solid rgba(0,229,160,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M9 3V15M3 9H15" stroke={C.success} strokeWidth="2" strokeLinecap="round" /></svg>
+              <Download size={19} color={C.success} weight="bold" />
             </div>
             <span style={{ fontSize: 13, fontWeight: 800, color: C.text }}>Add Funds</span>
           </button>
           <button onClick={() => setStep('amount')} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, padding: '18px 12px', background: C.faint, border: `1px solid ${C.border}`, borderRadius: 14, cursor: 'pointer' }}>
             <div style={{ width: 38, height: 38, borderRadius: 10, background: 'rgba(204,255,0,0.08)', border: '1px solid rgba(204,255,0,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M9 15V3M3 9H15" stroke={C.lime} strokeWidth="2" strokeLinecap="round" transform="rotate(180 9 9)" /></svg>
+              <PaperPlaneTilt size={19} color={C.lime} weight="bold" />
             </div>
             <span style={{ fontSize: 13, fontWeight: 800, color: C.text }}>Withdraw</span>
           </button>
@@ -361,12 +355,12 @@ export function WalletPopup({ balance, onClose, onBalanceChange }: WalletPopupPr
             type="number" inputMode="decimal" value={amount}
             onChange={e => { setAmount(e.target.value); setError(''); }}
             placeholder="0.00"
-            style={{ flex: 1, padding: '13px 14px', background: 'transparent', border: 'none', outline: 'none', fontSize: 16, color: C.text, fontFamily: C.mono }}
+            style={{ flex: 1, minWidth: 0, width: '100%', padding: '13px 0 13px 14px', background: 'transparent', border: 'none', outline: 'none', fontSize: 16, color: C.text, fontFamily: C.mono }}
           />
-          <button onClick={() => setAmount(String(balance))} style={{ margin: '0 8px', padding: '6px 12px', borderRadius: 8, background: 'rgba(204,255,0,0.1)', border: '1px solid rgba(204,255,0,0.3)', color: C.lime, fontSize: 11, fontWeight: 800, cursor: 'pointer', flexShrink: 0 }}>
+          <button onClick={() => setAmount(String(balance))} style={{ margin: '0 6px', padding: '6px 10px', borderRadius: 8, background: 'rgba(204,255,0,0.1)', border: '1px solid rgba(204,255,0,0.3)', color: C.lime, fontSize: 11, fontWeight: 800, cursor: 'pointer', flexShrink: 0, whiteSpace: 'nowrap' }}>
             MAX
           </button>
-          <div style={{ padding: '0 14px', fontSize: 13, fontWeight: 700, color: C.sub, flexShrink: 0 }}>USDT</div>
+          <div style={{ padding: '0 14px', fontSize: 13, fontWeight: 700, color: C.sub, flexShrink: 0, whiteSpace: 'nowrap' }}>USDT</div>
         </div>
 
         {primaryBtn('Submit Withdrawal →', handleSubmitWithdrawal, amt <= 0)}
