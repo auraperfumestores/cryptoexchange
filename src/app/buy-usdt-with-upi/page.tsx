@@ -167,7 +167,7 @@ export default function BuyUsdtWithUpiPage() {
           ))}
         </div>
 
-        <Link href="/register" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: '#CCFF00', color: '#000', padding: '14px 32px', borderRadius: 12, fontSize: 15, fontWeight: 800, textDecoration: 'none' }}>
+        <Link href="/register" className="fr-btn fr-btn--primary fr-btn--lg">
           Buy USDT with UPI Now →
         </Link>
       </section>
@@ -312,7 +312,7 @@ export default function BuyUsdtWithUpiPage() {
           <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.42)', lineHeight: 1.75, maxWidth: 480, margin: '0 auto 28px' }}>
             Create a free account, complete 5-minute KYC once, and buy USDT with GPay, PhonePe, Paytm, or any UPI app instantly on every trade.
           </p>
-          <Link href="/register" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: '#CCFF00', color: '#000', padding: '14px 32px', borderRadius: 12, fontSize: 15, fontWeight: 800, textDecoration: 'none' }}>
+          <Link href="/register" className="fr-btn fr-btn--primary fr-btn--lg">
             Get Started Free →
           </Link>
           <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.24)', marginTop: 14 }}>No credit card. No deposit. Free account, 5-min KYC.</p>
@@ -325,9 +325,9 @@ export default function BuyUsdtWithUpiPage() {
         <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.38)', textAlign: 'center', marginBottom: 36 }}>Common questions about buying USDT with UPI in India.</p>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {FAQ_ITEMS.map(({ q, a }) => (
-            <details key={q} style={{ background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 12, padding: '18px 20px' }}>
-              <summary style={{ fontSize: 15, fontWeight: 700, color: '#fff', cursor: 'pointer', listStyle: 'none' }}>{q}</summary>
-              <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.48)', lineHeight: 1.75, margin: '12px 0 0' }}>{a}</p>
+            <details key={q} className="fr-faq-item">
+              <summary>{q}<div className="fr-faq-icon"><svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 4L6 8L10 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg></div></summary>
+              <p className="fr-faq-body">{a}</p>
             </details>
           ))}
         </div>

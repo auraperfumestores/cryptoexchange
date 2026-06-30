@@ -140,10 +140,10 @@ export default function SellUsdtForInrPage() {
           ))}
         </div>
         <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
-          <Link href="/register" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: '#CCFF00', color: '#000', padding: '14px 30px', borderRadius: 12, fontSize: 15, fontWeight: 800, textDecoration: 'none' }}>
+          <Link href="/register" className="fr-btn fr-btn--primary fr-btn--lg">
             Sell USDT Now →
           </Link>
-          <Link href="/login" style={{ display: 'inline-flex', alignItems: 'center', background: 'rgba(255,255,255,0.05)', color: '#fff', padding: '14px 24px', borderRadius: 12, fontSize: 15, fontWeight: 700, textDecoration: 'none', border: '1px solid rgba(255,255,255,0.1)' }}>
+          <Link href="/login" className="fr-btn fr-btn--ghost fr-btn--lg">
             Sign In
           </Link>
         </div>
@@ -262,7 +262,7 @@ export default function SellUsdtForInrPage() {
           <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.42)', marginBottom: 28, lineHeight: 1.75, maxWidth: 480, margin: '0 auto 28px' }}>
             Create a free account, complete KYC in 5 minutes, and get your first trade settled in under 15 minutes. See <Link href="/fees" style={{ color: '#CCFF00', textDecoration: 'none' }}>full fee breakdown</Link> before you commit.
           </p>
-          <Link href="/register" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: '#CCFF00', color: '#000', padding: '14px 32px', borderRadius: 12, fontSize: 15, fontWeight: 800, textDecoration: 'none' }}>
+          <Link href="/register" className="fr-btn fr-btn--primary fr-btn--lg">
             Create Free Account →
           </Link>
           <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.24)', marginTop: 14 }}>No minimum trade. KYC required once. No subscription fees.</p>
@@ -275,9 +275,9 @@ export default function SellUsdtForInrPage() {
         <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.38)', textAlign: 'center', marginBottom: 36 }}>Everything you need to know about selling USDT for INR in India.</p>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {FAQ_ITEMS.map(({ q, a }) => (
-            <details key={q} style={{ background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 12, padding: '18px 20px' }}>
-              <summary style={{ fontSize: 15, fontWeight: 700, color: '#fff', cursor: 'pointer', listStyle: 'none' }}>{q}</summary>
-              <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.48)', lineHeight: 1.75, margin: '12px 0 0', paddingTop: 2 }}>{a}</p>
+            <details key={q} className="fr-faq-item">
+              <summary>{q}<div className="fr-faq-icon"><svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 4L6 8L10 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg></div></summary>
+              <p className="fr-faq-body">{a}</p>
             </details>
           ))}
         </div>

@@ -128,7 +128,7 @@ export default function Trc20UsdtToInrPage() {
           ))}
         </div>
 
-        <Link href="/register" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: '#CCFF00', color: '#000', padding: '14px 32px', borderRadius: 12, fontSize: 15, fontWeight: 800, textDecoration: 'none' }}>
+        <Link href="/register" className="fr-btn fr-btn--primary fr-btn--lg">
           Sell TRC-20 USDT →
         </Link>
       </section>
@@ -211,7 +211,7 @@ export default function Trc20UsdtToInrPage() {
           <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.42)', lineHeight: 1.75, maxWidth: 460, margin: '0 auto 28px' }}>
             No minimum. 0.6% fee. INR to UPI in ~10 minutes. See <Link href="/fees" style={{ color: '#00E5A0', textDecoration: 'none' }}>all fees</Link> or <Link href="/usdt-to-inr-calculator" style={{ color: '#00E5A0', textDecoration: 'none' }}>calculate your payout</Link>.
           </p>
-          <Link href="/register" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: '#CCFF00', color: '#000', padding: '14px 32px', borderRadius: 12, fontSize: 15, fontWeight: 800, textDecoration: 'none' }}>
+          <Link href="/register" className="fr-btn fr-btn--primary fr-btn--lg">
             Sell TRC-20 USDT Now →
           </Link>
         </div>
@@ -223,9 +223,9 @@ export default function Trc20UsdtToInrPage() {
         <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.38)', textAlign: 'center', marginBottom: 36 }}>Everything about selling TRC-20 USDT for Indian Rupees.</p>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {FAQ_ITEMS.map(({ q, a }) => (
-            <details key={q} style={{ background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 12, padding: '18px 20px' }}>
-              <summary style={{ fontSize: 15, fontWeight: 700, color: '#fff', cursor: 'pointer', listStyle: 'none' }}>{q}</summary>
-              <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.48)', lineHeight: 1.75, margin: '12px 0 0' }}>{a}</p>
+            <details key={q} className="fr-faq-item">
+              <summary>{q}<div className="fr-faq-icon"><svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 4L6 8L10 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg></div></summary>
+              <p className="fr-faq-body">{a}</p>
             </details>
           ))}
         </div>

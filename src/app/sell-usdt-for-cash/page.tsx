@@ -162,10 +162,10 @@ export default function SellUsdtForCashPage() {
           ))}
         </div>
 
-        <Link href="/register" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: '#CCFF00', color: '#000', padding: '14px 32px', borderRadius: 12, fontSize: 15, fontWeight: 800, textDecoration: 'none', marginRight: 12 }}>
+        <Link href="/register" className="fr-btn fr-btn--primary fr-btn--lg" style={{ marginRight: 12 }}>
           Get Started Free →
         </Link>
-        <Link href="/register" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'rgba(0,229,160,0.08)', color: '#00E5A0', padding: '14px 28px', borderRadius: 12, fontSize: 15, fontWeight: 700, textDecoration: 'none', border: '1px solid rgba(0,229,160,0.25)' }}>
+        <Link href="/register" className="fr-btn fr-btn--ghost fr-btn--lg">
           Enquire about PRO →
         </Link>
       </section>
@@ -310,10 +310,10 @@ export default function SellUsdtForCashPage() {
             Start with a free account and standard UPI settlement. Upgrade to PRO for CDM cash deposits and in-person cash deals in major Indian cities.
           </p>
           <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
-            <Link href="/register" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: '#CCFF00', color: '#000', padding: '14px 30px', borderRadius: 12, fontSize: 15, fontWeight: 800, textDecoration: 'none' }}>
+            <Link href="/register" className="fr-btn fr-btn--primary fr-btn--lg">
               Create Free Account →
             </Link>
-            <Link href="/register" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'rgba(0,229,160,0.08)', color: '#00E5A0', padding: '14px 26px', borderRadius: 12, fontSize: 15, fontWeight: 700, textDecoration: 'none', border: '1px solid rgba(0,229,160,0.2)' }}>
+            <Link href="/register" className="fr-btn fr-btn--ghost fr-btn--lg">
               Enquire about PRO
             </Link>
           </div>
@@ -326,9 +326,9 @@ export default function SellUsdtForCashPage() {
         <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.38)', textAlign: 'center', marginBottom: 36 }}>Everything about CDM and cash settlement for USDT in India.</p>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {FAQ_ITEMS.map(({ q, a }) => (
-            <details key={q} style={{ background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 12, padding: '18px 20px' }}>
-              <summary style={{ fontSize: 15, fontWeight: 700, color: '#fff', cursor: 'pointer', listStyle: 'none' }}>{q}</summary>
-              <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.48)', lineHeight: 1.75, margin: '12px 0 0' }}>{a}</p>
+            <details key={q} className="fr-faq-item">
+              <summary>{q}<div className="fr-faq-icon"><svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 4L6 8L10 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg></div></summary>
+              <p className="fr-faq-body">{a}</p>
             </details>
           ))}
         </div>

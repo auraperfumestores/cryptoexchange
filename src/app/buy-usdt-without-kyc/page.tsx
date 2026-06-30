@@ -158,7 +158,7 @@ export default function BuyUsdtWithoutKycPage() {
           ))}
         </div>
 
-        <Link href="/register" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: '#CCFF00', color: '#000', padding: '14px 32px', borderRadius: 12, fontSize: 15, fontWeight: 800, textDecoration: 'none' }}>
+        <Link href="/register" className="fr-btn fr-btn--primary fr-btn--lg">
           Start KYC — Takes 5 Minutes →
         </Link>
       </section>
@@ -295,7 +295,7 @@ export default function BuyUsdtWithoutKycPage() {
           <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.42)', lineHeight: 1.75, maxWidth: 480, margin: '0 auto 28px' }}>
             Create your free account. Do KYC once on your phone. Buy USDT instantly with GPay, PhonePe, Paytm, or bank transfer — as many times as you want, forever.
           </p>
-          <Link href="/register" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: '#CCFF00', color: '#000', padding: '14px 32px', borderRadius: 12, fontSize: 15, fontWeight: 800, textDecoration: 'none' }}>
+          <Link href="/register" className="fr-btn fr-btn--primary fr-btn--lg">
             Start KYC Now — Free →
           </Link>
           <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.24)', marginTop: 14 }}>No credit card. No deposit. KYC takes 5 minutes.</p>
@@ -308,9 +308,9 @@ export default function BuyUsdtWithoutKycPage() {
         <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.38)', textAlign: 'center', marginBottom: 36 }}>Everything about KYC and buying USDT with INR or UPI.</p>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {FAQ_ITEMS.map(({ q, a }) => (
-            <details key={q} style={{ background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 12, padding: '18px 20px' }}>
-              <summary style={{ fontSize: 15, fontWeight: 700, color: '#fff', cursor: 'pointer', listStyle: 'none' }}>{q}</summary>
-              <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.48)', lineHeight: 1.75, margin: '12px 0 0' }}>{a}</p>
+            <details key={q} className="fr-faq-item">
+              <summary>{q}<div className="fr-faq-icon"><svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 4L6 8L10 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg></div></summary>
+              <p className="fr-faq-body">{a}</p>
             </details>
           ))}
         </div>

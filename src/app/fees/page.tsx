@@ -128,7 +128,7 @@ export default function FeesPage() {
           ))}
         </div>
 
-        <Link href="/register" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: '#CCFF00', color: '#000', padding: '14px 32px', borderRadius: 12, fontSize: 15, fontWeight: 800, textDecoration: 'none' }}>
+        <Link href="/register" className="fr-btn fr-btn--primary fr-btn--lg">
           Start Trading →
         </Link>
       </section>
@@ -237,10 +237,10 @@ export default function FeesPage() {
             Enter your amount, see the fee and exact INR payout — all before sending a single USDT. Use the <Link href="/usdt-to-inr-calculator" style={{ color: '#CCFF00', textDecoration: 'none' }}>USDT calculator</Link> to estimate, or sign up and see live.
           </p>
           <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
-            <Link href="/register" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: '#CCFF00', color: '#000', padding: '14px 28px', borderRadius: 12, fontSize: 14, fontWeight: 800, textDecoration: 'none' }}>
+            <Link href="/register" className="fr-btn fr-btn--primary fr-btn--md">
               Start Trading Free →
             </Link>
-            <Link href="/usdt-to-inr-calculator" style={{ display: 'inline-flex', alignItems: 'center', background: 'rgba(255,255,255,0.05)', color: '#fff', padding: '14px 22px', borderRadius: 12, fontSize: 14, fontWeight: 700, textDecoration: 'none', border: '1px solid rgba(255,255,255,0.1)' }}>
+            <Link href="/usdt-to-inr-calculator" className="fr-btn fr-btn--ghost fr-btn--md">
               Calculate payout
             </Link>
           </div>
@@ -253,9 +253,9 @@ export default function FeesPage() {
         <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.38)', textAlign: 'center', marginBottom: 36 }}>Answers about SwappINR fees and charges.</p>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {FAQ_ITEMS.map(({ q, a }) => (
-            <details key={q} style={{ background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 12, padding: '18px 20px' }}>
-              <summary style={{ fontSize: 15, fontWeight: 700, color: '#fff', cursor: 'pointer', listStyle: 'none' }}>{q}</summary>
-              <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.48)', lineHeight: 1.75, margin: '12px 0 0' }}>{a}</p>
+            <details key={q} className="fr-faq-item">
+              <summary>{q}<div className="fr-faq-icon"><svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 4L6 8L10 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg></div></summary>
+              <p className="fr-faq-body">{a}</p>
             </details>
           ))}
         </div>
