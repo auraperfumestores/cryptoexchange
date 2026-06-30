@@ -15,6 +15,10 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${SITE_URL}/bep20-usdt-to-inr`,               lastModified: new Date(), changeFrequency: 'weekly',  priority: 0.9  },
     { url: `${SITE_URL}/fees`,                             lastModified: new Date(), changeFrequency: 'weekly',  priority: 0.9  },
     { url: `${SITE_URL}/how-to-sell-usdt-in-india`,       lastModified: new Date(), changeFrequency: 'monthly', priority: 0.85 },
+    { url: `${SITE_URL}/sell-usdt-without-kyc`,          lastModified: new Date(), changeFrequency: 'monthly', priority: 0.88 },
+    { url: `${SITE_URL}/buy-usdt-without-kyc`,           lastModified: new Date(), changeFrequency: 'monthly', priority: 0.88 },
+    { url: `${SITE_URL}/sell-usdt-for-cash`,             lastModified: new Date(), changeFrequency: 'monthly', priority: 0.85 },
+    { url: `${SITE_URL}/buy-usdt-with-upi`,              lastModified: new Date(), changeFrequency: 'weekly',  priority: 0.9  },
     // ── Core pages ──
     { url: `${SITE_URL}/register`,                        lastModified: new Date(), changeFrequency: 'monthly', priority: 0.9  },
     { url: `${SITE_URL}/blog`,                            lastModified: new Date(), changeFrequency: 'weekly',  priority: 0.8  },
