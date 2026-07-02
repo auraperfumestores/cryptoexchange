@@ -19,6 +19,7 @@ import { LIVE_TRADES } from '@/lib/data/live-trades';
 import { connectToDatabase, Rate, rateToDocument } from '@/lib/db';
 import { PressLogo } from '@/components/landing/press-logo';
 import { FooterContactLink } from '@/components/landing/footer-contact-link';
+import SignupBonusPopup from '@/components/landing/SignupBonusPopup';
 
 /* ─── Data ────────────────────────────────────────────── */
 // TICKER_ITEMS built dynamically inside LandingPage() using live rates
@@ -175,6 +176,7 @@ export default async function LandingPage() {
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(serviceJsonLd) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }} />
       <LandingScripts />
+      <SignupBonusPopup />
 
       {/* ══ 1. TICKER ══ */}
       <div className="fr-ticker-strip">
