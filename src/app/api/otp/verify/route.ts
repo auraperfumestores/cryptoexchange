@@ -4,6 +4,7 @@ import { connectToDatabase, User } from '@/lib/db';
 import { OtpCode, hashOtp }        from '@/lib/db/models/OtpCode';
 import { errorResponse }           from '@/lib/utils/errors';
 import { creditPlatformWallet }    from '@/lib/wallet/platform-wallet';
+import { isPhoneAlreadyVerified }  from '@/lib/phone/uniqueness';
 
 const SIGNUP_BONUS_USDT = 5;
 
@@ -42,6 +43,17 @@ export async function POST(req: Request) {
       record.attempts += 1;
       await record.save();
       return NextResponse.json({ error: 'Wrong OTP. Try again.' }, { status: 400 });
+    }
+
+    // ── Uniqueness gate (defense-in-depth) ──────────────────────────────────
+    // Re-check right before writing — guards against a race where two sessions
+    // both pass the send-time check and both have valid OTPs in flight.
+    // Admin bypass phones are exempt (see ADMIN_BYPASS_PHONES in env).
+    if (await isPhoneAlreadyVerified(digits, auth.id)) {
+      return NextResponse.json(
+        { error: 'This phone number is already registered to another account. Please use a different number.' },
+        { status: 409 },
+      );
     }
 
     record.verified = true;

@@ -4,6 +4,7 @@ import { connectToDatabase, User, userToDocument, generateUsername } from '@/lib
 import { registerSchema } from '@/lib/validators/schemas';
 import { errorResponse } from '@/lib/utils/errors';
 import { sendVerificationEmail } from '@/lib/email';
+import { isPhoneAlreadyVerified } from '@/lib/phone/uniqueness';
 
 export async function POST(req: Request) {
   try {
@@ -22,6 +23,18 @@ export async function POST(req: Request) {
     const existing = await User.findOne({ email });
     if (existing) {
       return NextResponse.json({ error: 'An account with this email already exists' }, { status: 409 });
+    }
+
+    // ── Phone uniqueness gate ────────────────────────────────────────────────
+    // Reject registration immediately if the phone is already verified on another
+    // account — prevents the user from going through the whole flow only to be
+    // blocked later during OTP verification.
+    // Admin bypass phones (ADMIN_BYPASS_PHONES env) are exempt.
+    if (phone && await isPhoneAlreadyVerified(phone)) {
+      return NextResponse.json(
+        { error: 'This phone number is already linked to an existing account. Please sign in or use a different number.' },
+        { status: 409 },
+      );
     }
 
     const verifyToken = crypto.randomBytes(32).toString('hex');

@@ -1,9 +1,10 @@
-import { NextResponse }    from 'next/server';
-import { requireAuth }     from '@/lib/auth/require-auth';
-import { connectToDatabase } from '@/lib/db';
+import { NextResponse }        from 'next/server';
+import { requireAuth }         from '@/lib/auth/require-auth';
+import { connectToDatabase }   from '@/lib/db';
 import { OtpCode, generateOtp, hashOtp } from '@/lib/db/models/OtpCode';
-import { sendOtpSms }       from '@/lib/sms/gonums';
-import { errorResponse }   from '@/lib/utils/errors';
+import { sendOtpSms }          from '@/lib/sms/gonums';
+import { errorResponse }       from '@/lib/utils/errors';
+import { isPhoneAlreadyVerified } from '@/lib/phone/uniqueness';
 
 export const dynamic = 'force-dynamic';
 
@@ -13,7 +14,7 @@ const OTP_TTL_MINUTES      = 10;
 /** POST /api/otp/send — sends a fresh OTP to a 10-digit Indian mobile number via Gonums */
 export async function POST(req: Request) {
   try {
-    await requireAuth();
+    const auth = await requireAuth();
 
     const { phone } = await req.json() as { phone?: string };
     const digits = (phone ?? '').replace(/\D/g, '');
@@ -22,6 +23,16 @@ export async function POST(req: Request) {
     }
 
     await connectToDatabase();
+
+    // ── Uniqueness gate ──────────────────────────────────────────────────────
+    // Block OTP delivery if the number is already verified on a different account.
+    // Admin bypass phones (ADMIN_BYPASS_PHONES env) are exempt from this check.
+    if (await isPhoneAlreadyVerified(digits, auth.id)) {
+      return NextResponse.json(
+        { error: 'This phone number is already registered to another account. Please use a different number.' },
+        { status: 409 },
+      );
+    }
 
     const recent = await OtpCode.findOne({ phone: digits, purpose: 'phone-verify' }).sort({ createdAt: -1 }).lean();
     if (recent) {

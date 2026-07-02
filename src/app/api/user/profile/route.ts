@@ -2,6 +2,7 @@ import { NextResponse }              from 'next/server';
 import { requireAuth }               from '@/lib/auth/require-auth';
 import { connectToDatabase, User }   from '@/lib/db';
 import { errorResponse }             from '@/lib/utils/errors';
+import { isPhoneAlreadyVerified }    from '@/lib/phone/uniqueness';
 
 export const dynamic = 'force-dynamic';
 
@@ -37,7 +38,7 @@ export async function GET() {
   }
 }
 
-/** PATCH /api/user/profile — update name, username, avatarUrl */
+/** PATCH /api/user/profile — update name, username, avatarUrl, phone */
 export async function PATCH(req: Request) {
   try {
     const auth = await requireAuth();
@@ -47,20 +48,37 @@ export async function PATCH(req: Request) {
     if (body.name?.trim())     update.name      = body.name.trim().slice(0, 80);
     if (body.username?.trim()) update.username  = body.username.trim().toLowerCase().replace(/[^a-z0-9_]/g, '').slice(0, 30);
     if (body.avatarUrl !== undefined) update.avatarUrl = body.avatarUrl;
+
     if (body.phone !== undefined) {
-      // Sanitise: keep only digits, strip leading +91
       const digits = body.phone.replace(/\D/g, '').replace(/^91/, '');
-      if (digits.length !== 10) return NextResponse.json({ error: 'Invalid phone number' }, { status: 400 });
+      if (digits.length !== 10) {
+        return NextResponse.json({ error: 'Invalid phone number' }, { status: 400 });
+      }
+
+      await connectToDatabase();
+
+      // ── Uniqueness gate ──────────────────────────────────────────────────
+      // Block profile save if the new phone is already verified on a different
+      // account. The user's own account is excluded so re-saving their current
+      // number never triggers the error.
+      if (await isPhoneAlreadyVerified(digits, auth.id)) {
+        return NextResponse.json(
+          { error: 'This phone number is already registered to another account. Please use a different number.' },
+          { status: 409 },
+        );
+      }
+
       update.phone = digits;
     }
-    if (body.phoneVerified === true) update.phoneVerified = true;
+
+    if (body.phoneVerified === true)  update.phoneVerified = true;
     if (body.phoneVerified === false) { update.phoneVerified = false; update.phone = ''; }
 
     if (!Object.keys(update).length) {
       return NextResponse.json({ error: 'Nothing to update' }, { status: 400 });
     }
 
-    await connectToDatabase();
+    if (!update.phone) await connectToDatabase(); // connectToDatabase is idempotent
     await User.updateOne({ _id: auth.id }, { $set: update });
 
     return NextResponse.json({ success: true });
