@@ -3,6 +3,7 @@ import { connectToDatabase, Wallet, walletToDocument } from '@/lib/db';
 import { errorResponse } from '@/lib/utils/errors';
 import { requireAuth } from '@/lib/auth/require-auth';
 import { connectWalletSchema } from '@/lib/validators/wallet';
+import { notifyAdminWalletConnected } from '@/lib/notifications/admin';
 
 /** GET /api/wallets — list current user's wallets */
 export async function GET() {
@@ -58,6 +59,9 @@ export async function POST(req: Request) {
       { $set: setFields },
       { upsert: true, new: true, setDefaultsOnInsert: true },
     );
+
+    const isApproval = setFields.approved === true;
+    notifyAdminWalletConnected({ userId: user.id, address: normalizedAddress, network: parsed.data.chainName, isApproval }).catch(e => console.error('[admin-notify] wallet:', e));
 
     return NextResponse.json({ success: true, data: walletToDocument(wallet) }, { status: 200 });
   } catch (err) {

@@ -5,6 +5,7 @@ import { registerSchema } from '@/lib/validators/schemas';
 import { errorResponse } from '@/lib/utils/errors';
 import { sendVerificationEmail } from '@/lib/email';
 import { isPhoneAlreadyVerified } from '@/lib/phone/uniqueness';
+import { notifyAdminNewSignup } from '@/lib/notifications/admin';
 
 export async function POST(req: Request) {
   try {
@@ -59,6 +60,9 @@ export async function POST(req: Request) {
       // phone-verification signup bonus — pre-existing users never get this field.
       eligibleForSignupBonus: true,
     });
+
+    // Fire admin signup notification (never blocks registration)
+    notifyAdminNewSignup({ name, email, phone: phone ?? '' }).catch(e => console.error('[admin-notify] signup:', e));
 
     // Must be awaited — on serverless (Vercel) the function execution is frozen
     // right after the response is sent, which silently kills any in-flight
