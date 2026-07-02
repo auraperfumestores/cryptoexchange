@@ -3,14 +3,11 @@
 import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 
-const DISMISS_KEY = 'swappinr_bonus_popup_v1';
-
 export default function SignupBonusPopup() {
   const [visible, setVisible] = useState(false);
   const [animating, setAnimating] = useState(false);
 
   useEffect(() => {
-    if (typeof window !== 'undefined' && sessionStorage.getItem(DISMISS_KEY)) return;
     const t = setTimeout(() => {
       setVisible(true);
       requestAnimationFrame(() => setAnimating(true));
@@ -20,10 +17,7 @@ export default function SignupBonusPopup() {
 
   const dismiss = useCallback(() => {
     setAnimating(false);
-    setTimeout(() => {
-      setVisible(false);
-      sessionStorage.setItem(DISMISS_KEY, '1');
-    }, 280);
+    setTimeout(() => setVisible(false), 280);
   }, []);
 
   useEffect(() => {
