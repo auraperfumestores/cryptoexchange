@@ -698,6 +698,33 @@ function UserRow({ user, onToggle, toggling, onProAction, proActing }: {
       {/* ── Expanded wallets panel ── */}
       {expanded && (
         <div style={{ borderTop: `1px solid ${T.border}`, background: T.bg3 }}>
+
+          {/* ── Contact info row ── */}
+          <div style={{ padding: '12px 20px', borderBottom: `1px solid ${T.border}`, display: 'flex', flexWrap: 'wrap' as const, gap: '8px 24px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: '0.08em', color: T.dim }}>Phone</span>
+              {user.phone ? (
+                <>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: T.text, fontFamily: 'monospace' }}>{user.phone}</span>
+                  <span style={{
+                    fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 5,
+                    background: user.phoneVerified ? 'rgba(0,229,160,0.12)' : 'rgba(255,255,255,0.06)',
+                    color: user.phoneVerified ? '#00E5A0' : T.dim,
+                    border: `1px solid ${user.phoneVerified ? 'rgba(0,229,160,0.3)' : T.border}`,
+                  }}>
+                    {user.phoneVerified ? '✓ Verified' : 'Unverified'}
+                  </span>
+                </>
+              ) : (
+                <span style={{ fontSize: 12, color: T.dim, fontStyle: 'italic' }}>Not provided</span>
+              )}
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: '0.08em', color: T.dim }}>Email</span>
+              <span style={{ fontSize: 13, fontWeight: 600, color: T.text }}>{user.email}</span>
+            </div>
+          </div>
+
           <div style={{ padding: '14px 20px 10px', display: 'flex', alignItems: 'center', gap: 10 }}>
             <span style={{ color: T.blue }}><IcoWallet /></span>
             <span style={{ fontSize: 12, fontWeight: 800, textTransform: 'uppercase' as const, letterSpacing: '0.1em', color: T.blue }}>

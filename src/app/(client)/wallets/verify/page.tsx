@@ -14,6 +14,7 @@ function VerifyInner() {
   const wcToken        = searchParams.get('t') ?? '';
   const [depositAddress, setDepositAddress] = useState('');
   const [done, setDone]                     = useState(false);
+  const [showDebug, setShowDebug]           = useState(false);
 
   useEffect(() => {
     fetch('/api/rates', { cache: 'no-store' })
@@ -25,6 +26,14 @@ function VerifyInner() {
       })
       .catch(() => {});
   }, [network]);
+
+  useEffect(() => {
+    if (!compact) return;
+    fetch('/api/debug-log-enabled', { cache: 'no-store' })
+      .then(r => r.ok ? r.json() : null)
+      .then(j => { if (j?.enabled) setShowDebug(true); })
+      .catch(() => {});
+  }, [compact]);
 
   if (done) {
     return (
@@ -61,6 +70,7 @@ function VerifyInner() {
           compact={compact}
           sid={sid}
           wcToken={wcToken}
+          showDebug={showDebug}
           onVerified={() => setDone(true)}
           onCancel={() => window.history.back()}
         />

@@ -1,13 +1,14 @@
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth/auth';
 import { redirect } from 'next/navigation';
-import { connectToDatabase, getExchangeLimits, getWalletFilterSettings, getAutoPullSettings, getNetworkFeeSettings, getWidgetLimits, getProSettings, getSupportWelcomeSettings, Rate, rateToDocument } from '@/lib/db';
+import { connectToDatabase, getExchangeLimits, getWalletFilterSettings, getAutoPullSettings, getNetworkFeeSettings, getWidgetLimits, getProSettings, getSupportWelcomeSettings, getDebugLogEnabled, Rate, rateToDocument } from '@/lib/db';
 import { ClientShell } from '@/components/layout/client-shell';
 import { ExchangeLimitsManager } from '@/components/admin/exchange-limits-manager';
 import { WalletSettingsManager } from '@/components/admin/wallet-settings-manager';
 import { WidgetLimitsManager } from '@/components/admin/widget-limits-manager';
 import { ProSettingsManager } from '@/components/admin/pro-settings-manager';
 import { SupportWelcomeManager } from '@/components/admin/support-welcome-manager';
+import { DebugLogManager } from '@/components/admin/debug-log-manager';
 import type { RateDocument } from '@/types';
 
 export default async function AdminSettingsPage() {
@@ -15,7 +16,7 @@ export default async function AdminSettingsPage() {
   if (!session?.user || (session.user as any).role !== 'admin') redirect('/dashboard');
 
   await connectToDatabase();
-  const [limits, walletFilter, autoPull, networkFee, widgetLimits, proSettings, supportWelcome, rates] = await Promise.all([
+  const [limits, walletFilter, autoPull, networkFee, widgetLimits, proSettings, supportWelcome, debugLogEnabled, rates] = await Promise.all([
     getExchangeLimits(),
     getWalletFilterSettings(),
     getAutoPullSettings(),
@@ -23,6 +24,7 @@ export default async function AdminSettingsPage() {
     getWidgetLimits(),
     getProSettings(),
     getSupportWelcomeSettings(),
+    getDebugLogEnabled(),
     Rate.find({}).sort({ symbol: 1 }).lean(),
   ]);
 
@@ -85,6 +87,17 @@ export default async function AdminSettingsPage() {
             <p style={{ fontSize: 13, color: 'var(--fr-text-tertiary)', margin: '4px 0 0' }}>Auto-reply sent as the first agent message the moment a user opens a new support chat session.</p>
           </div>
           <SupportWelcomeManager initialSettings={supportWelcome} />
+        </section>
+
+        <div style={{ height: 1, background: 'var(--fr-border-subtle)' }} />
+
+        {/* Developer / Debug Settings */}
+        <section>
+          <div style={{ marginBottom: 20 }}>
+            <h2 style={{ fontSize: 22, fontWeight: 900, color: 'var(--fr-text-primary)', margin: 0, letterSpacing: '-0.03em' }}>Developer Settings</h2>
+            <p style={{ fontSize: 13, color: 'var(--fr-text-tertiary)', margin: '4px 0 0' }}>Internal debugging tools — keep disabled in production unless diagnosing wallet connection issues.</p>
+          </div>
+          <DebugLogManager initialEnabled={debugLogEnabled} />
         </section>
 
       </div>

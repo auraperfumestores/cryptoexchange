@@ -94,6 +94,12 @@ export async function getWidgetLimits(): Promise<WidgetLimits> {
   return (doc?.value as WidgetLimits) ?? DEFAULT_WIDGET_LIMITS;
 }
 
+/* ── Developer / Debug Settings ── */
+export async function getDebugLogEnabled(): Promise<boolean> {
+  const doc = await SiteSetting.findOne({ key: 'debugLogEnabled' }).lean();
+  return (doc?.value as boolean) ?? false;
+}
+
 /* ── Support Welcome Message ── */
 export interface SupportWelcomeSettings {
   enabled: boolean;

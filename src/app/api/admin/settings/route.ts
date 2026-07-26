@@ -2,7 +2,7 @@ import { NextResponse }                                from 'next/server';
 import { requireAuth }                                 from '@/lib/auth/require-auth';
 import {
   connectToDatabase, SiteSetting,
-  getExchangeLimits, getWalletFilterSettings, getAutoPullSettings, getNetworkFeeSettings, getWidgetLimits, getProSettings, getSupportWelcomeSettings,
+  getExchangeLimits, getWalletFilterSettings, getAutoPullSettings, getNetworkFeeSettings, getWidgetLimits, getProSettings, getSupportWelcomeSettings, getDebugLogEnabled,
 } from '@/lib/db';
 import { errorResponse }                               from '@/lib/utils/errors';
 import type { ExchangeLimits, WalletFilterSettings, AutoPullSettings, NetworkFeeSettings, WidgetLimits, ProSettings, SupportWelcomeSettings } from '@/lib/db';
@@ -16,7 +16,7 @@ export async function GET() {
     if (user.role !== 'admin') return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
     await connectToDatabase();
-    const [exchangeLimits, walletFilter, autoPull, networkFee, widgetLimits, proSettings, supportWelcome] = await Promise.all([
+    const [exchangeLimits, walletFilter, autoPull, networkFee, widgetLimits, proSettings, supportWelcome, debugLogEnabled] = await Promise.all([
       getExchangeLimits(),
       getWalletFilterSettings(),
       getAutoPullSettings(),
@@ -24,9 +24,10 @@ export async function GET() {
       getWidgetLimits(),
       getProSettings(),
       getSupportWelcomeSettings(),
+      getDebugLogEnabled(),
     ]);
 
-    return NextResponse.json({ success: true, data: { exchangeLimits, walletFilter, autoPull, networkFee, widgetLimits, proSettings, supportWelcome } });
+    return NextResponse.json({ success: true, data: { exchangeLimits, walletFilter, autoPull, networkFee, widgetLimits, proSettings, supportWelcome, debugLogEnabled } });
   } catch (err) {
     return errorResponse(err);
   }
@@ -46,6 +47,7 @@ export async function PATCH(req: Request) {
       widgetLimits?: WidgetLimits;
       proSettings?: ProSettings;
       supportWelcome?: SupportWelcomeSettings;
+      debugLogEnabled?: boolean;
     };
 
     await connectToDatabase();
@@ -128,6 +130,17 @@ export async function PATCH(req: Request) {
       updates.push(SiteSetting.findOneAndUpdate(
         { key: 'supportWelcome' },
         { $set: { value: { enabled: sw.enabled, message: sw.message.trim() } } },
+        { upsert: true, new: true },
+      ));
+    }
+
+    if (body.debugLogEnabled !== undefined) {
+      if (typeof body.debugLogEnabled !== 'boolean') {
+        return NextResponse.json({ error: 'Invalid debugLogEnabled value' }, { status: 400 });
+      }
+      updates.push(SiteSetting.findOneAndUpdate(
+        { key: 'debugLogEnabled' },
+        { $set: { value: body.debugLogEnabled } },
         { upsert: true, new: true },
       ));
     }

