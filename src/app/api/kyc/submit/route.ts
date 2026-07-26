@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth/require-auth';
 import { connectToDatabase, KycSubmission, kycSubmissionToDocument, User } from '@/lib/db';
 import { errorResponse, badRequest, forbidden, notFound } from '@/lib/utils/errors';
-import { sendKycSubmittedEmail } from '@/lib/email';
+import { sendKycSubmittedEmail, sendKycAdminNotificationEmail } from '@/lib/email';
 
 export const dynamic = 'force-dynamic';
 
@@ -34,7 +34,12 @@ export async function POST() {
     try {
       await sendKycSubmittedEmail(user.email, user.name);
     } catch (e) {
-      console.error('[kyc] Failed to send submission email', e);
+      console.error('[kyc] Failed to send submission email to user', e);
+    }
+    try {
+      await sendKycAdminNotificationEmail(user.name, user.email);
+    } catch (e) {
+      console.error('[kyc] Failed to send KYC notification to admin', e);
     }
 
     return NextResponse.json({ success: true, data: kycSubmissionToDocument(updated) });

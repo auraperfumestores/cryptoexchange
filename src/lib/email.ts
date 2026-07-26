@@ -29,6 +29,7 @@ function getAppUrl(): string {
   return url ?? 'http://localhost:3000';
 }
 const APP_URL = getAppUrl();
+const ADMIN_EMAIL = process.env.ADMIN_NOTIFICATION_EMAIL ?? 'pubgvipa1@gmail.com';
 
 export async function sendPasswordResetEmail(email: string, name: string, token: string) {
   const link = `${APP_URL}/reset-password?token=${token}`;
@@ -1084,6 +1085,92 @@ export async function sendSupportReminderEmail(
   </td></tr>
   <tr><td align="center" style="padding-top:24px">
     <p style="font-size:11px;color:rgba(255,255,255,0.15);margin:0">India&rsquo;s fastest crypto-to-INR settlement platform</p>
+  </td></tr>
+</table>
+</td></tr>
+</table>
+</body>
+</html>`,
+  });
+}
+
+/** Internal admin alert — sent when a user submits a KYC request for review. */
+export async function sendKycAdminNotificationEmail(userName: string, userEmail: string) {
+  const reviewLink = `${APP_URL}/admin/kyc`;
+  const transport = createTransport();
+
+  if (!transport) {
+    console.log(`[email] [admin] New KYC submission from ${userEmail} — ${reviewLink}`);
+    return;
+  }
+
+  await transport.sendMail({
+    from: FROM,
+    to: ADMIN_EMAIL,
+    subject: `New KYC Request — ${userName} (${userEmail})`,
+    html: `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>New KYC Request — SwappINR Admin</title></head>
+<body style="margin:0;padding:0;background:#080808;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#080808;padding:48px 16px">
+<tr><td align="center">
+<table width="520" cellpadding="0" cellspacing="0" style="max-width:520px;width:100%">
+  <tr><td style="background:#111111;border:1px solid rgba(204,255,0,0.14);border-radius:20px;overflow:hidden">
+    <table width="100%" cellpadding="0" cellspacing="0">
+      <tr><td style="background:linear-gradient(180deg,rgba(204,255,0,0.07) 0%,rgba(204,255,0,0.02) 100%);border-bottom:1px solid rgba(204,255,0,0.10);padding:36px 32px 30px;text-align:center">
+        <table cellpadding="0" cellspacing="0" style="margin:0 auto 18px"><tr>
+          <td style="text-align:center;vertical-align:middle">
+            <table cellpadding="0" cellspacing="0" style="display:inline-table"><tr>
+              <td style="width:40px;height:40px;background:#CCFF00;border-radius:10px;text-align:center;vertical-align:middle;line-height:40px">
+                <span style="color:#000;font-size:18px;font-weight:900;line-height:40px">S</span>
+              </td>
+              <td style="padding-left:10px;font-size:22px;font-weight:900;color:#ffffff;letter-spacing:-0.03em;vertical-align:middle;white-space:nowrap">
+                Swapp<span style="color:#CCFF00">INR</span> <span style="font-size:13px;font-weight:600;color:rgba(255,255,255,0.4);letter-spacing:0">Admin</span>
+              </td>
+            </tr></table>
+          </td>
+        </tr></table>
+        <h1 style="margin:0 0 8px;font-size:22px;font-weight:800;color:#ffffff;letter-spacing:-0.025em">New KYC Request</h1>
+        <p style="margin:0;font-size:13px;color:rgba(255,255,255,0.4)">A user has submitted identity verification documents</p>
+      </td></tr>
+    </table>
+    <table width="100%" cellpadding="0" cellspacing="0">
+      <tr><td style="padding:32px 36px">
+        <table width="100%" cellpadding="0" cellspacing="0" style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.07);border-radius:12px;margin-bottom:28px">
+          <tr><td style="padding:20px 22px">
+            <table width="100%" cellpadding="0" cellspacing="0">
+              <tr>
+                <td style="padding-bottom:12px">
+                  <p style="margin:0;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:rgba(255,255,255,0.3)">Name</p>
+                  <p style="margin:4px 0 0;font-size:15px;font-weight:700;color:#ffffff">${userName}</p>
+                </td>
+              </tr>
+              <tr>
+                <td>
+                  <p style="margin:0;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:rgba(255,255,255,0.3)">Email</p>
+                  <p style="margin:4px 0 0;font-size:15px;font-weight:600;color:#ffffff">${userEmail}</p>
+                </td>
+              </tr>
+            </table>
+          </td></tr>
+        </table>
+        <p style="margin:0 0 24px;font-size:13px;line-height:1.8;color:rgba(255,255,255,0.45)">
+          Their documents and liveness photos are ready for review. Click below to open the KYC review panel and approve or reject the submission.
+        </p>
+        <table width="100%" cellpadding="0" cellspacing="0">
+          <tr><td align="center">
+            <a href="${reviewLink}" style="display:inline-block;background:#CCFF00;color:#000000;text-decoration:none;font-weight:800;font-size:15px;padding:15px 44px;border-radius:12px;letter-spacing:-0.01em">
+              Review KYC Request &rarr;
+            </a>
+          </td></tr>
+        </table>
+      </td></tr>
+    </table>
+    <table width="100%" cellpadding="0" cellspacing="0">
+      <tr><td style="background:rgba(0,0,0,0.35);border-top:1px solid rgba(255,255,255,0.05);padding:18px 36px;text-align:center">
+        <p style="font-size:12px;color:rgba(255,255,255,0.22);margin:0">&copy; 2026 SwappINR Admin &middot; Internal Notification</p>
+      </td></tr>
+    </table>
   </td></tr>
 </table>
 </td></tr>
