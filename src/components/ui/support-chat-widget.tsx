@@ -79,9 +79,51 @@ export default function SupportChatWidget() {
   const [uploadError, setUploadError] = useState('');
   const [error, setError] = useState('');
   const [confirmClose, setConfirmClose] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
   const lastFetchedAt = useRef(0);
   const bodyRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  // IDs of agent/system messages we've already played sound for — survives re-renders
+  const seenAgentIds = useRef(new Set<string>());
+
+  // Must be called from a user-gesture handler to satisfy browser autoplay policy.
+  // Once the AudioContext is unlocked, sound plays from background tabs too.
+  function initAudio() {
+    try {
+      if (!audioCtxRef.current) {
+        audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+      }
+      if (audioCtxRef.current.state === 'suspended') audioCtxRef.current.resume();
+    } catch { /* audio unavailable */ }
+  }
+
+  function playPop() {
+    try {
+      const ctx = audioCtxRef.current;
+      if (!ctx) return;
+      if (ctx.state === 'suspended') ctx.resume();
+      const osc  = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(880, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(660, ctx.currentTime + 0.12);
+      gain.gain.setValueAtTime(0.35, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.15);
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 0.15);
+    } catch { /* audio blocked — silently skip */ }
+  }
+
+  function checkForNewAgentMessages(incoming: SupportMessage[], widgetOpen: boolean) {
+    const fresh = incoming.filter(m => m.role !== 'user' && !seenAgentIds.current.has(m._id));
+    if (!fresh.length) return;
+    fresh.forEach(m => seenAgentIds.current.add(m._id));
+    playPop();
+    if (!widgetOpen) setUnreadCount(prev => prev + fresh.length);
+  }
 
   useEffect(() => {
     const handler = () => setOpen(true);
@@ -118,8 +160,10 @@ export default function SupportChatWidget() {
         if (cancelled) return;
         setStatus(data.data.status);
         if (data.data.messages.length) {
-          setMessages(prev => mergeMessages(prev, data.data.messages));
-          lastFetchedAt.current = new Date(data.data.messages[data.data.messages.length - 1].createdAt).getTime();
+          const incoming = data.data.messages;
+          setMessages(prev => mergeMessages(prev, incoming));
+          checkForNewAgentMessages(incoming, true);
+          lastFetchedAt.current = new Date(incoming[incoming.length - 1].createdAt).getTime();
         }
       } catch { /* network blip — next poll will catch up */ } finally {
         inFlight = false;
@@ -132,6 +176,35 @@ export default function SupportChatWidget() {
     const t = setInterval(poll, POLL_MS);
     return () => { cancelled = true; clearInterval(t); };
   }, [open, chatId]);
+
+  // Background poll — runs when widget is closed so we can still play sound + show badge.
+  // Uses a slower interval (8 s) to avoid wasting requests while user is elsewhere.
+  useEffect(() => {
+    if (open || !chatId) return;
+    let cancelled = false;
+    let inFlight = false;
+    async function bgPoll() {
+      if (inFlight) return;
+      inFlight = true;
+      try {
+        const res = await fetch(`/api/support/chats/${chatId}/messages?after=${lastFetchedAt.current}`);
+        if (!res.ok || cancelled) return;
+        const data = await res.json();
+        if (data.data.messages.length) {
+          const incoming: SupportMessage[] = data.data.messages;
+          checkForNewAgentMessages(incoming, false);
+          lastFetchedAt.current = new Date(incoming[incoming.length - 1].createdAt).getTime();
+        }
+      } catch { } finally { inFlight = false; }
+    }
+    const t = setInterval(bgPoll, 8000);
+    return () => { cancelled = true; clearInterval(t); };
+  }, [open, chatId]);
+
+  // Clear badge when user opens the widget
+  useEffect(() => {
+    if (open) setUnreadCount(0);
+  }, [open]);
 
   useEffect(() => {
     bodyRef.current?.scrollTo({ top: bodyRef.current.scrollHeight, behavior: 'smooth' });
@@ -230,7 +303,7 @@ export default function SupportChatWidget() {
         }}
       />
       <button
-        onClick={() => setOpen(v => !v)}
+        onClick={() => { initAudio(); setOpen(v => !v); }}
         title="Live support"
         style={{
           position: 'fixed', bottom: 84, right: 20, zIndex: 9980,
@@ -243,6 +316,16 @@ export default function SupportChatWidget() {
           animation: open ? 'none' : 'supportPulse 3s ease-in-out infinite',
         }}
       >
+        {unreadCount > 0 && !open && (
+          <span style={{
+            position: 'absolute', top: -5, right: -5, minWidth: 18, height: 18,
+            borderRadius: 9, background: '#EF4444', color: '#fff',
+            fontSize: 10, fontWeight: 800, lineHeight: '18px', textAlign: 'center',
+            padding: '0 4px', border: '2px solid #000', pointerEvents: 'none',
+          }}>
+            {unreadCount > 9 ? '9+' : unreadCount}
+          </span>
+        )}
         <span style={{
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           transform: open ? 'rotate(-90deg)' : 'rotate(0deg)',
