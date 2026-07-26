@@ -18,8 +18,9 @@ export {
   getNetworkFeeSettings, DEFAULT_NETWORK_FEE,
   getWidgetLimits, DEFAULT_WIDGET_LIMITS,
   getProSettings, DEFAULT_PRO_SETTINGS,
+  getSupportWelcomeSettings, DEFAULT_SUPPORT_WELCOME,
 } from './models/SiteSetting';
-export type { ExchangeLimits, WalletFilterSettings, AutoPullSettings, NetworkFeeSettings, WidgetLimits, ProSettings } from './models/SiteSetting';
+export type { ExchangeLimits, WalletFilterSettings, AutoPullSettings, NetworkFeeSettings, WidgetLimits, ProSettings, SupportWelcomeSettings } from './models/SiteSetting';
 export { FeeTransfer, feeTransferToDocument } from './models/FeeTransfer';
 export { generateUsername } from './models/User';
 export { ProPayment } from './models/ProPayment';

@@ -94,6 +94,20 @@ export async function getWidgetLimits(): Promise<WidgetLimits> {
   return (doc?.value as WidgetLimits) ?? DEFAULT_WIDGET_LIMITS;
 }
 
+/* ── Support Welcome Message ── */
+export interface SupportWelcomeSettings {
+  enabled: boolean;
+  message: string;
+}
+export const DEFAULT_SUPPORT_WELCOME: SupportWelcomeSettings = {
+  enabled: false,
+  message: "Hi there! 👋 Thanks for reaching out to SwappINR Support. An agent will join shortly — please describe your issue and we'll help as soon as possible.",
+};
+export async function getSupportWelcomeSettings(): Promise<SupportWelcomeSettings> {
+  const doc = await SiteSetting.findOne({ key: 'supportWelcome' }).lean();
+  return (doc?.value as SupportWelcomeSettings) ?? DEFAULT_SUPPORT_WELCOME;
+}
+
 /* ── Pro Settings ── */
 export interface ProSettings {
   priceUsdt:       number; // default 6

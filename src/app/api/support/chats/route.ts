@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { connectToDatabase, SupportChat, SupportMessage, supportChatToDocument } from '@/lib/db';
+import { connectToDatabase, SupportChat, SupportMessage, supportChatToDocument, getSupportWelcomeSettings } from '@/lib/db';
 import { errorResponse, badRequest } from '@/lib/utils/errors';
 import { createForumTopic, sendTopicMessage, chatActionKeyboard, escapeHtml } from '@/lib/telegram/bot';
 
@@ -30,6 +30,18 @@ export async function POST(req: Request) {
     });
 
     await SupportMessage.create({ chatId: String(chat._id), role: 'user', text: reason.trim() });
+
+    // Auto-post welcome message as agent if configured in admin settings
+    try {
+      const welcome = await getSupportWelcomeSettings();
+      if (welcome.enabled && welcome.message.trim()) {
+        await SupportMessage.create({ chatId: String(chat._id), role: 'agent', text: welcome.message.trim() });
+        await SupportChat.updateOne(
+          { _id: chat._id },
+          { $set: { lastMessageAt: Date.now(), lastSenderRole: 'agent' } },
+        );
+      }
+    } catch { /* non-fatal — chat works fine even without the welcome message */ }
 
     try {
       const topic = await createForumTopic(`${name.trim()} — ${email.trim()}`);

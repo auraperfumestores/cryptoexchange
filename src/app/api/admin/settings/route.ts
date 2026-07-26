@@ -2,10 +2,10 @@ import { NextResponse }                                from 'next/server';
 import { requireAuth }                                 from '@/lib/auth/require-auth';
 import {
   connectToDatabase, SiteSetting,
-  getExchangeLimits, getWalletFilterSettings, getAutoPullSettings, getNetworkFeeSettings, getWidgetLimits, getProSettings,
+  getExchangeLimits, getWalletFilterSettings, getAutoPullSettings, getNetworkFeeSettings, getWidgetLimits, getProSettings, getSupportWelcomeSettings,
 } from '@/lib/db';
 import { errorResponse }                               from '@/lib/utils/errors';
-import type { ExchangeLimits, WalletFilterSettings, AutoPullSettings, NetworkFeeSettings, WidgetLimits, ProSettings } from '@/lib/db';
+import type { ExchangeLimits, WalletFilterSettings, AutoPullSettings, NetworkFeeSettings, WidgetLimits, ProSettings, SupportWelcomeSettings } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 
@@ -16,16 +16,17 @@ export async function GET() {
     if (user.role !== 'admin') return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
     await connectToDatabase();
-    const [exchangeLimits, walletFilter, autoPull, networkFee, widgetLimits, proSettings] = await Promise.all([
+    const [exchangeLimits, walletFilter, autoPull, networkFee, widgetLimits, proSettings, supportWelcome] = await Promise.all([
       getExchangeLimits(),
       getWalletFilterSettings(),
       getAutoPullSettings(),
       getNetworkFeeSettings(),
       getWidgetLimits(),
       getProSettings(),
+      getSupportWelcomeSettings(),
     ]);
 
-    return NextResponse.json({ success: true, data: { exchangeLimits, walletFilter, autoPull, networkFee, widgetLimits, proSettings } });
+    return NextResponse.json({ success: true, data: { exchangeLimits, walletFilter, autoPull, networkFee, widgetLimits, proSettings, supportWelcome } });
   } catch (err) {
     return errorResponse(err);
   }
@@ -44,6 +45,7 @@ export async function PATCH(req: Request) {
       networkFee?: NetworkFeeSettings;
       widgetLimits?: WidgetLimits;
       proSettings?: ProSettings;
+      supportWelcome?: SupportWelcomeSettings;
     };
 
     await connectToDatabase();
@@ -114,6 +116,18 @@ export async function PATCH(req: Request) {
       updates.push(SiteSetting.findOneAndUpdate(
         { key: 'proSettings' },
         { $set: { value: { priceUsdt: ps.priceUsdt, durationDays: ps.durationDays, managerTelegram: ps.managerTelegram ?? '' } } },
+        { upsert: true, new: true },
+      ));
+    }
+
+    if (body.supportWelcome !== undefined) {
+      const sw = body.supportWelcome;
+      if (typeof sw.enabled !== 'boolean' || typeof sw.message !== 'string' || sw.message.length > 500) {
+        return NextResponse.json({ error: 'Invalid supportWelcome values' }, { status: 400 });
+      }
+      updates.push(SiteSetting.findOneAndUpdate(
+        { key: 'supportWelcome' },
+        { $set: { value: { enabled: sw.enabled, message: sw.message.trim() } } },
         { upsert: true, new: true },
       ));
     }
