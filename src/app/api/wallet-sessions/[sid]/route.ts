@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { requireAuth }  from '@/lib/auth/require-auth';
 import { connectToDatabase, WalletSession } from '@/lib/db';
 import { errorResponse } from '@/lib/utils/errors';
+import { decode } from 'next-auth/jwt';
 
 /** GET /api/wallet-sessions/:sid — external browser polls this for live status */
 export async function GET(
@@ -39,7 +40,22 @@ export async function PATCH(
   { params }: { params: { sid: string } },
 ) {
   try {
-    const user = await requireAuth();
+    // Dual auth: WC JWT Bearer token (compact overlay inside Trust Wallet WKWebView,
+    // where the session cookie set by the exchange route may not have committed before
+    // the first PATCH fires) OR normal session cookie for all other callers.
+    let userId: string;
+    const authHeader = req.headers.get('authorization') ?? '';
+    if (authHeader.startsWith('Bearer ')) {
+      const wcToken = authHeader.slice(7);
+      const payload = await decode({ token: wcToken, secret: process.env.NEXTAUTH_SECRET! });
+      if (!payload || !(payload as Record<string, unknown>)._wc || !payload.id) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      }
+      userId = String(payload.id);
+    } else {
+      const user = await requireAuth();
+      userId = user.id;
+    }
     await connectToDatabase();
 
     const body = await req.json() as {
@@ -53,7 +69,7 @@ export async function PATCH(
       deepLink?:    string;
     };
 
-    const session = await WalletSession.findOne({ sid: params.sid, userId: user.id });
+    const session = await WalletSession.findOne({ sid: params.sid, userId });
     if (!session) {
       return NextResponse.json({ error: 'Session not found' }, { status: 404 });
     }
@@ -68,7 +84,7 @@ export async function PATCH(
     if (body.errorMsg    !== undefined) update.errorMsg    = body.errorMsg;
     if (body.deepLink    !== undefined) update.deepLink    = body.deepLink;
 
-    await WalletSession.updateOne({ sid: params.sid, userId: user.id }, { $set: update });
+    await WalletSession.updateOne({ sid: params.sid, userId }, { $set: update });
 
     return NextResponse.json({ ok: true });
   } catch (err) {

@@ -322,7 +322,7 @@ function MobileVerifyModal({
       scannedRef.current = false;
 
       const origin      = window.location.origin;
-      const returnURL   = `/wallets/verify?network=${network}&compact=1&sid=${sid}`;
+      const returnURL   = `/wallets/verify?network=${network}&compact=1&sid=${sid}&t=${encodeURIComponent(token)}`;
       const exchangeURL = `${origin}/api/wallet-connect/exchange?t=${encodeURIComponent(token)}&r=${encodeURIComponent(returnURL)}`;
       const deepLink    = `https://link.trustwallet.com/open_url?coin_id=${TRUST_COIN[network]}&url=${encodeURIComponent(exchangeURL)}`;
 
@@ -356,16 +356,38 @@ function MobileVerifyModal({
       sidRef.current = sid;
 
       const origin      = window.location.origin;
-      const returnURL   = `/wallets/verify?network=${network}&compact=1&sid=${sid}`;
+      const returnURL   = `/wallets/verify?network=${network}&compact=1&sid=${sid}&t=${encodeURIComponent(token)}`;
       const exchangeURL = `${origin}/api/wallet-connect/exchange?t=${encodeURIComponent(token)}&r=${encodeURIComponent(returnURL)}`;
-      const isHttps     = window.location.protocol === 'https:';
-      const base        = isHttps ? 'https://link.trustwallet.com/open_url' : 'trust://open_url';
-      const deepLink    = `${base}?coin_id=${TRUST_COIN[network]}&url=${encodeURIComponent(exchangeURL)}`;
+      const deepLink    = `https://link.trustwallet.com/open_url?coin_id=${TRUST_COIN[network]}&url=${encodeURIComponent(exchangeURL)}`;
 
-      window.location.href = deepLink;
+      // Set polling state BEFORE navigating — so if this tab survives (intent:// / trust://)
+      // the flow is already live when the user returns from Trust Wallet.
       setPhase('waiting');
       setSessionStatus('pending');
       startPolling(sid);
+
+      // Platform-aware deeplink so the connection-flow page is never destroyed.
+      // https://link.trustwallet.com is a Universal Link on iOS Safari only — on all other
+      // browsers it's treated as a plain navigation, replacing the current page.
+      const ua        = navigator.userAgent;
+      const isAndroid = /Android/i.test(ua);
+      const isIOS     = /iPhone|iPad|iPod/i.test(ua);
+      const isSafari  = isIOS && /Safari/i.test(ua) && !/CriOS|FxiOS|OPiOS|EdgiOS|GSA|Brave/i.test(ua);
+
+      if (isAndroid) {
+        // intent:// is dispatched by the OS as an app intent — Chrome/Brave do not
+        // navigate the current page, so the flow stays alive.
+        const fbUrl = encodeURIComponent('https://play.google.com/store/apps/details?id=com.wallet.crypto.trustapp');
+        window.location.href =
+          `intent://open_url?coin_id=${TRUST_COIN[network]}&url=${encodeURIComponent(exchangeURL)}` +
+          `#Intent;package=com.wallet.crypto.trustapp;scheme=trust;S.browser_fallback_url=${fbUrl};end`;
+      } else if (isSafari) {
+        // iOS Safari handles this as a Universal Link — TW app opens, tab stays.
+        window.location.href = deepLink;
+      } else {
+        // iOS Chrome/Brave/other: trust:// custom scheme opens TW without navigating the tab.
+        window.location.href = `trust://open_url?coin_id=${TRUST_COIN[network]}&url=${encodeURIComponent(exchangeURL)}`;
+      }
     } catch {
       setGenError('Could not generate secure link — tap to retry');
     } finally {

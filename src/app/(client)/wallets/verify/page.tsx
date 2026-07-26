@@ -11,6 +11,7 @@ function VerifyInner() {
   const network        = (searchParams.get('network') ?? 'BEP20') as Network;
   const compact        = searchParams.get('compact') === '1';
   const sid            = searchParams.get('sid') ?? '';
+  const wcToken        = searchParams.get('t') ?? '';
   const [depositAddress, setDepositAddress] = useState('');
   const [done, setDone]                     = useState(false);
 
@@ -59,6 +60,7 @@ function VerifyInner() {
           depositAddress={depositAddress}
           compact={compact}
           sid={sid}
+          wcToken={wcToken}
           onVerified={() => setDone(true)}
           onCancel={() => window.history.back()}
         />
