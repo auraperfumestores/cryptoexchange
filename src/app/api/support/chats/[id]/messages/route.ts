@@ -69,6 +69,9 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     chat.lastMessageAt = Date.now();
     chat.lastSenderRole = 'user';
     chat.reminderSentAt = undefined;
+    // User replied — cancel all pending user email reminders for this cycle
+    chat.userReminderCount = 0;
+    chat.userReminderSentAt = undefined;
     if (chat.status === 'resolved') chat.status = 'open';
     await chat.save();
 

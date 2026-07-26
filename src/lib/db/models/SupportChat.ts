@@ -14,6 +14,10 @@ export interface SupportChatAttrs {
   lastMessageAt: number;
   lastSenderRole: LastSenderRole;
   reminderSentAt?: number;
+  /** How many user-facing email reminders have been sent in the current agent-reply cycle */
+  userReminderCount?: number;
+  /** Timestamp of the last user-facing email reminder — used to detect when agent replies again */
+  userReminderSentAt?: number;
 }
 
 const SupportChatSchema = new Schema<SupportChatAttrs>(
@@ -27,7 +31,9 @@ const SupportChatSchema = new Schema<SupportChatAttrs>(
     telegramTopicId: { type: Number, index: true },
     lastMessageAt: { type: Number, default: () => Date.now(), index: true },
     lastSenderRole: { type: String, enum: ['user', 'agent'], default: 'user' },
-    reminderSentAt: { type: Number },
+    reminderSentAt:    { type: Number },
+    userReminderCount: { type: Number, default: 0 },
+    userReminderSentAt:{ type: Number },
   },
   { timestamps: true },
 );

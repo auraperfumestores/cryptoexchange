@@ -78,6 +78,9 @@ async function handleMessage(msg: any) {
   chat.lastMessageAt = Date.now();
   chat.lastSenderRole = 'agent';
   chat.reminderSentAt = undefined;
+  // Reset user email reminder cycle: a fresh agent reply restarts the 15-min countdown
+  chat.userReminderCount = 0;
+  chat.userReminderSentAt = undefined;
   await chat.save();
 }
 

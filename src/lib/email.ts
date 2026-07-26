@@ -977,3 +977,118 @@ export async function sendOrderStatusEmail(email: string, name: string, order: O
 </html>`,
   });
 }
+
+
+// ─── Support chat inactivity reminder ───────────────────────────────────────
+
+const REMINDER_SUBJECTS = [
+  'You have a new reply from SwappINR Support',
+  'Reminder — your SwappINR support agent is waiting',
+  "We're still here to help — SwappINR Support",
+  'Your SwappINR support chat needs a response',
+  'Last reminder — your SwappINR chat closes in 12 hours',
+];
+
+const REMINDER_HEADLINES = [
+  'You have a new message',
+  'Reminder: we replied to you',
+  'Still waiting to hear from you',
+  'Your agent is still standing by',
+  'Last chance before your chat closes',
+];
+
+const REMINDER_ELAPSED = ['15 minutes', '1 hour', '3 hours', '6 hours', '12 hours'];
+
+/** Sent to users who have not replied to an agent message — up to 5 reminders before auto-close. */
+export async function sendSupportReminderEmail(
+  email: string,
+  name: string,
+  reminderIndex: number,
+  chatUrl: string,
+) {
+  const transport = createTransport();
+  if (!transport) {
+    console.log(`[email] Support reminder (${reminderIndex}) for ${email} — ${chatUrl}`);
+    return;
+  }
+
+  const idx      = Math.min(reminderIndex, REMINDER_SUBJECTS.length - 1);
+  const subject  = REMINDER_SUBJECTS[idx];
+  const headline = REMINDER_HEADLINES[idx];
+  const elapsed  = REMINDER_ELAPSED[idx];
+  const isFinal  = idx === REMINDER_SUBJECTS.length - 1;
+
+  await transport.sendMail({
+    from: FROM,
+    to: email,
+    subject,
+    html: `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${subject}</title></head>
+<body style="margin:0;padding:0;background:#080808;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#080808;padding:48px 16px">
+<tr><td align="center">
+<table width="520" cellpadding="0" cellspacing="0" style="max-width:520px;width:100%">
+  <tr><td style="background:#111111;border:1px solid rgba(204,255,0,0.14);border-radius:20px;overflow:hidden">
+    <table width="100%" cellpadding="0" cellspacing="0">
+      <tr><td style="background:linear-gradient(180deg,rgba(204,255,0,0.07) 0%,rgba(204,255,0,0.02) 100%);border-bottom:1px solid rgba(204,255,0,0.10);padding:44px 32px 36px;text-align:center">
+        <table cellpadding="0" cellspacing="0" style="margin:0 auto 24px"><tr><td>
+          <table cellpadding="0" cellspacing="0" style="display:inline-table"><tr>
+            <td style="width:44px;height:44px;background:#CCFF00;border-radius:11px;text-align:center;vertical-align:middle;line-height:44px">
+              <span style="color:#000;font-size:20px;font-weight:900;line-height:44px">S</span>
+            </td>
+            <td style="padding-left:11px;font-size:24px;font-weight:900;color:#ffffff;letter-spacing:-0.03em;vertical-align:middle;white-space:nowrap">
+              Swapp<span style="color:#CCFF00">INR</span>
+            </td>
+          </tr></table>
+        </td></tr></table>
+        <div style="width:60px;height:60px;background:rgba(204,255,0,0.10);border:1px solid rgba(204,255,0,0.22);border-radius:18px;margin:0 auto 20px;text-align:center;line-height:60px">
+          <svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg" style="vertical-align:middle">
+            <path d="M23 5H5a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h4l5 5 5-5h4a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2z" stroke="#CCFF00" stroke-width="1.8" stroke-linejoin="round"/>
+            <circle cx="10" cy="12" r="1.2" fill="#CCFF00"/><circle cx="14" cy="12" r="1.2" fill="#CCFF00"/><circle cx="18" cy="12" r="1.2" fill="#CCFF00"/>
+          </svg>
+        </div>
+        <h1 style="margin:0 0 8px;font-size:24px;font-weight:800;color:#ffffff;letter-spacing:-0.025em">${headline}</h1>
+        <p style="margin:0;font-size:13px;color:rgba(255,255,255,0.4)">${elapsed} since our last reply</p>
+      </td></tr>
+    </table>
+    <table width="100%" cellpadding="0" cellspacing="0">
+      <tr><td style="padding:36px 36px 28px">
+        <p style="margin:0 0 8px;font-size:16px;font-weight:700;color:#ffffff">Hello, ${name} &#128075;</p>
+        <p style="margin:0 0 28px;font-size:14px;line-height:1.85;color:rgba(255,255,255,0.5)">
+          Our support team replied to your chat <strong style="color:#ffffff">${elapsed} ago</strong> and we haven&apos;t heard back yet. Your question matters to us &mdash; we&apos;re still here and ready to help.<br><br>
+          Click below to jump back into the conversation. It only takes a moment.
+        </p>
+        <table width="100%" cellpadding="0" cellspacing="0">
+          <tr><td align="center" style="padding-bottom:28px">
+            <a href="${chatUrl}" style="display:inline-block;background:#CCFF00;color:#000000;text-decoration:none;font-weight:800;font-size:15px;padding:16px 48px;border-radius:12px;letter-spacing:-0.01em">
+              View Your Chat &rarr;
+            </a>
+          </td></tr>
+        </table>
+        <table width="100%" cellpadding="0" cellspacing="0">
+          <tr><td style="background:${isFinal ? 'rgba(248,113,113,0.06)' : 'rgba(255,210,0,0.05)'};border:1px solid ${isFinal ? 'rgba(248,113,113,0.22)' : 'rgba(255,210,0,0.15)'};border-radius:10px;padding:14px 16px">
+            <p style="font-size:12px;color:${isFinal ? '#F87171' : 'rgba(255,210,0,0.85)'};margin:0;line-height:1.75">
+              ${isFinal ? '&#9888; <strong>Final reminder.</strong> Your chat will be automatically closed in 12 hours if we don\'t hear from you.' : '&#8987; Your chat will be automatically closed after <strong style="color:#ffffff">24 hours</strong> of no response. Reply before then to keep your session open.'}
+            </p>
+          </td></tr>
+        </table>
+      </td></tr>
+    </table>
+    <table width="100%" cellpadding="0" cellspacing="0">
+      <tr><td style="background:rgba(0,0,0,0.35);border-top:1px solid rgba(255,255,255,0.05);padding:18px 36px;text-align:center">
+        <p style="font-size:12px;color:rgba(255,255,255,0.22);margin:0 0 4px">&copy; 2026 SwappINR &middot; USDT &#8596; INR Exchange</p>
+        <p style="font-size:11px;color:rgba(255,255,255,0.12);margin:0">You&apos;re receiving this because you have an open support chat on SwappINR.</p>
+      </td></tr>
+    </table>
+  </td></tr>
+  <tr><td align="center" style="padding-top:24px">
+    <p style="font-size:11px;color:rgba(255,255,255,0.15);margin:0">India&rsquo;s fastest crypto-to-INR settlement platform</p>
+  </td></tr>
+</table>
+</td></tr>
+</table>
+</body>
+</html>`,
+  });
+}
