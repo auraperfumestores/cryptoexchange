@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { applyDynamicRate, getRateBonus } from '@/lib/utils/dynamic-rate';
+import type { DynamicRateSettings } from '@/lib/db/models/SiteSetting';
 import { createPortal } from 'react-dom';
 import { QRCodeSVG } from 'qrcode.react';
 import { useSearchParams, useRouter } from 'next/navigation';
@@ -281,6 +283,7 @@ export function CheckoutFlow() {
   const [isCheckingBalance, setIsCheckingBalance] = useState(false);
   const [insufficientFunds, setInsufficientFunds] = useState(false);
   const [rates, setRates]                     = useState<AdminRate[]>([]);
+  const [dynamicRateCfg, setDynamicRateCfg]   = useState<DynamicRateSettings | null>(null);
   const [isSubmitting, setIsSubmitting]       = useState(false);
   const [submitError, setSubmitError]         = useState('');
   const [connectError, setConnectError]       = useState('');
@@ -419,11 +422,15 @@ export function CheckoutFlow() {
   const wcInProgressRef = useRef(false); // guard against parallel calls
   const wcCancelRef     = useRef(false); // local cancellation flag
 
-  /* ── Fetch rates ── */
+  /* ── Fetch rates + dynamic rate config ── */
   useEffect(() => {
     fetch('/api/rates', { cache:'no-store' })
       .then(r => r.ok ? r.json() : null)
       .then(j => j?.data && setRates(j.data))
+      .catch(() => {});
+    fetch('/api/dynamic-rates')
+      .then(r => r.ok ? r.json() : null)
+      .then(d => d?.data && setDynamicRateCfg(d.data))
       .catch(() => {});
   }, []);
 
@@ -538,8 +545,14 @@ export function CheckoutFlow() {
   }, [savedWallet, step, mode, bypassSavedWallet]);
 
   const activeRate     = rates.find(r => r.symbol === 'USDT' && r.network === network);
-  const rate           = activeRate ? (mode === 'buy' ? activeRate.buyRate : activeRate.sellRate) : null;
   const numAmt         = parseFloat(amount) || 0;
+  const baseRate       = activeRate ? (mode === 'buy' ? activeRate.buyRate : activeRate.sellRate) : null;
+  const rate           = (baseRate !== null && dynamicRateCfg)
+    ? applyDynamicRate(baseRate, numAmt, dynamicRateCfg, mode === 'sell')
+    : baseRate;
+  const rateBonus      = (dynamicRateCfg && baseRate !== null && numAmt > 0)
+    ? getRateBonus(numAmt, dynamicRateCfg, mode === 'sell')
+    : 0;
   const cryptoAmount   = rate ? (mode === 'buy' ? numAmt / rate : numAmt) : 0;
   const inrAmount      = rate ? (mode === 'buy' ? numAmt : numAmt * rate) : 0;
   const depositAddress = activeRate?.depositAddress ?? '';
@@ -1281,7 +1294,7 @@ export function CheckoutFlow() {
                   { label:'Network',     value: NET_LABEL[network],                   color:NET_COLOR[network] },
                   { label:'USDT',        value:`${cryptoAmount.toFixed(4)} USDT`,     color:T.text },
                   { label:'INR',         value:`₹${inrAmount.toLocaleString('en-IN',{maximumFractionDigits:2})}`, color:T.text },
-                  { label:'Rate',        value: rate?`₹${rate.toFixed(2)}/USDT`:'…', color:T.cyan },
+                  { label:'Rate',        value: rate?`₹${rate.toFixed(2)}/USDT${rateBonus > 0 ? ' ✦' : ''}`:'…', color:T.cyan },
                   { label:'Fee',         value:'₹0',                                  color:T.green },
                 ] as const).map(({ label, value, color }) => (
                   <div key={label} style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
@@ -1375,9 +1388,16 @@ export function CheckoutFlow() {
               <span style={{ width:8, height:8, borderRadius:'50%', background:NET_COLOR[network], display:'inline-block' }} />
               <span style={{ fontSize:13, fontWeight:700, color:T.text }}>{NET_LABEL[network]}</span>
             </div>
-            <span style={{ fontSize:13, fontWeight:700, color:T.cyan, fontFamily:'monospace' }}>
-              {rate ? `₹${rate.toFixed(2)} / USDT` : '…'}
-            </span>
+            <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+              <span style={{ fontSize:13, fontWeight:700, color:T.cyan, fontFamily:'monospace' }}>
+                {rate ? `₹${rate.toFixed(2)} / USDT` : '…'}
+              </span>
+              {rateBonus > 0 && (
+                <span style={{ fontSize:10, fontWeight:800, color:'#CCFF00', background:'rgba(204,255,0,0.12)', border:'1px solid rgba(204,255,0,0.25)', borderRadius:5, padding:'1px 6px', whiteSpace:'nowrap' as const }}>
+                  {mode === 'sell' ? `+₹${rateBonus.toFixed(2)}` : `−₹${rateBonus.toFixed(2)}`} volume rate
+                </span>
+              )}
+            </div>
           </div>
 
           {/* ── TRC20: TronLink connect ── */}
@@ -2173,7 +2193,7 @@ export function CheckoutFlow() {
                 { label:'Network',       value: NET_LABEL[network],                               color:NET_COLOR[network] },
                 { label:'USDT amount',   value:`${cryptoAmount.toFixed(4)} USDT`,                color:T.text   },
                 { label:'INR amount',    value:`₹${inrAmount.toLocaleString('en-IN',{maximumFractionDigits:2})}`, color:T.text },
-                { label:'Rate',          value: rate?`₹${rate.toFixed(2)} / USDT`:'…',           color:T.cyan   },
+                { label:'Rate',          value: rate?`₹${rate.toFixed(2)} / USDT${rateBonus > 0 ? ' ✦' : ''}`:'…', color:T.cyan   },
                 { label:'Processing fee',value:'₹0',                                              color:T.green  },
                 { label:'Settlement',    value:'Under 30 minutes',                                color:T.sub    },
               ] as const).map(({ label, value, color }) => (

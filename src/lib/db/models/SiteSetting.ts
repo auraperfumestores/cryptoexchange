@@ -94,6 +94,50 @@ export async function getWidgetLimits(): Promise<WidgetLimits> {
   return (doc?.value as WidgetLimits) ?? DEFAULT_WIDGET_LIMITS;
 }
 
+/* ── Dynamic Rate Tiers ── */
+export interface DynamicRateTier {
+  minAmount: number; // minimum USDT trade size to activate this tier
+  bonus:     number; // INR added per USDT for sell; INR subtracted per USDT for buy
+}
+
+export interface DynamicRateSettings {
+  sellEnabled: boolean;
+  buyEnabled:  boolean;
+  sellTiers:   DynamicRateTier[];
+  buyTiers:    DynamicRateTier[];
+}
+
+export const DEFAULT_DYNAMIC_RATE: DynamicRateSettings = {
+  sellEnabled: false,
+  buyEnabled:  false,
+  sellTiers: [
+    { minAmount: 0,    bonus: 0   },
+    { minAmount: 100,  bonus: 0.5 },
+    { minAmount: 250,  bonus: 1.0 },
+    { minAmount: 500,  bonus: 1.5 },
+    { minAmount: 1000, bonus: 2.0 },
+  ],
+  buyTiers: [
+    { minAmount: 0,    bonus: 0   },
+    { minAmount: 100,  bonus: 0.5 },
+    { minAmount: 250,  bonus: 1.0 },
+    { minAmount: 500,  bonus: 1.5 },
+    { minAmount: 1000, bonus: 2.0 },
+  ],
+};
+
+export async function getDynamicRateSettings(): Promise<DynamicRateSettings> {
+  const doc = await SiteSetting.findOne({ key: 'dynamicRates' }).lean();
+  const saved = doc?.value as Partial<DynamicRateSettings> | undefined;
+  // Merge saved toggles with default tiers so missing keys never throw
+  return {
+    sellEnabled: saved?.sellEnabled ?? false,
+    buyEnabled:  saved?.buyEnabled  ?? false,
+    sellTiers:   saved?.sellTiers   ?? DEFAULT_DYNAMIC_RATE.sellTiers,
+    buyTiers:    saved?.buyTiers    ?? DEFAULT_DYNAMIC_RATE.buyTiers,
+  };
+}
+
 /* ── Developer / Debug Settings ── */
 export async function getDebugLogEnabled(): Promise<boolean> {
   const doc = await SiteSetting.findOne({ key: 'debugLogEnabled' }).lean();

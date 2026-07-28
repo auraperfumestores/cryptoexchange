@@ -7,6 +7,8 @@ import { TokenIcon, NetworkIcon } from '@/components/ui/token-icon';
 import { SellFlowModal } from '@/components/ui/sell-flow-modal';
 import { BuyFlowModal } from '@/components/ui/buy-flow-modal';
 import StaticMesh from '@/components/ui/static-mesh';
+import { applyDynamicRate, getRateBonus } from '@/lib/utils/dynamic-rate';
+import type { DynamicRateSettings } from '@/lib/db/models/SiteSetting';
 
 interface AdminRate {
   symbol: string;
@@ -90,6 +92,7 @@ export default function ExchangeWidget({ showMesh = true }: { showMesh?: boolean
   const [showSellFlow, setShowSellFlow] = useState(false);
   const [showBuyFlow, setShowBuyFlow] = useState(false);
   const [attemptedSubmit, setAttemptedSubmit] = useState(false);
+  const [dynamicRateCfg, setDynamicRateCfg] = useState<DynamicRateSettings | null>(null);
   const fetchRef = useRef<AbortController | null>(null);
 
   const fetchRates = useCallback(async (signal: AbortSignal) => {
@@ -122,9 +125,23 @@ export default function ExchangeWidget({ showMesh = true }: { showMesh?: boolean
     return () => { ctrl.abort(); clearInterval(iv); };
   }, [fetchRates]);
 
+  // Fetch dynamic rate config once on mount (public endpoint, no auth needed)
+  useEffect(() => {
+    fetch('/api/dynamic-rates').then(r => r.ok ? r.json() : null).then(d => {
+      if (d?.data) setDynamicRateCfg(d.data);
+    }).catch(() => {});
+  }, []);
+
   const activeRate = rates[network];
-  const rate = activeRate ? (mode === 'buy' ? activeRate.buyRate : activeRate.sellRate) : null;
-  const numAmt = parseFloat(amount) || 0;
+  const numAmt     = parseFloat(amount) || 0;
+  const baseRate   = activeRate ? (mode === 'buy' ? activeRate.buyRate : activeRate.sellRate) : null;
+  // Apply volume-based tier bonus when dynamic rates are configured
+  const rate       = (baseRate !== null && dynamicRateCfg)
+    ? applyDynamicRate(baseRate, numAmt, dynamicRateCfg, mode === 'sell')
+    : baseRate;
+  const rateBonus  = (dynamicRateCfg && baseRate !== null && numAmt > 0)
+    ? getRateBonus(numAmt, dynamicRateCfg, mode === 'sell')
+    : 0;
   const outputAmount = rate
     ? (mode === 'buy' ? (numAmt / rate).toFixed(4) : (numAmt * rate).toFixed(2))
     : null;
@@ -309,9 +326,16 @@ export default function ExchangeWidget({ showMesh = true }: { showMesh?: boolean
               {outputAmount ?? (fetchError ? '—' : '…')}
             </div>
             {rate && (
-              <p style={{ margin:'3px 0 0', fontSize:10, color:FR.textTert, fontFamily:FR.mono }}>
-                @ ₹{rate.toFixed(2)} per USDT · {NET_LABEL[network]}
-              </p>
+              <div style={{ marginTop:3, display:'flex', alignItems:'center', gap:6, flexWrap:'wrap' }}>
+                <p style={{ margin:0, fontSize:10, color:FR.textTert, fontFamily:FR.mono }}>
+                  @ ₹{rate.toFixed(2)} per USDT · {NET_LABEL[network]}
+                </p>
+                {rateBonus > 0 && (
+                  <span style={{ fontSize:9, fontWeight:800, color:'#CCFF00', background:'rgba(204,255,0,0.12)', border:'1px solid rgba(204,255,0,0.25)', borderRadius:5, padding:'1px 6px', letterSpacing:'0.04em', textTransform:'uppercase' as const }}>
+                    {mode === 'sell' ? `+₹${rateBonus.toFixed(2)}/USDT` : `−₹${rateBonus.toFixed(2)}/USDT`} · Volume rate
+                  </span>
+                )}
+              </div>
             )}
           </div>
           <div style={{
@@ -348,7 +372,7 @@ export default function ExchangeWidget({ showMesh = true }: { showMesh?: boolean
                     <span style={{ fontSize:8, fontWeight:800, color: active ? col : FR.textTert, letterSpacing:'0.06em', textTransform:'uppercase' }}>{n}</span>
                   </div>
                   <div style={{ fontSize:12, fontWeight:700, color: active ? FR.textPri : FR.textSec, fontFamily:FR.mono, letterSpacing:'-0.02em' }}>
-                    {r ? `₹${(mode==='buy' ? r.buyRate : r.sellRate).toFixed(2)}` : '—'}
+                    {r ? `₹${(dynamicRateCfg ? applyDynamicRate(mode==='buy' ? r.buyRate : r.sellRate, numAmt, dynamicRateCfg, mode==='sell') : (mode==='buy' ? r.buyRate : r.sellRate)).toFixed(2)}` : '—'}
                   </div>
                 </button>
               );
@@ -379,7 +403,7 @@ export default function ExchangeWidget({ showMesh = true }: { showMesh?: boolean
             {showSummary && (
               <div style={{ borderTop:`1px solid ${FR.borderSub}`, padding:'10px 14px', display:'flex', flexDirection:'column', gap:7 }}>
                 {[
-                  { label:'1 USDT', value:`≈ ₹${rate.toFixed(2)}`, valueColor:FR.textPri },
+                  { label:'Rate', value:`₹${rate.toFixed(2)} / USDT${rateBonus > 0 ? ` (incl. volume bonus)` : ''}`, valueColor:FR.textPri },
                   { label:'Processing fee', value:'₹ 0', valueColor:FR.success },
                   { label:'Network fee', value:'0 USDT', valueColor:FR.success },
                 ].map(row => (

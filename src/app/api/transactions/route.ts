@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { connectToDatabase, Transaction, transactionToDocument, Rate, PaymentMethod, User, PlatformWallet } from '@/lib/db';
+import { connectToDatabase, Transaction, transactionToDocument, Rate, PaymentMethod, User, PlatformWallet, getDynamicRateSettings } from '@/lib/db';
+import { applyDynamicRate } from '@/lib/utils/dynamic-rate';
 import { errorResponse, badRequest, notFound } from '@/lib/utils/errors';
 import { requireAuth } from '@/lib/auth/require-auth';
 import { createSellSchema, createBuySchema } from '@/lib/validators/transaction';
@@ -75,9 +76,11 @@ export async function POST(req: Request) {
 
     if (!rate) return badRequest('No active rate for this crypto/network');
 
-    const cryptoAmount = parsed.data.cryptoAmount;
-    const applicableRate = isBuy ? rate.buyRate : rate.sellRate;
-    const inrAmount = parseFloat((cryptoAmount * applicableRate).toFixed(2));
+    const cryptoAmount   = parsed.data.cryptoAmount;
+    const dynamicRateCfg = await getDynamicRateSettings();
+    const baseRate       = isBuy ? rate.buyRate : rate.sellRate;
+    const applicableRate = applyDynamicRate(baseRate, cryptoAmount, dynamicRateCfg, !isBuy);
+    const inrAmount      = parseFloat((cryptoAmount * applicableRate).toFixed(2));
 
     // No platform/network fee — matches the ₹0 fee advertised in the exchange widget.
     const platformFee = 0;

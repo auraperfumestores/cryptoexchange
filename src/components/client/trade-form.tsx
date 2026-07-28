@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
+import { applyDynamicRate, getRateBonus } from '@/lib/utils/dynamic-rate';
+import type { DynamicRateSettings } from '@/lib/db/models/SiteSetting';
 import { useRouter } from 'next/navigation';
 import { useForm, Controller } from 'react-hook-form';
 import { ArrowsDownUp, Copy, Check, Info, Warning } from '@phosphor-icons/react';
@@ -46,6 +48,14 @@ export function TradeForm({ type, rates, paymentMethods, wallets, defaultSymbol 
   const [selectedPaymentMethodId, setSelectedPaymentMethodId] = useState<string>('');
   const [clientNotes, setClientNotes] = useState('');
 
+  const [dynamicRateCfg, setDynamicRateCfg] = useState<DynamicRateSettings | null>(null);
+
+  useEffect(() => {
+    fetch('/api/dynamic-rates').then(r => r.ok ? r.json() : null).then(d => {
+      if (d?.data) setDynamicRateCfg(d.data);
+    }).catch(() => {});
+  }, []);
+
   // Find the active rate
   const rate = useMemo(() => {
     return rates.find((r) => r.symbol === symbol && r.network === network && r.isActive);
@@ -58,10 +68,20 @@ export function TradeForm({ type, rates, paymentMethods, wallets, defaultSymbol 
     }
   }, [symbol, network]);
 
+  // Effective rate = base rate + dynamic volume bonus
+  const baseRateValue = rate ? (selectedTab === 'buy' ? rate.buyRate : rate.sellRate) : null;
+  const cryptoAmt     = parseFloat(cryptoAmount || '0');
+  const effectiveRateValue = (baseRateValue !== null && dynamicRateCfg)
+    ? applyDynamicRate(baseRateValue, cryptoAmt, dynamicRateCfg, selectedTab === 'sell')
+    : baseRateValue;
+  const rateBonus = (dynamicRateCfg && baseRateValue !== null && cryptoAmt > 0)
+    ? getRateBonus(cryptoAmt, dynamicRateCfg, selectedTab === 'sell')
+    : 0;
+
   // Compute conversion
   useEffect(() => {
-    if (!rate) return;
-    const r = selectedTab === 'buy' ? rate.buyRate : rate.sellRate;
+    if (!effectiveRateValue) return;
+    const r = effectiveRateValue;
     if (lastEdited === 'crypto') {
       const c = parseFloat(cryptoAmount || '0');
       if (!Number.isNaN(c)) {
@@ -73,14 +93,13 @@ export function TradeForm({ type, rates, paymentMethods, wallets, defaultSymbol 
         setCryptoAmount((i / r).toFixed(6));
       }
     }
-  }, [cryptoAmount, inrAmount, lastEdited, rate, selectedTab]);
+  }, [cryptoAmount, inrAmount, lastEdited, effectiveRateValue, selectedTab]);
 
   const feeBreakdown = useMemo(() => {
-    if (!rate) return null;
-    const r = selectedTab === 'buy' ? rate.buyRate : rate.sellRate;
+    if (!effectiveRateValue) return null;
     const amt = parseFloat(cryptoAmount || '0');
-    return calculateFeeBreakdown(amt, r, 0.5);
-  }, [cryptoAmount, rate, selectedTab]);
+    return calculateFeeBreakdown(amt, effectiveRateValue, 0.5);
+  }, [cryptoAmount, effectiveRateValue, selectedTab]);
 
   const symbolOptions = Object.keys(SYMBOL_NETWORKS).map((s) => ({ value: s, label: s }));
   const networkOptions = SYMBOL_NETWORKS[symbol].map((n) => ({
@@ -166,15 +185,20 @@ export function TradeForm({ type, rates, paymentMethods, wallets, defaultSymbol 
               </div>
 
               {/* Rate display */}
-              {rate ? (
+              {rate && effectiveRateValue ? (
                 <div className="mt-4 flex items-center justify-between rounded-lg bg-primary-50/60 border border-primary-100 px-4 py-2.5">
                   <div>
                     <p className="text-xs text-muted">
                       {selectedTab === 'buy' ? 'Buy rate' : 'Sell rate'}
                     </p>
                     <p className="font-mono-crypto text-lg font-bold text-primary">
-                      {formatINR(selectedTab === 'buy' ? rate.buyRate : rate.sellRate)}
+                      {formatINR(effectiveRateValue)}
                     </p>
+                    {rateBonus > 0 && (
+                      <p className="text-xs" style={{ color: '#16a34a', marginTop: 2 }}>
+                        {selectedTab === 'sell' ? `+₹${rateBonus.toFixed(2)}/USDT volume bonus` : `−₹${rateBonus.toFixed(2)}/USDT volume discount`}
+                      </p>
+                    )}
                   </div>
                   <div className="text-right">
                     <p className="text-xs text-muted">Opposite side</p>

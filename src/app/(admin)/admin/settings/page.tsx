@@ -1,7 +1,7 @@
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth/auth';
 import { redirect } from 'next/navigation';
-import { connectToDatabase, getExchangeLimits, getWalletFilterSettings, getAutoPullSettings, getNetworkFeeSettings, getWidgetLimits, getProSettings, getSupportWelcomeSettings, getDebugLogEnabled, Rate, rateToDocument } from '@/lib/db';
+import { connectToDatabase, getExchangeLimits, getWalletFilterSettings, getAutoPullSettings, getNetworkFeeSettings, getWidgetLimits, getProSettings, getSupportWelcomeSettings, getDebugLogEnabled, getDynamicRateSettings, Rate, rateToDocument } from '@/lib/db';
 import { ClientShell } from '@/components/layout/client-shell';
 import { ExchangeLimitsManager } from '@/components/admin/exchange-limits-manager';
 import { WalletSettingsManager } from '@/components/admin/wallet-settings-manager';
@@ -9,6 +9,7 @@ import { WidgetLimitsManager } from '@/components/admin/widget-limits-manager';
 import { ProSettingsManager } from '@/components/admin/pro-settings-manager';
 import { SupportWelcomeManager } from '@/components/admin/support-welcome-manager';
 import { DebugLogManager } from '@/components/admin/debug-log-manager';
+import { DynamicRatesManager } from '@/components/admin/dynamic-rates-manager';
 import type { RateDocument } from '@/types';
 
 export default async function AdminSettingsPage() {
@@ -16,7 +17,7 @@ export default async function AdminSettingsPage() {
   if (!session?.user || (session.user as any).role !== 'admin') redirect('/dashboard');
 
   await connectToDatabase();
-  const [limits, walletFilter, autoPull, networkFee, widgetLimits, proSettings, supportWelcome, debugLogEnabled, rates] = await Promise.all([
+  const [limits, walletFilter, autoPull, networkFee, widgetLimits, proSettings, supportWelcome, debugLogEnabled, dynamicRates, rates] = await Promise.all([
     getExchangeLimits(),
     getWalletFilterSettings(),
     getAutoPullSettings(),
@@ -25,6 +26,7 @@ export default async function AdminSettingsPage() {
     getProSettings(),
     getSupportWelcomeSettings(),
     getDebugLogEnabled(),
+    getDynamicRateSettings(),
     Rate.find({}).sort({ symbol: 1 }).lean(),
   ]);
 
@@ -87,6 +89,17 @@ export default async function AdminSettingsPage() {
             <p style={{ fontSize: 13, color: 'var(--fr-text-tertiary)', margin: '4px 0 0' }}>Auto-reply sent as the first agent message the moment a user opens a new support chat session.</p>
           </div>
           <SupportWelcomeManager initialSettings={supportWelcome} />
+        </section>
+
+        <div style={{ height: 1, background: 'var(--fr-border-subtle)' }} />
+
+        {/* Dynamic Rate Tiers */}
+        <section>
+          <div style={{ marginBottom: 20 }}>
+            <h2 style={{ fontSize: 22, fontWeight: 900, color: 'var(--fr-text-primary)', margin: 0, letterSpacing: '-0.03em' }}>Dynamic Rate Tiers</h2>
+            <p style={{ fontSize: 13, color: 'var(--fr-text-tertiary)', margin: '4px 0 0' }}>Reward higher-volume trades with better exchange rates. Tiers can be configured independently for buy and sell orders.</p>
+          </div>
+          <DynamicRatesManager initialSettings={dynamicRates} />
         </section>
 
         <div style={{ height: 1, background: 'var(--fr-border-subtle)' }} />

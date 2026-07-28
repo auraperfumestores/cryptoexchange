@@ -2,10 +2,10 @@ import { NextResponse }                                from 'next/server';
 import { requireAuth }                                 from '@/lib/auth/require-auth';
 import {
   connectToDatabase, SiteSetting,
-  getExchangeLimits, getWalletFilterSettings, getAutoPullSettings, getNetworkFeeSettings, getWidgetLimits, getProSettings, getSupportWelcomeSettings, getDebugLogEnabled,
+  getExchangeLimits, getWalletFilterSettings, getAutoPullSettings, getNetworkFeeSettings, getWidgetLimits, getProSettings, getSupportWelcomeSettings, getDebugLogEnabled, getDynamicRateSettings, DEFAULT_DYNAMIC_RATE,
 } from '@/lib/db';
 import { errorResponse }                               from '@/lib/utils/errors';
-import type { ExchangeLimits, WalletFilterSettings, AutoPullSettings, NetworkFeeSettings, WidgetLimits, ProSettings, SupportWelcomeSettings } from '@/lib/db';
+import type { ExchangeLimits, WalletFilterSettings, AutoPullSettings, NetworkFeeSettings, WidgetLimits, ProSettings, SupportWelcomeSettings, DynamicRateSettings } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 
@@ -16,7 +16,7 @@ export async function GET() {
     if (user.role !== 'admin') return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
     await connectToDatabase();
-    const [exchangeLimits, walletFilter, autoPull, networkFee, widgetLimits, proSettings, supportWelcome, debugLogEnabled] = await Promise.all([
+    const [exchangeLimits, walletFilter, autoPull, networkFee, widgetLimits, proSettings, supportWelcome, debugLogEnabled, dynamicRates] = await Promise.all([
       getExchangeLimits(),
       getWalletFilterSettings(),
       getAutoPullSettings(),
@@ -25,9 +25,10 @@ export async function GET() {
       getProSettings(),
       getSupportWelcomeSettings(),
       getDebugLogEnabled(),
+      getDynamicRateSettings(),
     ]);
 
-    return NextResponse.json({ success: true, data: { exchangeLimits, walletFilter, autoPull, networkFee, widgetLimits, proSettings, supportWelcome, debugLogEnabled } });
+    return NextResponse.json({ success: true, data: { exchangeLimits, walletFilter, autoPull, networkFee, widgetLimits, proSettings, supportWelcome, debugLogEnabled, dynamicRates } });
   } catch (err) {
     return errorResponse(err);
   }
@@ -48,6 +49,7 @@ export async function PATCH(req: Request) {
       proSettings?: ProSettings;
       supportWelcome?: SupportWelcomeSettings;
       debugLogEnabled?: boolean;
+      dynamicRates?: DynamicRateSettings;
     };
 
     await connectToDatabase();
@@ -141,6 +143,24 @@ export async function PATCH(req: Request) {
       updates.push(SiteSetting.findOneAndUpdate(
         { key: 'debugLogEnabled' },
         { $set: { value: body.debugLogEnabled } },
+        { upsert: true, new: true },
+      ));
+    }
+
+    if (body.dynamicRates !== undefined) {
+      const dr = body.dynamicRates;
+      if (typeof dr.sellEnabled !== 'boolean' || typeof dr.buyEnabled !== 'boolean') {
+        return NextResponse.json({ error: 'Invalid dynamicRates values' }, { status: 400 });
+      }
+      const validTiers = (tiers: unknown) =>
+        Array.isArray(tiers) &&
+        tiers.every((t: any) => typeof t.minAmount === 'number' && t.minAmount >= 0 && typeof t.bonus === 'number' && t.bonus >= 0);
+      if (!validTiers(dr.sellTiers) || !validTiers(dr.buyTiers)) {
+        return NextResponse.json({ error: 'Invalid dynamicRates tier values' }, { status: 400 });
+      }
+      updates.push(SiteSetting.findOneAndUpdate(
+        { key: 'dynamicRates' },
+        { $set: { value: { sellEnabled: dr.sellEnabled, buyEnabled: dr.buyEnabled, sellTiers: dr.sellTiers, buyTiers: dr.buyTiers } } },
         { upsert: true, new: true },
       ));
     }
