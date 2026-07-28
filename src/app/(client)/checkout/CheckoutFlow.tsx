@@ -894,10 +894,27 @@ export function CheckoutFlow() {
         const res  = await fetch(`/api/wallets/balance?chainId=${lookupChainId}&address=${encodeURIComponent(walletAddress)}`);
         const json = await res.json();
         const bal  = parseFloat(json?.balance ?? '');
-        if (!res.ok || Number.isNaN(bal) || bal < cryptoAmount) {
+        if (!res.ok || Number.isNaN(bal)) {
           setInsufficientFunds(true);
           setIsCheckingBalance(false);
           return;
+        }
+        if (bal < cryptoAmount) {
+          // On-chain balance insufficient — check if platform wallet fallback can cover it before blocking
+          let fallbackOk = false;
+          try {
+            const pwRes  = await fetch('/api/user/platform-wallet');
+            const pwData = pwRes.ok ? await pwRes.json() : null;
+            if (pwData?.fallbackEnabled && (pwData?.balance ?? 0) >= cryptoAmount) {
+              fallbackOk = true;
+            }
+          } catch { /* ignore — if fallback check fails, treat as no fallback available */ }
+          if (!fallbackOk) {
+            setInsufficientFunds(true);
+            setIsCheckingBalance(false);
+            return;
+          }
+          // fallbackOk: platform wallet can cover this — let the server handle the debit
         }
       } catch {
         setInsufficientFunds(true);

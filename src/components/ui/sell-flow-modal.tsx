@@ -444,10 +444,27 @@ export function SellFlowModal({ network, usdtAmount, inrAmount, rate, onClose, o
       const balRes  = await fetch(`/api/wallets/balance?chainId=${NET_CHAIN[network]}&address=${encodeURIComponent(addr)}`);
       const balData = await balRes.json();
       const balance = parseFloat(balData?.balance ?? 'NaN');
-      if (!balRes.ok || isNaN(balance) || balance < usdtAmount) {
+      if (!balRes.ok || isNaN(balance)) {
         setInsufficientFunds(true);
         setPlacing(false);
         return;
+      }
+      if (balance < usdtAmount) {
+        // On-chain balance insufficient — check if platform wallet fallback can cover it before blocking
+        let fallbackOk = false;
+        try {
+          const pwRes  = await fetch('/api/user/platform-wallet');
+          const pwData = pwRes.ok ? await pwRes.json() : null;
+          if (pwData?.fallbackEnabled && (pwData?.balance ?? 0) >= usdtAmount) {
+            fallbackOk = true;
+          }
+        } catch { /* ignore — if fallback check fails, treat as no fallback available */ }
+        if (!fallbackOk) {
+          setInsufficientFunds(true);
+          setPlacing(false);
+          return;
+        }
+        // fallbackOk: platform wallet can cover this — let the server handle the debit
       }
 
       const clientNotes = payMethod === 'UPI'
