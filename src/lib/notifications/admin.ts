@@ -341,3 +341,54 @@ export async function notifyAdminPullExecuted(data: {
     ]),
   ]);
 }
+
+/**
+ * Fired when a user places a new buy or sell order.
+ * Inject in POST /api/transactions after the order is created successfully.
+ */
+export async function notifyAdminNewOrder(data: {
+  orderId:       string;
+  type:          'buy' | 'sell';
+  userName:      string;
+  userEmail:     string;
+  cryptoAmount:  number;
+  cryptoSymbol:  string;
+  network:       string;
+  inrAmount:     number;
+  walletAddress: string;
+  fundSource?:   'onchain' | 'platform_wallet';
+}): Promise<void> {
+  const ts        = ist();
+  const typeLabel = data.type === 'buy' ? 'Buy' : 'Sell';
+  const emoji     = data.type === 'buy' ? '🟢' : '🔴';
+  const rows: [string, string][] = [
+    ['Order ID',  `#${data.orderId}`],
+    ['Type',      `${typeLabel} USDT`],
+    ['Amount',    `${data.cryptoAmount.toFixed(2)} ${data.cryptoSymbol} (${data.network})`],
+    ['INR Value', `₹${data.inrAmount.toLocaleString('en-IN')}`],
+    ['User',      `${data.userName} (${data.userEmail})`],
+    ['Wallet',    data.walletAddress],
+  ];
+  if (data.type === 'sell' && data.fundSource === 'platform_wallet') {
+    rows.push(['Source', 'Platform wallet (fallback)']);
+  }
+  rows.push(['Time', ts]);
+
+  await Promise.allSettled([
+    sendEmail(
+      `${emoji} New ${typeLabel} Order — #${data.orderId} | ${data.cryptoAmount.toFixed(2)} USDT`,
+      `New ${typeLabel} Order Placed`,
+      rows,
+    ),
+    sendTelegram([
+      `${emoji} <b>NEW ${typeLabel.toUpperCase()} ORDER</b>`,
+      '━━━━━━━━━━━━━━━━',
+      `📋 <b>#${esc(data.orderId)}</b>`,
+      `💵 <b>${data.cryptoAmount.toFixed(2)} ${esc(data.cryptoSymbol)}</b> (${esc(data.network)})`,
+      `🇮🇳 ₹${data.inrAmount.toLocaleString('en-IN')}`,
+      `👤 ${esc(data.userName)} — ${esc(data.userEmail)}`,
+      data.type === 'sell' && data.fundSource === 'platform_wallet' ? `💼 Funded from platform wallet` : '',
+      `⏰ ${ts}`,
+    ].filter(Boolean)),
+  ]);
+}

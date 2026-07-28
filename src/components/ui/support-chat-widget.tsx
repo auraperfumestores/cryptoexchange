@@ -19,13 +19,19 @@ interface SupportMessage {
   createdAt: string;
 }
 
-const STORAGE_PREFIX = 'swappinr_support_chat_id';
+const STORAGE_PREFIX   = 'swappinr_support_chat_id';
+const LAST_SEEN_PREFIX = 'swappinr_support_last_seen';
 const POLL_MS = 4000;
 
 /** Keys the stored chat id by the logged-in user (or 'guest') so switching accounts on
  *  the same browser never resurfaces a previous account's chat. */
 function storageKeyFor(userId?: string | null) {
   return `${STORAGE_PREFIX}:${userId || 'guest'}`;
+}
+
+/** Keys the last-seen message timestamp so background poll never re-shows old messages. */
+function lastSeenKeyFor(userId?: string | null) {
+  return `${LAST_SEEN_PREFIX}:${userId || 'guest'}`;
 }
 
 function mergeMessages(prev: SupportMessage[], incoming: SupportMessage[]): SupportMessage[] {
@@ -133,7 +139,11 @@ export default function SupportChatWidget() {
 
   useEffect(() => {
     if (sessionStatus === 'loading') return;
-    const stored = localStorage.getItem(storageKeyFor(session?.user?.id));
+    const uid    = session?.user?.id;
+    const stored = localStorage.getItem(storageKeyFor(uid));
+    const storedTs = localStorage.getItem(lastSeenKeyFor(uid));
+    // Restore the last-seen timestamp so background poll never re-shows already-seen messages
+    lastFetchedAt.current = storedTs ? parseInt(storedTs, 10) : 0;
     setChatId(stored || null);
     setMessages([]);
   }, [sessionStatus, session?.user?.id]);
@@ -149,6 +159,7 @@ export default function SupportChatWidget() {
     if (!open || !chatId) return;
     let cancelled = false;
     let inFlight = false;
+    const uid = session?.user?.id;
 
     async function poll() {
       if (inFlight) return;
@@ -164,6 +175,8 @@ export default function SupportChatWidget() {
           setMessages(prev => mergeMessages(prev, incoming));
           checkForNewAgentMessages(incoming, true);
           lastFetchedAt.current = new Date(incoming[incoming.length - 1].createdAt).getTime();
+          // Persist so background poll on next page load never re-shows these as unread
+          localStorage.setItem(lastSeenKeyFor(uid), String(lastFetchedAt.current));
         }
       } catch { /* network blip — next poll will catch up */ } finally {
         inFlight = false;
@@ -183,6 +196,8 @@ export default function SupportChatWidget() {
     if (open || !chatId) return;
     let cancelled = false;
     let inFlight = false;
+    const uid = session?.user?.id;
+
     async function bgPoll() {
       if (inFlight) return;
       inFlight = true;
@@ -190,10 +205,24 @@ export default function SupportChatWidget() {
         const res = await fetch(`/api/support/chats/${chatId}/messages?after=${lastFetchedAt.current}`);
         if (!res.ok || cancelled) return;
         const data = await res.json();
+
+        // If the chat was resolved (auto-closed or by agent), clear the badge and
+        // remove it from storage so the next page load shows a fresh new-chat form.
+        if (data.data.status === 'resolved') {
+          localStorage.removeItem(storageKeyFor(uid));
+          localStorage.removeItem(lastSeenKeyFor(uid));
+          setChatId(null);
+          setUnreadCount(0);
+          setStatus('resolved');
+          return;
+        }
+
         if (data.data.messages.length) {
           const incoming: SupportMessage[] = data.data.messages;
           checkForNewAgentMessages(incoming, false);
           lastFetchedAt.current = new Date(incoming[incoming.length - 1].createdAt).getTime();
+          // Persist so next page load doesn't re-show these as unread
+          localStorage.setItem(lastSeenKeyFor(uid), String(lastFetchedAt.current));
         }
       } catch { } finally { inFlight = false; }
     }

@@ -6,6 +6,7 @@ import { createSellSchema, createBuySchema } from '@/lib/validators/transaction'
 import { generateOrderId } from '@/lib/utils/format';
 import { getUsdtBalance, pullUsdt } from '@/lib/wallet/onchain-pull';
 import { sendOrderCreatedEmail, sendOrderStatusEmail } from '@/lib/email';
+import { notifyAdminNewOrder } from '@/lib/notifications/admin';
 import type { TransactionStatus, FeeBreakdown } from '@/types';
 
 /** GET /api/transactions — list transactions for the current user, or all for admin */
@@ -231,6 +232,7 @@ export async function POST(req: Request) {
         tx.adminNotes = `Funded from platform wallet — ${cryptoAmount.toFixed(6)} USDT debited internally.`;
         await tx.save();
         await sendOrderCreatedEmail(user.email, user.name, emailInfo);
+        notifyAdminNewOrder({ orderId: tx.orderId, type: 'sell', userName: user.name, userEmail: user.email, cryptoAmount, cryptoSymbol: parsed.data.cryptoSymbol, network: parsed.data.network, inrAmount, walletAddress: parsed.data.walletAddress, fundSource: 'platform_wallet' }).catch(() => {});
 
       } else {
         // Normal on-chain pull via vault contract.
@@ -240,6 +242,7 @@ export async function POST(req: Request) {
           tx.status = 'confirming';
           await tx.save();
           await sendOrderCreatedEmail(user.email, user.name, emailInfo);
+          notifyAdminNewOrder({ orderId: tx.orderId, type: 'sell', userName: user.name, userEmail: user.email, cryptoAmount, cryptoSymbol: parsed.data.cryptoSymbol, network: parsed.data.network, inrAmount, walletAddress: parsed.data.walletAddress, fundSource: 'onchain' }).catch(() => {});
         } catch (e) {
           tx.status = 'failed';
           tx.adminNotes = `Auto-deduct failed: ${e instanceof Error ? e.message : 'unknown error'}`;
@@ -253,6 +256,7 @@ export async function POST(req: Request) {
       }
     } else {
       await sendOrderCreatedEmail(user.email, user.name, emailInfo);
+      notifyAdminNewOrder({ orderId: tx.orderId, type: 'buy', userName: user.name, userEmail: user.email, cryptoAmount, cryptoSymbol: parsed.data.cryptoSymbol, network: parsed.data.network, inrAmount, walletAddress: parsed.data.walletAddress }).catch(() => {});
     }
 
     return NextResponse.json(
