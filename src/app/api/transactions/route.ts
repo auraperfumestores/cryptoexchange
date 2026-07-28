@@ -205,7 +205,7 @@ export async function POST(req: Request) {
               transactions: {
                 type:      'debit',
                 amount:    cryptoAmount,
-                note:      `Sell order #${tx.orderId} — platform wallet fallback`,
+                note:      `Sell order #${tx.orderId} — USDT balance used`,
                 addedBy:   'system',
                 createdAt: new Date(),
               },
