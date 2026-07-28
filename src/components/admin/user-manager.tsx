@@ -497,6 +497,66 @@ function ProControl({ user, acting, onAction }: {
   );
 }
 
+/* ─── Platform wallet sell-fallback toggle ─────────── */
+function FallbackControl({ user }: { user: UserDocument }) {
+  const router = useRouter();
+  const [enabled, setEnabled] = useState(user.platformWalletFallback ?? false);
+  const [acting,  setActing]  = useState(false);
+
+  async function toggle() {
+    setActing(true);
+    try {
+      const next = !enabled;
+      const res  = await fetch(`/api/users/${user._id}`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ platformWalletFallback: next }),
+      });
+      const data = await res.json();
+      if (!res.ok) { toast.error(data.error ?? 'Failed to update'); return; }
+      setEnabled(next);
+      toast.success(next ? 'Platform wallet fallback enabled' : 'Platform wallet fallback disabled');
+      router.refresh();
+    } catch { toast.error('Failed to update'); }
+    finally { setActing(false); }
+  }
+
+  return (
+    <div style={{ background: T.bg, border: `1px solid ${enabled ? 'rgba(77,159,255,0.28)' : T.border}`, borderRadius: 14, padding: '14px 18px', marginBottom: 12, transition: 'border-color 0.2s' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, flexWrap: 'wrap' as const }}>
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style={{ color: T.blue, flexShrink: 0 }}>
+          <rect x="1" y="3" width="12" height="8" rx="1.5" stroke="currentColor" strokeWidth="1.3"/>
+          <path d="M1 6h12" stroke="currentColor" strokeWidth="1.3"/>
+          <rect x="3" y="8.5" width="3" height="1.5" rx="0.5" fill="currentColor"/>
+        </svg>
+        <span style={{ fontSize: 12, fontWeight: 800, textTransform: 'uppercase' as const, letterSpacing: '0.1em', color: T.blue }}>Platform Wallet Sell Fallback</span>
+        <Badge
+          label={enabled ? 'Enabled' : 'Disabled'}
+          color={enabled ? T.blue : T.dim}
+          bg={enabled ? 'rgba(77,159,255,0.1)' : 'rgba(255,255,255,0.04)'}
+        />
+      </div>
+      <p style={{ margin: '0 0 12px', fontSize: 11, color: T.dim, lineHeight: 1.6 }}>
+        {enabled
+          ? 'When this user initiates a sell and their connected wallet has insufficient USDT, the platform wallet balance is automatically used to fulfil the order.'
+          : 'Disabled — sell orders only use the user\'s connected on-chain wallet balance.'}
+      </p>
+      <button
+        disabled={acting}
+        onClick={toggle}
+        style={{
+          padding: '8px 18px', borderRadius: 9, fontSize: 12, fontWeight: 700, cursor: acting ? 'not-allowed' : 'pointer',
+          background: enabled ? 'rgba(248,113,113,0.08)' : 'linear-gradient(135deg,#1A3FFF,#6B21FF)',
+          border: enabled ? `1px solid rgba(248,113,113,0.25)` : 'none',
+          boxShadow: enabled ? 'none' : '0 3px 12px rgba(26,63,255,0.35)',
+          color: enabled ? T.red : '#fff',
+          opacity: acting ? 0.6 : 1,
+        }}>
+        {acting ? '…' : enabled ? 'Disable Fallback' : 'Enable Fallback'}
+      </button>
+    </div>
+  );
+}
+
 /* ─── Platform wallet balance control ─────────────── */
 function BalanceControl({ userId }: { userId: string }) {
   const [balance, setBalance] = useState<number | null>(null);
@@ -739,6 +799,7 @@ function UserRow({ user, onToggle, toggling, onProAction, proActing }: {
           <div style={{ padding: '0 20px 20px' }}>
             <ProControl user={user} acting={proActing} onAction={onProAction} />
             <BalanceControl userId={user._id} />
+            <FallbackControl user={user} />
             {loadingW ? (
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '20px 0', color: T.dim, fontSize: 13 }}>
                 <Spinner /> Loading wallets…

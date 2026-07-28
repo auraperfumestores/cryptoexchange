@@ -31,6 +31,7 @@ export async function PATCH(req: Request, { params }: RouteParams) {
     if (body.isActive !== undefined) user.isActive = body.isActive;
     if (body.kycStatus) user.kycStatus = body.kycStatus;
     if (body.role && ['client', 'admin'].includes(body.role)) user.role = body.role;
+    if (typeof body.platformWalletFallback === 'boolean') user.platformWalletFallback = body.platformWalletFallback;
 
     if (body.proAction === 'grant') {
       const days = Math.max(1, Number(body.proDays) || 30);

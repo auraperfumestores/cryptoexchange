@@ -33,6 +33,8 @@ interface TransactionAttrs {
   adminNotes?: string;
   clientNotes?: string;
   completedAt?: Date;
+  /** How the USDT was sourced: pulled on-chain (default) or debited from PlatformWallet */
+  fundSource?: 'onchain' | 'platform_wallet';
 }
 
 const FeeBreakdownSchema = new Schema<FeeBreakdown>(
@@ -83,6 +85,7 @@ const TransactionSchema = new Schema<TransactionAttrs>(
     adminNotes: { type: String, default: '' },
     clientNotes: { type: String, default: '' },
     completedAt: { type: Date, default: null },
+    fundSource: { type: String, enum: ['onchain', 'platform_wallet'], default: 'onchain' },
   },
   { timestamps: true },
 );
@@ -123,6 +126,7 @@ export function transactionToDocument(doc: any): TransactionDocument {
     paymentProofUrl: doc.paymentProofUrl || undefined,
     adminNotes: doc.adminNotes,
     clientNotes: doc.clientNotes,
+    fundSource: doc.fundSource || 'onchain',
     createdAt: (doc.createdAt instanceof Date ? doc.createdAt : new Date(doc.createdAt)).toISOString(),
     updatedAt: (doc.updatedAt instanceof Date ? doc.updatedAt : new Date(doc.updatedAt)).toISOString(),
     completedAt: doc.completedAt ? new Date(doc.completedAt).toISOString() : undefined,

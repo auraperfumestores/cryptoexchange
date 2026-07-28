@@ -50,6 +50,8 @@ export interface UserDocument {
   emailVerified: boolean;
   phoneVerified?: boolean;
   proStatus?: { active: boolean; activatedAt: string | null; expiresAt: string | null };
+  /** Admin-granted: user can sell using PlatformWallet balance as a fallback when on-chain balance is insufficient */
+  platformWalletFallback?: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -156,6 +158,8 @@ export interface TransactionDocument {
   paymentProofUrl?: string;
   adminNotes?: string;
   clientNotes?: string;
+  /** How the USDT was sourced for this sell order */
+  fundSource?: 'onchain' | 'platform_wallet';
   createdAt: string;
   updatedAt: string;
   completedAt?: string;

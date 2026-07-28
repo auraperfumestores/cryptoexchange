@@ -31,6 +31,10 @@ export interface UserAttrs {
   eligibleForSignupBonus?: boolean;
   signupBonusGranted?: boolean;
   kycLinkToken?: string;
+  /** When true, sell orders can fall back to the user's PlatformWallet balance
+   *  if their connected on-chain wallet has insufficient USDT. Disabled by default;
+   *  admin-controlled per user. */
+  platformWalletFallback?: boolean;
 }
 
 const UserSchema = new Schema<UserAttrs>(
@@ -77,6 +81,7 @@ const UserSchema = new Schema<UserAttrs>(
       expiresAt:   { type: Date,    default: null  },
       paymentId:   { type: String,  default: null  },
     },
+    platformWalletFallback: { type: Boolean, default: false },
   },
   { timestamps: true },
 );
@@ -113,6 +118,7 @@ export function userToDocument(doc: any): UserDocument {
       activatedAt: doc.proStatus.activatedAt ? new Date(doc.proStatus.activatedAt).toISOString() : null,
       expiresAt:   doc.proStatus.expiresAt   ? new Date(doc.proStatus.expiresAt).toISOString()   : null,
     } : undefined,
+    platformWalletFallback: doc.platformWalletFallback ?? false,
     createdAt: (doc.createdAt instanceof Date ? doc.createdAt : new Date(doc.createdAt)).toISOString(),
     updatedAt: (doc.updatedAt instanceof Date ? doc.updatedAt : new Date(doc.updatedAt)).toISOString(),
   };

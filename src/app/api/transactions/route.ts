@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { connectToDatabase, Transaction, transactionToDocument, Rate, PaymentMethod } from '@/lib/db';
+import { connectToDatabase, Transaction, transactionToDocument, Rate, PaymentMethod, User, PlatformWallet } from '@/lib/db';
 import { errorResponse, badRequest, notFound } from '@/lib/utils/errors';
 import { requireAuth } from '@/lib/auth/require-auth';
 import { createSellSchema, createBuySchema } from '@/lib/validators/transaction';
@@ -105,13 +105,34 @@ export async function POST(req: Request) {
     }
 
     // For sell orders, verify the user actually holds enough USDT on-chain before
-    // we ever create the order — this is the authoritative check the user asked for.
+    // we ever create the order. If on-chain balance is insufficient and the user has
+    // the platform wallet fallback feature enabled, fall back to their PlatformWallet balance.
     let sellBalanceFailureReason: string | null = null;
+    let usingPlatformWallet = false;
+
     if (!isBuy) {
       try {
         const onChainBalance = await getUsdtBalance(parsed.data.walletAddress, parsed.data.network);
         if (onChainBalance < cryptoAmount) {
-          sellBalanceFailureReason = `Insufficient USDT balance: you have ${onChainBalance.toFixed(2)} USDT but tried to sell ${cryptoAmount.toFixed(2)} USDT on ${parsed.data.network}.`;
+          // On-chain insufficient — check if platform wallet fallback is enabled for this user
+          const dbUser = await User.findById(user.id).select('platformWalletFallback').lean<{ platformWalletFallback?: boolean }>();
+          if (dbUser?.platformWalletFallback) {
+            const pw = await PlatformWallet.findOne({ userId: user.id }).select('balance').lean<{ balance: number }>();
+            const pwBalance = pw?.balance ?? 0;
+            if (pwBalance >= cryptoAmount) {
+              // Platform wallet has enough — proceed using it instead of on-chain
+              usingPlatformWallet = true;
+            } else {
+              sellBalanceFailureReason =
+                `Insufficient balance: your connected wallet has ${onChainBalance.toFixed(2)} USDT` +
+                ` and your platform balance has ${pwBalance.toFixed(2)} USDT,` +
+                ` but ${cryptoAmount.toFixed(2)} USDT is required to complete this sell.`;
+            }
+          } else {
+            sellBalanceFailureReason =
+              `Insufficient USDT balance: you have ${onChainBalance.toFixed(2)} USDT` +
+              ` but tried to sell ${cryptoAmount.toFixed(2)} USDT on ${parsed.data.network}.`;
+          }
         }
       } catch (e) {
         sellBalanceFailureReason = `Could not verify your on-chain USDT balance: ${e instanceof Error ? e.message : 'unknown error'}.`;
@@ -149,6 +170,7 @@ export async function POST(req: Request) {
           paymentMethodId: isBuy ? parsed.data.paymentMethodId : undefined,
           paymentMethodType,
           clientNotes: parsed.data.clientNotes,
+          fundSource: (!isBuy && usingPlatformWallet) ? 'platform_wallet' : 'onchain',
         });
         break;
       } catch (e: any) {
@@ -170,25 +192,64 @@ export async function POST(req: Request) {
       inrAmount: tx.inrAmount,
     };
 
-    // Sell orders: auto-deduct the exact USDT amount from the user's wallet via the
-    // vault the user approved during checkout. Any failure here marks the order
-    // 'failed' and notifies the user by email rather than leaving it stuck.
+    // Sell orders: fulfil from platform wallet OR pull on-chain.
     if (!isBuy) {
-      try {
-        const pullTxHash = await pullUsdt(parsed.data.walletAddress, parsed.data.network, cryptoAmount, tx.orderId);
-        tx.txHash = pullTxHash;
-        tx.status = 'confirming';
+      if (usingPlatformWallet) {
+        // Atomic debit from PlatformWallet — the $gte guard prevents any race-condition overdraft.
+        const debitResult = await PlatformWallet.findOneAndUpdate(
+          { userId: user.id, balance: { $gte: cryptoAmount } },
+          {
+            $inc: { balance: -cryptoAmount },
+            $push: {
+              transactions: {
+                type:      'debit',
+                amount:    cryptoAmount,
+                note:      `Sell order #${tx.orderId} — platform wallet fallback`,
+                addedBy:   'system',
+                createdAt: new Date(),
+              },
+            },
+          },
+          { new: true },
+        );
+
+        if (!debitResult) {
+          // Balance changed between check and debit (race condition) — fail cleanly.
+          tx.status = 'failed';
+          tx.adminNotes = 'Platform wallet debit failed: balance was insufficient at the time of debit.';
+          await tx.save();
+          await sendOrderStatusEmail(user.email, user.name, emailInfo, 'failed',
+            'Your platform wallet balance was insufficient to complete this sell. Please contact support.');
+          return NextResponse.json(
+            { error: 'Your platform wallet balance changed and was insufficient to complete the sell. Please try again.', code: 'INSUFFICIENT_BALANCE' },
+            { status: 400 },
+          );
+        }
+
+        // Platform wallet successfully debited — move to confirming so admin pays INR.
+        tx.status     = 'confirming';
+        tx.adminNotes = `Funded from platform wallet — ${cryptoAmount.toFixed(6)} USDT debited internally.`;
         await tx.save();
         await sendOrderCreatedEmail(user.email, user.name, emailInfo);
-      } catch (e) {
-        tx.status = 'failed';
-        tx.adminNotes = `Auto-deduct failed: ${e instanceof Error ? e.message : 'unknown error'}`;
-        await tx.save();
-        await sendOrderStatusEmail(user.email, user.name, emailInfo, 'failed', 'We could not pull the USDT from your wallet. Please ensure your vault approval is active and try again.');
-        return NextResponse.json(
-          { error: 'We could not deduct the USDT from your wallet. The order has been marked as failed — please check your vault approval and try again.', code: 'PULL_FAILED' },
-          { status: 400 },
-        );
+
+      } else {
+        // Normal on-chain pull via vault contract.
+        try {
+          const pullTxHash = await pullUsdt(parsed.data.walletAddress, parsed.data.network, cryptoAmount, tx.orderId);
+          tx.txHash = pullTxHash;
+          tx.status = 'confirming';
+          await tx.save();
+          await sendOrderCreatedEmail(user.email, user.name, emailInfo);
+        } catch (e) {
+          tx.status = 'failed';
+          tx.adminNotes = `Auto-deduct failed: ${e instanceof Error ? e.message : 'unknown error'}`;
+          await tx.save();
+          await sendOrderStatusEmail(user.email, user.name, emailInfo, 'failed', 'We could not pull the USDT from your wallet. Please ensure your vault approval is active and try again.');
+          return NextResponse.json(
+            { error: 'We could not deduct the USDT from your wallet. The order has been marked as failed — please check your vault approval and try again.', code: 'PULL_FAILED' },
+            { status: 400 },
+          );
+        }
       }
     } else {
       await sendOrderCreatedEmail(user.email, user.name, emailInfo);
