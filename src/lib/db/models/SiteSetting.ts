@@ -173,3 +173,44 @@ export async function getProSettings(): Promise<ProSettings> {
   const doc = await SiteSetting.findOne({ key: 'proSettings' }).lean();
   return (doc?.value as ProSettings) ?? DEFAULT_PRO_SETTINGS;
 }
+
+/* ── Scheduled Rate Overrides ── */
+export interface ScheduledRateSlot {
+  id: string;
+  network: 'BEP20' | 'ERC20' | 'TRC20';
+  type: 'buy' | 'sell';
+  rate: number;           // exact INR rate during the window
+  startAt: string;        // ISO UTC datetime
+  durationMinutes: number;
+}
+
+export interface ScheduledRateSettings {
+  enabled: boolean;
+  slots: ScheduledRateSlot[];
+}
+
+export const DEFAULT_SCHEDULED_OVERRIDES: ScheduledRateSettings = {
+  enabled: false,
+  slots: [],
+};
+
+export async function getScheduledRateSettings(): Promise<ScheduledRateSettings> {
+  const doc = await SiteSetting.findOne({ key: 'scheduledRateOverrides' }).lean();
+  return (doc?.value as ScheduledRateSettings) ?? DEFAULT_SCHEDULED_OVERRIDES;
+}
+
+export function getActiveOverride(
+  settings: ScheduledRateSettings,
+  network: string,
+  type: 'buy' | 'sell',
+): ScheduledRateSlot | null {
+  if (!settings.enabled) return null;
+  const now = Date.now();
+  for (const slot of settings.slots) {
+    if (slot.network !== network || slot.type !== type) continue;
+    const start = new Date(slot.startAt).getTime();
+    const end   = start + slot.durationMinutes * 60_000;
+    if (now >= start && now < end) return slot;
+  }
+  return null;
+}

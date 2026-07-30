@@ -21,8 +21,9 @@ export {
   getSupportWelcomeSettings, DEFAULT_SUPPORT_WELCOME,
   getDebugLogEnabled,
   getDynamicRateSettings, DEFAULT_DYNAMIC_RATE,
+  getScheduledRateSettings, DEFAULT_SCHEDULED_OVERRIDES, getActiveOverride,
 } from './models/SiteSetting';
-export type { ExchangeLimits, WalletFilterSettings, AutoPullSettings, NetworkFeeSettings, WidgetLimits, ProSettings, SupportWelcomeSettings, DynamicRateSettings, DynamicRateTier } from './models/SiteSetting';
+export type { ExchangeLimits, WalletFilterSettings, AutoPullSettings, NetworkFeeSettings, WidgetLimits, ProSettings, SupportWelcomeSettings, DynamicRateSettings, DynamicRateTier, ScheduledRateSettings, ScheduledRateSlot } from './models/SiteSetting';
 export { FeeTransfer, feeTransferToDocument } from './models/FeeTransfer';
 export { generateUsername } from './models/User';
 export { ProPayment } from './models/ProPayment';

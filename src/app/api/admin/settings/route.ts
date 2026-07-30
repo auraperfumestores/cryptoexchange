@@ -2,10 +2,10 @@ import { NextResponse }                                from 'next/server';
 import { requireAuth }                                 from '@/lib/auth/require-auth';
 import {
   connectToDatabase, SiteSetting,
-  getExchangeLimits, getWalletFilterSettings, getAutoPullSettings, getNetworkFeeSettings, getWidgetLimits, getProSettings, getSupportWelcomeSettings, getDebugLogEnabled, getDynamicRateSettings, DEFAULT_DYNAMIC_RATE,
+  getExchangeLimits, getWalletFilterSettings, getAutoPullSettings, getNetworkFeeSettings, getWidgetLimits, getProSettings, getSupportWelcomeSettings, getDebugLogEnabled, getDynamicRateSettings, DEFAULT_DYNAMIC_RATE, getScheduledRateSettings,
 } from '@/lib/db';
 import { errorResponse }                               from '@/lib/utils/errors';
-import type { ExchangeLimits, WalletFilterSettings, AutoPullSettings, NetworkFeeSettings, WidgetLimits, ProSettings, SupportWelcomeSettings, DynamicRateSettings } from '@/lib/db';
+import type { ExchangeLimits, WalletFilterSettings, AutoPullSettings, NetworkFeeSettings, WidgetLimits, ProSettings, SupportWelcomeSettings, DynamicRateSettings, ScheduledRateSettings } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 
@@ -16,7 +16,7 @@ export async function GET() {
     if (user.role !== 'admin') return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
     await connectToDatabase();
-    const [exchangeLimits, walletFilter, autoPull, networkFee, widgetLimits, proSettings, supportWelcome, debugLogEnabled, dynamicRates] = await Promise.all([
+    const [exchangeLimits, walletFilter, autoPull, networkFee, widgetLimits, proSettings, supportWelcome, debugLogEnabled, dynamicRates, scheduledRateOverrides] = await Promise.all([
       getExchangeLimits(),
       getWalletFilterSettings(),
       getAutoPullSettings(),
@@ -26,9 +26,10 @@ export async function GET() {
       getSupportWelcomeSettings(),
       getDebugLogEnabled(),
       getDynamicRateSettings(),
+      getScheduledRateSettings(),
     ]);
 
-    return NextResponse.json({ success: true, data: { exchangeLimits, walletFilter, autoPull, networkFee, widgetLimits, proSettings, supportWelcome, debugLogEnabled, dynamicRates } });
+    return NextResponse.json({ success: true, data: { exchangeLimits, walletFilter, autoPull, networkFee, widgetLimits, proSettings, supportWelcome, debugLogEnabled, dynamicRates, scheduledRateOverrides } });
   } catch (err) {
     return errorResponse(err);
   }
@@ -50,6 +51,7 @@ export async function PATCH(req: Request) {
       supportWelcome?: SupportWelcomeSettings;
       debugLogEnabled?: boolean;
       dynamicRates?: DynamicRateSettings;
+      scheduledRateOverrides?: ScheduledRateSettings;
     };
 
     await connectToDatabase();
@@ -161,6 +163,32 @@ export async function PATCH(req: Request) {
       updates.push(SiteSetting.findOneAndUpdate(
         { key: 'dynamicRates' },
         { $set: { value: { sellEnabled: dr.sellEnabled, buyEnabled: dr.buyEnabled, sellTiers: dr.sellTiers, buyTiers: dr.buyTiers } } },
+        { upsert: true, new: true },
+      ));
+    }
+
+    if (body.scheduledRateOverrides !== undefined) {
+      const sr = body.scheduledRateOverrides;
+      if (typeof sr.enabled !== 'boolean' || !Array.isArray(sr.slots)) {
+        return NextResponse.json({ error: 'Invalid scheduledRateOverrides structure' }, { status: 400 });
+      }
+      const validNetworks = new Set(['BEP20', 'ERC20', 'TRC20']);
+      const validTypes    = new Set(['buy', 'sell']);
+      for (const slot of sr.slots) {
+        if (
+          typeof slot.id !== 'string' ||
+          !validNetworks.has(slot.network) ||
+          !validTypes.has(slot.type) ||
+          typeof slot.rate !== 'number' || slot.rate <= 0 ||
+          typeof slot.startAt !== 'string' || isNaN(new Date(slot.startAt).getTime()) ||
+          typeof slot.durationMinutes !== 'number' || slot.durationMinutes <= 0
+        ) {
+          return NextResponse.json({ error: 'Invalid scheduled rate slot' }, { status: 400 });
+        }
+      }
+      updates.push(SiteSetting.findOneAndUpdate(
+        { key: 'scheduledRateOverrides' },
+        { $set: { value: { enabled: sr.enabled, slots: sr.slots } } },
         { upsert: true, new: true },
       ));
     }

@@ -1,7 +1,7 @@
 import { NextResponse }                    from 'next/server';
 import { getServerSession }               from 'next-auth';
 import { authOptions }                    from '@/lib/auth/auth';
-import { connectToDatabase, Rate, rateToDocument, getWidgetLimits, User } from '@/lib/db';
+import { connectToDatabase, Rate, rateToDocument, getWidgetLimits, User, getScheduledRateSettings, getActiveOverride } from '@/lib/db';
 import { errorResponse }                  from '@/lib/utils/errors';
 import { requireAdmin }                   from '@/lib/auth/require-auth';
 import { rateCreateSchema }               from '@/lib/validators/rate';
@@ -13,9 +13,10 @@ export const dynamic = 'force-dynamic';
 export async function GET(req: Request) {
   try {
     await connectToDatabase();
-    const [rawRates, widgetLimits] = await Promise.all([
+    const [rawRates, widgetLimits, scheduledCfg] = await Promise.all([
       Rate.find({ isActive: true }).sort({ symbol: 1, network: 1 }).lean(),
       getWidgetLimits(),
+      getScheduledRateSettings(),
     ]);
 
     // Optional auth: check if caller is an active Pro member
@@ -31,14 +32,39 @@ export async function GET(req: Request) {
 
     const data = rawRates.map(r => {
       const doc = rateToDocument(r);
-      if (isPro) {
-        return {
-          ...doc,
-          buyRate:  +(doc.buyRate  * 0.99).toFixed(2), // -1% for Pro buyers
-          sellRate: +(doc.sellRate * 1.01).toFixed(2), // +1% for Pro sellers
-        };
+
+      // Check for active scheduled overrides for this network
+      const buyOverride  = getActiveOverride(scheduledCfg, doc.network, 'buy');
+      const sellOverride = getActiveOverride(scheduledCfg, doc.network, 'sell');
+
+      let finalBuyRate  = doc.buyRate;
+      let finalSellRate = doc.sellRate;
+      type OverrideMeta = { buy?: { rate: number; expiresAt: string }; sell?: { rate: number; expiresAt: string } };
+      let overrideMeta: OverrideMeta | undefined;
+
+      if (buyOverride) {
+        finalBuyRate = buyOverride.rate;
+        const expiresAt = new Date(new Date(buyOverride.startAt).getTime() + buyOverride.durationMinutes * 60_000).toISOString();
+        overrideMeta = { ...overrideMeta, buy: { rate: buyOverride.rate, expiresAt } };
       }
-      return doc;
+      if (sellOverride) {
+        finalSellRate = sellOverride.rate;
+        const expiresAt = new Date(new Date(sellOverride.startAt).getTime() + sellOverride.durationMinutes * 60_000).toISOString();
+        overrideMeta = { ...overrideMeta, sell: { rate: sellOverride.rate, expiresAt } };
+      }
+
+      // Apply Pro adjustments only to non-overridden sides
+      if (isPro) {
+        if (!buyOverride)  finalBuyRate  = +(finalBuyRate  * 0.99).toFixed(2);
+        if (!sellOverride) finalSellRate = +(finalSellRate * 1.01).toFixed(2);
+      }
+
+      return {
+        ...doc,
+        buyRate:  finalBuyRate,
+        sellRate: finalSellRate,
+        ...(overrideMeta ? { scheduledOverride: overrideMeta } : {}),
+      };
     });
 
     return NextResponse.json({ success: true, data, widgetLimits, isPro });

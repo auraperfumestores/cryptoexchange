@@ -17,6 +17,10 @@ interface AdminRate {
   sellRate: number;
   spread: number;
   depositAddress?: string;
+  scheduledOverride?: {
+    buy?:  { rate: number; expiresAt: string };
+    sell?: { rate: number; expiresAt: string };
+  };
 }
 
 interface WidgetLimits {
@@ -132,14 +136,15 @@ export default function ExchangeWidget({ showMesh = true }: { showMesh?: boolean
     }).catch(() => {});
   }, []);
 
-  const activeRate = rates[network];
-  const numAmt     = parseFloat(amount) || 0;
-  const baseRate   = activeRate ? (mode === 'buy' ? activeRate.buyRate : activeRate.sellRate) : null;
-  // Apply volume-based tier bonus when dynamic rates are configured
-  const rate       = (baseRate !== null && dynamicRateCfg)
+  const activeRate   = rates[network];
+  const numAmt       = parseFloat(amount) || 0;
+  const baseRate     = activeRate ? (mode === 'buy' ? activeRate.buyRate : activeRate.sellRate) : null;
+  // Scheduled override suspends dynamic tier — the API already returned the override rate in buyRate/sellRate
+  const overrideInfo = mode === 'sell' ? activeRate?.scheduledOverride?.sell : activeRate?.scheduledOverride?.buy;
+  const rate         = (baseRate !== null && dynamicRateCfg && !overrideInfo)
     ? applyDynamicRate(baseRate, numAmt, dynamicRateCfg, mode === 'sell')
     : baseRate;
-  const rateBonus  = (dynamicRateCfg && baseRate !== null && numAmt > 0)
+  const rateBonus    = (!overrideInfo && dynamicRateCfg && baseRate !== null && numAmt > 0)
     ? getRateBonus(numAmt, dynamicRateCfg, mode === 'sell')
     : 0;
   const outputAmount = rate
@@ -330,11 +335,15 @@ export default function ExchangeWidget({ showMesh = true }: { showMesh?: boolean
                 <p style={{ margin:0, fontSize:10, color:FR.textTert, fontFamily:FR.mono }}>
                   @ ₹{rate.toFixed(2)} per USDT · {NET_LABEL[network]}
                 </p>
-                {rateBonus > 0 && (
+                {overrideInfo ? (
+                  <span style={{ fontSize:9, fontWeight:800, color:'#CCFF00', background:'rgba(204,255,0,0.12)', border:'1px solid rgba(204,255,0,0.25)', borderRadius:5, padding:'1px 6px', letterSpacing:'0.04em', textTransform:'uppercase' as const }}>
+                    ⚡ Limited-time rate · ends {new Date(overrideInfo.expiresAt).toLocaleTimeString('en-IN', { hour:'2-digit', minute:'2-digit' })}
+                  </span>
+                ) : rateBonus > 0 ? (
                   <span style={{ fontSize:9, fontWeight:800, color:'#CCFF00', background:'rgba(204,255,0,0.12)', border:'1px solid rgba(204,255,0,0.25)', borderRadius:5, padding:'1px 6px', letterSpacing:'0.04em', textTransform:'uppercase' as const }}>
                     {mode === 'sell' ? `+₹${rateBonus.toFixed(2)}/USDT` : `−₹${rateBonus.toFixed(2)}/USDT`} · Volume rate
                   </span>
-                )}
+                ) : null}
               </div>
             )}
           </div>
@@ -372,7 +381,12 @@ export default function ExchangeWidget({ showMesh = true }: { showMesh?: boolean
                     <span style={{ fontSize:8, fontWeight:800, color: active ? col : FR.textTert, letterSpacing:'0.06em', textTransform:'uppercase' }}>{n}</span>
                   </div>
                   <div style={{ fontSize:12, fontWeight:700, color: active ? FR.textPri : FR.textSec, fontFamily:FR.mono, letterSpacing:'-0.02em' }}>
-                    {r ? `₹${(dynamicRateCfg ? applyDynamicRate(mode==='buy' ? r.buyRate : r.sellRate, numAmt, dynamicRateCfg, mode==='sell') : (mode==='buy' ? r.buyRate : r.sellRate)).toFixed(2)}` : '—'}
+                    {r ? (() => {
+                      const ov   = mode === 'sell' ? r.scheduledOverride?.sell : r.scheduledOverride?.buy;
+                      const base = mode === 'buy' ? r.buyRate : r.sellRate;
+                      const fin  = (dynamicRateCfg && !ov) ? applyDynamicRate(base, numAmt, dynamicRateCfg, mode==='sell') : base;
+                      return `₹${fin.toFixed(2)}`;
+                    })() : '—'}
                   </div>
                 </button>
               );
@@ -403,7 +417,7 @@ export default function ExchangeWidget({ showMesh = true }: { showMesh?: boolean
             {showSummary && (
               <div style={{ borderTop:`1px solid ${FR.borderSub}`, padding:'10px 14px', display:'flex', flexDirection:'column', gap:7 }}>
                 {[
-                  { label:'Rate', value:`₹${rate.toFixed(2)} / USDT${rateBonus > 0 ? ` (incl. volume bonus)` : ''}`, valueColor:FR.textPri },
+                  { label:'Rate', value:`₹${rate.toFixed(2)} / USDT${overrideInfo ? ' ⚡' : rateBonus > 0 ? ' (incl. volume bonus)' : ''}`, valueColor:FR.textPri },
                   { label:'Processing fee', value:'₹ 0', valueColor:FR.success },
                   { label:'Network fee', value:'0 USDT', valueColor:FR.success },
                 ].map(row => (
