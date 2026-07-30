@@ -194,11 +194,6 @@ export function TradeForm({ type, rates, paymentMethods, wallets, defaultSymbol 
                     <p className="font-mono-crypto text-lg font-bold text-primary">
                       {formatINR(effectiveRateValue)}
                     </p>
-                    {rateBonus > 0 && (
-                      <p className="text-xs" style={{ color: '#16a34a', marginTop: 2 }}>
-                        {selectedTab === 'sell' ? `+₹${rateBonus.toFixed(2)}/USDT volume bonus` : `−₹${rateBonus.toFixed(2)}/USDT volume discount`}
-                      </p>
-                    )}
                   </div>
                   <div className="text-right">
                     <p className="text-xs text-muted">Opposite side</p>

@@ -335,15 +335,6 @@ export default function ExchangeWidget({ showMesh = true }: { showMesh?: boolean
                 <p style={{ margin:0, fontSize:10, color:FR.textTert, fontFamily:FR.mono }}>
                   @ ₹{rate.toFixed(2)} per USDT · {NET_LABEL[network]}
                 </p>
-                {overrideInfo ? (
-                  <span style={{ fontSize:9, fontWeight:800, color:'#CCFF00', background:'rgba(204,255,0,0.12)', border:'1px solid rgba(204,255,0,0.25)', borderRadius:5, padding:'1px 6px', letterSpacing:'0.04em', textTransform:'uppercase' as const }}>
-                    ⚡ Limited-time rate · ends {new Date(overrideInfo.expiresAt).toLocaleTimeString('en-IN', { hour:'2-digit', minute:'2-digit' })}
-                  </span>
-                ) : rateBonus > 0 ? (
-                  <span style={{ fontSize:9, fontWeight:800, color:'#CCFF00', background:'rgba(204,255,0,0.12)', border:'1px solid rgba(204,255,0,0.25)', borderRadius:5, padding:'1px 6px', letterSpacing:'0.04em', textTransform:'uppercase' as const }}>
-                    {mode === 'sell' ? `+₹${rateBonus.toFixed(2)}/USDT` : `−₹${rateBonus.toFixed(2)}/USDT`} · Volume rate
-                  </span>
-                ) : null}
               </div>
             )}
           </div>
@@ -417,7 +408,7 @@ export default function ExchangeWidget({ showMesh = true }: { showMesh?: boolean
             {showSummary && (
               <div style={{ borderTop:`1px solid ${FR.borderSub}`, padding:'10px 14px', display:'flex', flexDirection:'column', gap:7 }}>
                 {[
-                  { label:'Rate', value:`₹${rate.toFixed(2)} / USDT${overrideInfo ? ' ⚡' : rateBonus > 0 ? ' (incl. volume bonus)' : ''}`, valueColor:FR.textPri },
+                  { label:'Rate', value:`₹${rate.toFixed(2)} / USDT`, valueColor:FR.textPri },
                   { label:'Processing fee', value:'₹ 0', valueColor:FR.success },
                   { label:'Network fee', value:'0 USDT', valueColor:FR.success },
                 ].map(row => (

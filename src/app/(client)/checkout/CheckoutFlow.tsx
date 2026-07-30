@@ -1299,7 +1299,7 @@ export function CheckoutFlow() {
                   { label:'Network',     value: NET_LABEL[network],                   color:NET_COLOR[network] },
                   { label:'USDT',        value:`${cryptoAmount.toFixed(4)} USDT`,     color:T.text },
                   { label:'INR',         value:`₹${inrAmount.toLocaleString('en-IN',{maximumFractionDigits:2})}`, color:T.text },
-                  { label:'Rate',        value: rate?`₹${rate.toFixed(2)}/USDT${overrideInfo ? ' ⚡' : rateBonus > 0 ? ' ✦' : ''}`:'…', color:T.cyan },
+                  { label:'Rate',        value: rate?`₹${rate.toFixed(2)}/USDT`:'…', color:T.cyan },
                   { label:'Fee',         value:'₹0',                                  color:T.green },
                 ] as const).map(({ label, value, color }) => (
                   <div key={label} style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
@@ -1397,15 +1397,6 @@ export function CheckoutFlow() {
               <span style={{ fontSize:13, fontWeight:700, color:T.cyan, fontFamily:'monospace' }}>
                 {rate ? `₹${rate.toFixed(2)} / USDT` : '…'}
               </span>
-              {overrideInfo ? (
-                <span style={{ fontSize:10, fontWeight:800, color:'#CCFF00', background:'rgba(204,255,0,0.12)', border:'1px solid rgba(204,255,0,0.25)', borderRadius:5, padding:'1px 6px', whiteSpace:'nowrap' as const }}>
-                  ⚡ Limited-time rate
-                </span>
-              ) : rateBonus > 0 ? (
-                <span style={{ fontSize:10, fontWeight:800, color:'#CCFF00', background:'rgba(204,255,0,0.12)', border:'1px solid rgba(204,255,0,0.25)', borderRadius:5, padding:'1px 6px', whiteSpace:'nowrap' as const }}>
-                  {mode === 'sell' ? `+₹${rateBonus.toFixed(2)}` : `−₹${rateBonus.toFixed(2)}`} volume rate
-                </span>
-              ) : null}
             </div>
           </div>
 
