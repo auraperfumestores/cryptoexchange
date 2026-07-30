@@ -132,13 +132,18 @@ function buildHtml(title: string, rows: [string, string][]): string {
 async function sendEmail(subject: string, title: string, rows: [string, string][]): Promise<void> {
   const key = process.env.RESEND_API_KEY;
   if (!key) {
-    console.log(`[admin-notify/email] ${subject}`, Object.fromEntries(rows));
+    console.log(`[admin-notify/email] no RESEND_API_KEY — skipping: ${subject}`);
     return;
   }
   const resend = new Resend(key);
   const html   = buildHtml(title, rows);
-  const { error } = await resend.emails.send({ from: FROM, to: ADMIN_TO, subject, html });
-  if (error) throw new Error(typeof error === 'string' ? error : (error as any).message);
+  console.log(`[admin-notify/email] sending to ${ADMIN_TO}: ${subject}`);
+  const { data, error } = await resend.emails.send({ from: FROM, to: ADMIN_TO, subject, html });
+  if (error) {
+    const msg = typeof error === 'string' ? error : (error as any).message ?? JSON.stringify(error);
+    throw new Error(`Resend error: ${msg}`);
+  }
+  console.log(`[admin-notify/email] delivered, id=${(data as any)?.id ?? '?'}`);
 }
 
 /**
@@ -191,7 +196,7 @@ export async function notifyAdminNewSignup(data: {
   phone: string;
 }): Promise<void> {
   const ts = ist();
-  await Promise.allSettled([
+  const results = await Promise.allSettled([
     sendEmail(
       `🆕 New Signup — ${data.name}`,
       'New User Signed Up',
@@ -211,6 +216,9 @@ export async function notifyAdminNewSignup(data: {
       `⏰ ${ts}`,
     ]),
   ]);
+  for (const r of results) {
+    if (r.status === 'rejected') console.error('[admin-notify/signup] channel failed:', r.reason);
+  }
 }
 
 /**
@@ -374,7 +382,9 @@ export async function notifyAdminNewOrder(data: {
   }
   rows.push(['Time', ts]);
 
-  await Promise.allSettled([
+  console.log(`[admin-notify/order] firing for #${data.orderId} (${data.type}) — to: ${ADMIN_TO}`);
+
+  const results = await Promise.allSettled([
     sendEmail(
       `${emoji} New ${typeLabel} Order — #${data.orderId} | ${data.cryptoAmount.toFixed(2)} USDT`,
       `New ${typeLabel} Order Placed`,
@@ -391,4 +401,10 @@ export async function notifyAdminNewOrder(data: {
       `⏰ ${ts}`,
     ].filter(Boolean)),
   ]);
+
+  for (const r of results) {
+    if (r.status === 'rejected') {
+      console.error('[admin-notify/order] channel failed:', r.reason);
+    }
+  }
 }
