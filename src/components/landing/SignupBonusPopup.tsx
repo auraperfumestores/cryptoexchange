@@ -166,7 +166,7 @@ export default function SignupBonusPopup() {
             lineHeight: 1.55,
             margin: '0 0 24px',
           }}>
-            Join SwappINR and your $5 bonus lands directly in your wallet — fully withdrawable, no conditions.
+            Join SwappINR and your $5 bonus lands directly in your wallet — fully withdrawable once you complete your first exchange.
           </p>
 
           {/* Social proof */}
@@ -176,20 +176,27 @@ export default function SignupBonusPopup() {
           }}>
             {/* Avatars */}
             <div style={{ display: 'flex', marginRight: 2 }}>
-              {['#4ADE80','#60A5FA','#F472B6','#FBBF24'].map((c, i) => (
+              {['/testimonials/t2.jpg', '/testimonials/t5.jpg', '/testimonials/t3.jpg', '/testimonials/t7.jpg'].map((src, i) => (
                 <div key={i} style={{
-                  width: 26, height: 26, borderRadius: '50%',
-                  background: c, border: '2px solid rgba(0,0,0,0.6)',
-                  marginLeft: i === 0 ? 0 : -8,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: 10, fontWeight: 800, color: '#000',
+                  width: 28, height: 28, borderRadius: '50%',
+                  border: '2px solid rgba(0,0,0,0.7)',
+                  marginLeft: i === 0 ? 0 : -9,
+                  overflow: 'hidden',
+                  flexShrink: 0,
+                  boxShadow: '0 1px 4px rgba(0,0,0,0.5)',
                 }}>
-                  {['R','A','S','K'][i]}
+                  <img
+                    src={src}
+                    alt=""
+                    width={28}
+                    height={28}
+                    style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                  />
                 </div>
               ))}
             </div>
             <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', lineHeight: 1.4 }}>
-              <strong style={{ color: 'rgba(255,255,255,0.85)', fontWeight: 700 }}>12,000+</strong> traders already claimed
+              <strong style={{ color: 'rgba(255,255,255,0.85)', fontWeight: 700 }}>1,200+</strong> traders already claimed
             </span>
           </div>
 
