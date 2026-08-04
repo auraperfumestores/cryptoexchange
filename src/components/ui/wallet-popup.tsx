@@ -214,6 +214,13 @@ export function WalletPopup({ balance, onClose, onBalanceChange }: WalletPopupPr
     setError('');
     setLoading(true);
     try {
+      const txRes = await fetch('/api/transactions?limit=1');
+      const txData = txRes.ok ? await txRes.json() : null;
+      if (txData !== null && (txData.total ?? txData.data?.length ?? 1) === 0) {
+        setError('You need to perform at least 1 exchange to withdraw your bonus. You can withdraw your bonus amount once you\'ve completed an exchange.');
+        return;
+      }
+
       const res = await fetch('/api/withdraw-otp/send', { method: 'POST' });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || 'Failed to send verification code');

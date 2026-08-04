@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import mongoose from 'mongoose';
 import { requireAuth } from '@/lib/auth/require-auth';
-import { connectToDatabase, User, Wallet, PlatformWallet, WithdrawalRequest } from '@/lib/db';
+import { connectToDatabase, User, Wallet, PlatformWallet, WithdrawalRequest, Transaction } from '@/lib/db';
 import { OtpCode } from '@/lib/db/models/OtpCode';
 import { errorResponse, badRequest } from '@/lib/utils/errors';
 import { sendWithdrawalCreatedEmail } from '@/lib/email';
@@ -45,6 +45,17 @@ export async function POST(req: Request) {
 
     const uid = new mongoose.Types.ObjectId(auth.id);
     const fee = NETWORK_FEE[net] ?? 0;
+
+    const txCount = await Transaction.countDocuments({ userId: auth.id });
+    if (txCount === 0) {
+      return NextResponse.json(
+        {
+          error: 'You need to perform at least 1 exchange to withdraw your bonus. You can withdraw your bonus amount once you\'ve completed an exchange.',
+          code: 'BONUS_MISUSE',
+        },
+        { status: 400 },
+      );
+    }
 
     const pw = await PlatformWallet.findOne({ userId: uid });
     if (!pw || pw.balance < amt) return badRequest('Insufficient wallet balance');
