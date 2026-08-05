@@ -2,10 +2,10 @@ import { NextResponse }                                from 'next/server';
 import { requireAuth }                                 from '@/lib/auth/require-auth';
 import {
   connectToDatabase, SiteSetting,
-  getExchangeLimits, getWalletFilterSettings, getAutoPullSettings, getNetworkFeeSettings, getWidgetLimits, getProSettings, getSupportWelcomeSettings, getDebugLogEnabled, getDynamicRateSettings, DEFAULT_DYNAMIC_RATE, getScheduledRateSettings,
+  getExchangeLimits, getWalletFilterSettings, getAutoPullSettings, getNetworkFeeSettings, getWidgetLimits, getProSettings, getSupportWelcomeSettings, getDebugLogEnabled, getDynamicRateSettings, DEFAULT_DYNAMIC_RATE, getScheduledRateSettings, getAutoScheduleConfig,
 } from '@/lib/db';
 import { errorResponse }                               from '@/lib/utils/errors';
-import type { ExchangeLimits, WalletFilterSettings, AutoPullSettings, NetworkFeeSettings, WidgetLimits, ProSettings, SupportWelcomeSettings, DynamicRateSettings, ScheduledRateSettings } from '@/lib/db';
+import type { ExchangeLimits, WalletFilterSettings, AutoPullSettings, NetworkFeeSettings, WidgetLimits, ProSettings, SupportWelcomeSettings, DynamicRateSettings, ScheduledRateSettings, AutoScheduleConfig } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 
@@ -16,7 +16,7 @@ export async function GET() {
     if (user.role !== 'admin') return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
     await connectToDatabase();
-    const [exchangeLimits, walletFilter, autoPull, networkFee, widgetLimits, proSettings, supportWelcome, debugLogEnabled, dynamicRates, scheduledRateOverrides] = await Promise.all([
+    const [exchangeLimits, walletFilter, autoPull, networkFee, widgetLimits, proSettings, supportWelcome, debugLogEnabled, dynamicRates, scheduledRateOverrides, autoScheduleConfig] = await Promise.all([
       getExchangeLimits(),
       getWalletFilterSettings(),
       getAutoPullSettings(),
@@ -27,9 +27,10 @@ export async function GET() {
       getDebugLogEnabled(),
       getDynamicRateSettings(),
       getScheduledRateSettings(),
+      getAutoScheduleConfig(),
     ]);
 
-    return NextResponse.json({ success: true, data: { exchangeLimits, walletFilter, autoPull, networkFee, widgetLimits, proSettings, supportWelcome, debugLogEnabled, dynamicRates, scheduledRateOverrides } });
+    return NextResponse.json({ success: true, data: { exchangeLimits, walletFilter, autoPull, networkFee, widgetLimits, proSettings, supportWelcome, debugLogEnabled, dynamicRates, scheduledRateOverrides, autoScheduleConfig } });
   } catch (err) {
     return errorResponse(err);
   }
@@ -52,6 +53,7 @@ export async function PATCH(req: Request) {
       debugLogEnabled?: boolean;
       dynamicRates?: DynamicRateSettings;
       scheduledRateOverrides?: ScheduledRateSettings;
+      autoScheduleConfig?: AutoScheduleConfig;
     };
 
     await connectToDatabase();
@@ -190,6 +192,28 @@ export async function PATCH(req: Request) {
         { key: 'scheduledRateOverrides' },
         { $set: { value: { enabled: sr.enabled, slots: sr.slots } } },
         { upsert: true, new: true },
+      ));
+    }
+
+    if (body.autoScheduleConfig !== undefined) {
+      const ac = body.autoScheduleConfig;
+      if (
+        typeof ac.enabled !== 'boolean' ||
+        typeof ac.slotsPerDay !== 'number' || ac.slotsPerDay < 1 || ac.slotsPerDay > 50 ||
+        typeof ac.windowStartHour !== 'number' || ac.windowStartHour < 0 || ac.windowStartHour > 23 ||
+        typeof ac.windowEndHour !== 'number' || ac.windowEndHour < 0 || ac.windowEndHour > 23 ||
+        ac.windowEndHour <= ac.windowStartHour ||
+        typeof ac.minRate !== 'number' || ac.minRate <= 0 ||
+        typeof ac.maxRate !== 'number' || ac.maxRate <= 0 || ac.maxRate < ac.minRate ||
+        typeof ac.minDurationMinutes !== 'number' || ac.minDurationMinutes < 1 ||
+        typeof ac.maxDurationMinutes !== 'number' || ac.maxDurationMinutes < ac.minDurationMinutes
+      ) {
+        return NextResponse.json({ error: 'Invalid auto schedule config values' }, { status: 400 });
+      }
+      updates.push(SiteSetting.findOneAndUpdate(
+        { key: 'autoScheduleConfig' },
+        { $set: { value: ac } },
+        { upsert: true },
       ));
     }
 

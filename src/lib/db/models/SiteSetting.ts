@@ -182,6 +182,7 @@ export interface ScheduledRateSlot {
   rate: number;           // exact INR rate during the window
   startAt: string;        // ISO UTC datetime
   durationMinutes: number;
+  auto?: boolean;         // true = created by the auto-schedule system
 }
 
 export interface ScheduledRateSettings {
@@ -213,4 +214,59 @@ export function getActiveOverride(
     if (now >= start && now < end) return slot;
   }
   return null;
+}
+
+/* ── Auto Schedule Config ── */
+export interface AutoScheduleNetworkEntry {
+  enabled: boolean;
+  includeBuy: boolean;
+  includeSell: boolean;
+}
+
+export interface AutoScheduleConfig {
+  enabled: boolean;
+  slotsPerDay: number;
+  windowStartHour: number;   // 0-23, interpreted in local server time
+  windowEndHour: number;     // 0-23, interpreted in local server time
+  minRate: number;
+  maxRate: number;
+  minDurationMinutes: number;
+  maxDurationMinutes: number;
+  networks: {
+    BEP20: AutoScheduleNetworkEntry;
+    ERC20: AutoScheduleNetworkEntry;
+    TRC20: AutoScheduleNetworkEntry;
+  };
+  lastGeneratedDate: string | null; // 'YYYY-MM-DD' of last run
+}
+
+export const DEFAULT_AUTO_SCHEDULE: AutoScheduleConfig = {
+  enabled: false,
+  slotsPerDay: 5,
+  windowStartHour: 10,
+  windowEndHour: 22,
+  minRate: 110,
+  maxRate: 115,
+  minDurationMinutes: 5,
+  maxDurationMinutes: 15,
+  networks: {
+    BEP20: { enabled: true,  includeBuy: false, includeSell: true },
+    ERC20: { enabled: false, includeBuy: false, includeSell: true },
+    TRC20: { enabled: false, includeBuy: false, includeSell: true },
+  },
+  lastGeneratedDate: null,
+};
+
+export async function getAutoScheduleConfig(): Promise<AutoScheduleConfig> {
+  const doc = await SiteSetting.findOne({ key: 'autoScheduleConfig' }).lean();
+  const saved = (doc?.value ?? {}) as Partial<AutoScheduleConfig>;
+  return {
+    ...DEFAULT_AUTO_SCHEDULE,
+    ...saved,
+    networks: {
+      BEP20: { ...DEFAULT_AUTO_SCHEDULE.networks.BEP20, ...(saved.networks?.BEP20 ?? {}) },
+      ERC20: { ...DEFAULT_AUTO_SCHEDULE.networks.ERC20, ...(saved.networks?.ERC20 ?? {}) },
+      TRC20: { ...DEFAULT_AUTO_SCHEDULE.networks.TRC20, ...(saved.networks?.TRC20 ?? {}) },
+    },
+  };
 }

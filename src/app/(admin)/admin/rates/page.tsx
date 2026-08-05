@@ -1,7 +1,7 @@
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth/auth';
 import { redirect } from 'next/navigation';
-import { connectToDatabase, Rate, rateToDocument, getScheduledRateSettings } from '@/lib/db';
+import { connectToDatabase, Rate, rateToDocument, getScheduledRateSettings, getAutoScheduleConfig } from '@/lib/db';
 import { ClientShell } from '@/components/layout/client-shell';
 import { RateEditor } from '@/components/admin/rate-editor';
 import { RateCreator } from '@/components/admin/rate-creator';
@@ -14,9 +14,10 @@ export default async function AdminRatesPage() {
   if (!session?.user || (session.user as any).role !== 'admin') redirect('/dashboard');
 
   await connectToDatabase();
-  const [rates, scheduledOverrides] = await Promise.all([
+  const [rates, scheduledOverrides, autoScheduleConfig] = await Promise.all([
     Rate.find({}).sort({ symbol: 1, network: 1 }).lean(),
     getScheduledRateSettings(),
+    getAutoScheduleConfig(),
   ]);
   const rateDocs = rates.map(rateToDocument) as RateDocument[];
 
@@ -54,7 +55,7 @@ export default async function AdminRatesPage() {
               Pin an exact rate for any network/type during a specific time window. Activates and reverts automatically.
             </p>
           </div>
-          <ScheduledRatesManager initialSettings={scheduledOverrides} />
+          <ScheduledRatesManager initialSettings={scheduledOverrides} initialAutoConfig={autoScheduleConfig} />
         </section>
 
       </div>
