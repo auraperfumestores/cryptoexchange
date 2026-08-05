@@ -199,10 +199,10 @@ export async function PATCH(req: Request) {
       const ac = body.autoScheduleConfig;
       if (
         typeof ac.enabled !== 'boolean' ||
-        typeof ac.slotsPerDay !== 'number' || ac.slotsPerDay < 1 || ac.slotsPerDay > 50 ||
+        typeof ac.minSlotsPerDay !== 'number' || ac.minSlotsPerDay < 1 || ac.minSlotsPerDay > 50 ||
+        typeof ac.maxSlotsPerDay !== 'number' || ac.maxSlotsPerDay < ac.minSlotsPerDay || ac.maxSlotsPerDay > 50 ||
         typeof ac.windowStartHour !== 'number' || ac.windowStartHour < 0 || ac.windowStartHour > 23 ||
         typeof ac.windowEndHour !== 'number' || ac.windowEndHour < 0 || ac.windowEndHour > 23 ||
-        ac.windowEndHour <= ac.windowStartHour ||
         typeof ac.minRate !== 'number' || ac.minRate <= 0 ||
         typeof ac.maxRate !== 'number' || ac.maxRate <= 0 || ac.maxRate < ac.minRate ||
         typeof ac.minDurationMinutes !== 'number' || ac.minDurationMinutes < 1 ||

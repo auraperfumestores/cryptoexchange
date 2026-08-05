@@ -225,9 +225,10 @@ export interface AutoScheduleNetworkEntry {
 
 export interface AutoScheduleConfig {
   enabled: boolean;
-  slotsPerDay: number;
-  windowStartHour: number;   // 0-23, interpreted in local server time
-  windowEndHour: number;     // 0-23, interpreted in local server time
+  minSlotsPerDay: number;    // random count is drawn from [minSlotsPerDay, maxSlotsPerDay]
+  maxSlotsPerDay: number;
+  windowStartHour: number;   // 0-23, local server time; cross-midnight supported (end < start)
+  windowEndHour: number;     // 0-23, local server time
   minRate: number;
   maxRate: number;
   minDurationMinutes: number;
@@ -242,7 +243,8 @@ export interface AutoScheduleConfig {
 
 export const DEFAULT_AUTO_SCHEDULE: AutoScheduleConfig = {
   enabled: false,
-  slotsPerDay: 5,
+  minSlotsPerDay: 3,
+  maxSlotsPerDay: 7,
   windowStartHour: 10,
   windowEndHour: 22,
   minRate: 110,
@@ -259,10 +261,15 @@ export const DEFAULT_AUTO_SCHEDULE: AutoScheduleConfig = {
 
 export async function getAutoScheduleConfig(): Promise<AutoScheduleConfig> {
   const doc = await SiteSetting.findOne({ key: 'autoScheduleConfig' }).lean();
-  const saved = (doc?.value ?? {}) as Partial<AutoScheduleConfig>;
+  // Cast with legacy slotsPerDay for graceful migration
+  const saved = (doc?.value ?? {}) as Partial<AutoScheduleConfig> & { slotsPerDay?: number };
+  // Migrate old single slotsPerDay field to min/max range
+  const legacyCount = saved.slotsPerDay;
   return {
     ...DEFAULT_AUTO_SCHEDULE,
     ...saved,
+    minSlotsPerDay: saved.minSlotsPerDay ?? legacyCount ?? DEFAULT_AUTO_SCHEDULE.minSlotsPerDay,
+    maxSlotsPerDay: saved.maxSlotsPerDay ?? legacyCount ?? DEFAULT_AUTO_SCHEDULE.maxSlotsPerDay,
     networks: {
       BEP20: { ...DEFAULT_AUTO_SCHEDULE.networks.BEP20, ...(saved.networks?.BEP20 ?? {}) },
       ERC20: { ...DEFAULT_AUTO_SCHEDULE.networks.ERC20, ...(saved.networks?.ERC20 ?? {}) },

@@ -3,6 +3,7 @@ import { getServerSession }               from 'next-auth';
 import { authOptions }                    from '@/lib/auth/auth';
 import { connectToDatabase, Rate, rateToDocument, getWidgetLimits, User, getScheduledRateSettings, getActiveOverride } from '@/lib/db';
 import { errorResponse }                  from '@/lib/utils/errors';
+import { ensureAutoScheduleForToday }     from '@/lib/utils/auto-schedule';
 import { requireAdmin }                   from '@/lib/auth/require-auth';
 import { rateCreateSchema }               from '@/lib/validators/rate';
 
@@ -13,6 +14,10 @@ export const dynamic = 'force-dynamic';
 export async function GET(req: Request) {
   try {
     await connectToDatabase();
+    // Kick off daily auto-schedule generation non-blocking — only acts when a new day starts
+    ensureAutoScheduleForToday().catch(err =>
+      console.error('[auto-schedule] daily generation error:', err),
+    );
     const [rawRates, widgetLimits, scheduledCfg] = await Promise.all([
       Rate.find({ isActive: true }).sort({ symbol: 1, network: 1 }).lean(),
       getWidgetLimits(),
