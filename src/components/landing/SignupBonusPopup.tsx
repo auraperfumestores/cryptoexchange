@@ -69,34 +69,30 @@ export default function SignupBonusPopup() {
           justifyContent: 'flex-end',
         }}
       >
-        {/*
-          ── BACKGROUND IMAGE SLOT ──
-          Replace this div's background with your image:
-            background: 'url(/images/popup-bg.jpg) center center / cover no-repeat'
-          Or set a CSS variable:
-            --popup-bg: url(/images/popup-bg.jpg)
-        */}
+        {/* ── Background: USDT coin photo ── */}
         <div
-          className="popup-bg-image"
           style={{
             position: 'absolute', inset: 0,
-            /* ↓ REPLACE THIS with your image. Example:
-               background: 'url(/images/popup-bg.jpg) center / cover no-repeat'
-               The gradient below is a placeholder. */
-            background: 'linear-gradient(160deg, #0d1a0d 0%, #111d0e 40%, #0a1208 70%, #060d05 100%)',
+            background: 'url(/images/popup-bg.png) center 30% / cover no-repeat',
           }}
         />
 
-        {/* Lime radial glow — decorative, sits behind content */}
+        {/* Translucent teal-to-dark overlay — ties the photo into the dark brand theme */}
         <div style={{
           position: 'absolute', inset: 0, pointerEvents: 'none',
-          background: 'radial-gradient(ellipse 70% 55% at 50% 15%, rgba(204,255,0,0.18) 0%, transparent 70%)',
+          background: 'linear-gradient(160deg, rgba(0,20,10,0.45) 0%, rgba(0,18,8,0.38) 40%, rgba(0,10,5,0.15) 70%, rgba(0,0,0,0) 100%)',
         }} />
 
-        {/* Dark overlay for text readability — reduce opacity if your image is dark enough */}
+        {/* Bottom content fade — ensures text stays legible over the photo */}
         <div style={{
           position: 'absolute', inset: 0, pointerEvents: 'none',
-          background: 'linear-gradient(to bottom, rgba(0,0,0,0) 0%, rgba(0,0,0,0.1) 35%, rgba(0,0,0,0.75) 65%, rgba(0,0,0,0.92) 100%)',
+          background: 'linear-gradient(to bottom, rgba(0,0,0,0) 0%, rgba(0,0,0,0.08) 30%, rgba(0,0,0,0.72) 62%, rgba(0,0,0,0.93) 100%)',
+        }} />
+
+        {/* Subtle lime glow at top to echo brand accent */}
+        <div style={{
+          position: 'absolute', inset: 0, pointerEvents: 'none',
+          background: 'radial-gradient(ellipse 80% 45% at 50% 8%, rgba(204,255,0,0.10) 0%, transparent 70%)',
         }} />
 
         {/* ── Close button ── */}
