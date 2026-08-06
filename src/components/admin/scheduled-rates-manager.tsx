@@ -342,17 +342,35 @@ function AutoScheduleSection({
   }
 
   async function generate() {
+    if (cfg.maxSlotsPerDay < cfg.minSlotsPerDay) { toast.error('Max slots/day must be ≥ min slots/day'); return; }
+    if (cfg.maxRate < cfg.minRate)               { toast.error('Max rate must be ≥ min rate'); return; }
+    if (cfg.maxDurationMinutes < cfg.minDurationMinutes) { toast.error('Max duration must be ≥ min duration'); return; }
+
     setGen(true);
     try {
+      // Always save current UI config first so the generate endpoint uses the latest settings
+      const tzOffsetMinutes = -(new Date().getTimezoneOffset());
+      const saveRes = await fetch('/api/admin/settings', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ autoScheduleConfig: { ...cfg, tzOffsetMinutes } }),
+      });
+      if (!saveRes.ok) {
+        const saveData = await saveRes.json();
+        toast.error(saveData.error ?? 'Failed to save config before generating');
+        return;
+      }
+
       const res  = await fetch('/api/admin/auto-schedule/generate', { method: 'POST' });
       const data = await res.json();
       if (!res.ok) { toast.error(data.error ?? 'Generation failed'); return; }
       const { generated, totalSlots, slots } = data.data;
-      toast.success(`Generated ${generated} override slot${generated !== 1 ? 's' : ''} — ${totalSlots} total in schedule`);
+      toast.success(`Generated ${generated} slot${generated !== 1 ? 's' : ''} using ${cfg.windowStartHour}:00–${cfg.windowEndHour}:00 window`);
       // Update last-generated date in local state immediately
-      const d = new Date();
-      const today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-      setCfg(prev => ({ ...prev, lastGeneratedDate: today }));
+      const tzOffsetMs = tzOffsetMinutes * 60_000;
+      const shifted    = new Date(Date.now() + tzOffsetMs);
+      const today = `${shifted.getUTCFullYear()}-${String(shifted.getUTCMonth() + 1).padStart(2, '0')}-${String(shifted.getUTCDate()).padStart(2, '0')}`;
+      setCfg(prev => ({ ...prev, lastGeneratedDate: today, tzOffsetMinutes }));
       // Propagate merged slots up so the slot list and upcoming list refresh immediately
       onGenerated(slots);
       router.refresh();

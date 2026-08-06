@@ -77,6 +77,13 @@ export function buildSlots(cfg: AutoScheduleConfig, targetDate?: Date): Schedule
   const winEnd   = rawEnd <= winStart ? rawEnd + 24 * 3_600_000 : rawEnd;
   const winDurMs = winEnd - winStart;
 
+  // Log so the server terminal shows exactly which window was used — helps verify timezone fix
+  console.log(
+    `[auto-schedule] window tz=UTC${cfg.tzOffsetMinutes >= 0 ? '+' : ''}${cfg.tzOffsetMinutes / 60}` +
+    ` start=${new Date(winStart).toISOString()} end=${new Date(winEnd).toISOString()}` +
+    ` (${cfg.windowStartHour}h–${cfg.windowEndHour}h local)`,
+  );
+
   const maxDurMs = cfg.maxDurationMinutes * 60_000;
   if (winDurMs < maxDurMs) return []; // window too tight to fit even one slot
 
