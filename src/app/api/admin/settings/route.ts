@@ -206,7 +206,8 @@ export async function PATCH(req: Request) {
         typeof ac.minRate !== 'number' || ac.minRate <= 0 ||
         typeof ac.maxRate !== 'number' || ac.maxRate <= 0 || ac.maxRate < ac.minRate ||
         typeof ac.minDurationMinutes !== 'number' || ac.minDurationMinutes < 1 ||
-        typeof ac.maxDurationMinutes !== 'number' || ac.maxDurationMinutes < ac.minDurationMinutes
+        typeof ac.maxDurationMinutes !== 'number' || ac.maxDurationMinutes < ac.minDurationMinutes ||
+        (ac.tzOffsetMinutes !== undefined && (typeof ac.tzOffsetMinutes !== 'number' || ac.tzOffsetMinutes < -720 || ac.tzOffsetMinutes > 840))
       ) {
         return NextResponse.json({ error: 'Invalid auto schedule config values' }, { status: 400 });
       }

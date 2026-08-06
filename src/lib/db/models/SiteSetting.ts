@@ -227,8 +227,8 @@ export interface AutoScheduleConfig {
   enabled: boolean;
   minSlotsPerDay: number;    // random count is drawn from [minSlotsPerDay, maxSlotsPerDay]
   maxSlotsPerDay: number;
-  windowStartHour: number;   // 0-23, local server time; cross-midnight supported (end < start)
-  windowEndHour: number;     // 0-23, local server time
+  windowStartHour: number;   // 0-23, in the admin's local timezone (tzOffsetMinutes)
+  windowEndHour: number;     // 0-23; cross-midnight supported when endHour < startHour
   minRate: number;
   maxRate: number;
   minDurationMinutes: number;
@@ -238,7 +238,8 @@ export interface AutoScheduleConfig {
     ERC20: AutoScheduleNetworkEntry;
     TRC20: AutoScheduleNetworkEntry;
   };
-  lastGeneratedDate: string | null; // 'YYYY-MM-DD' of last run
+  lastGeneratedDate: string | null; // 'YYYY-MM-DD' in admin's timezone of last run
+  tzOffsetMinutes: number;          // admin's UTC offset in minutes (+330 for IST, 0 for UTC)
 }
 
 export const DEFAULT_AUTO_SCHEDULE: AutoScheduleConfig = {
@@ -257,6 +258,7 @@ export const DEFAULT_AUTO_SCHEDULE: AutoScheduleConfig = {
     TRC20: { enabled: false, includeBuy: false, includeSell: true },
   },
   lastGeneratedDate: null,
+  tzOffsetMinutes: 330, // IST (UTC+5:30) — default for this Indian exchange
 };
 
 export async function getAutoScheduleConfig(): Promise<AutoScheduleConfig> {
@@ -270,6 +272,7 @@ export async function getAutoScheduleConfig(): Promise<AutoScheduleConfig> {
     ...saved,
     minSlotsPerDay: saved.minSlotsPerDay ?? legacyCount ?? DEFAULT_AUTO_SCHEDULE.minSlotsPerDay,
     maxSlotsPerDay: saved.maxSlotsPerDay ?? legacyCount ?? DEFAULT_AUTO_SCHEDULE.maxSlotsPerDay,
+    tzOffsetMinutes: saved.tzOffsetMinutes ?? DEFAULT_AUTO_SCHEDULE.tzOffsetMinutes,
     networks: {
       BEP20: { ...DEFAULT_AUTO_SCHEDULE.networks.BEP20, ...(saved.networks?.BEP20 ?? {}) },
       ERC20: { ...DEFAULT_AUTO_SCHEDULE.networks.ERC20, ...(saved.networks?.ERC20 ?? {}) },

@@ -33,7 +33,7 @@ export async function POST() {
     const generated   = buildSlots(autoCfg);
     const manualSlots = overrides.slots.filter(s => !s.auto);
     const merged      = [...manualSlots, ...generated];
-    const today       = getTodayStr();
+    const today       = getTodayStr(autoCfg.tzOffsetMinutes);
 
     await Promise.all([
       SiteSetting.findOneAndUpdate(

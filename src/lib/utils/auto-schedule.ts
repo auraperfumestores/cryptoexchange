@@ -5,17 +5,45 @@ function makeId(): string {
   return 'auto_' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
 }
 
-export function getTodayStr(): string {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+/**
+ * Returns 'YYYY-MM-DD' for the current date in the given UTC offset timezone.
+ * tzOffsetMinutes: minutes ahead of UTC (+330 for IST, 0 for UTC, -300 for EST).
+ * Uses UTC arithmetic so it is server-timezone-independent.
+ */
+export function getTodayStr(tzOffsetMinutes: number): string {
+  // Shift 'now' by the timezone offset, then read the UTC date fields
+  const shifted = new Date(Date.now() + tzOffsetMinutes * 60_000);
+  return (
+    shifted.getUTCFullYear() +
+    '-' + String(shifted.getUTCMonth() + 1).padStart(2, '0') +
+    '-' + String(shifted.getUTCDate()).padStart(2, '0')
+  );
+}
+
+/**
+ * Calculates the UTC millisecond timestamp for midnight of the current day
+ * in the admin's timezone — server-timezone-independent.
+ *
+ * Example (IST = UTC+5:30, tzOffsetMinutes = +330):
+ *   Admin's midnight 2026-08-07 00:00 IST = 2026-08-06 18:30 UTC
+ */
+function adminMidnightUtcMs(tzOffsetMinutes: number, targetDate?: Date): number {
+  const nowMs = (targetDate ?? new Date()).getTime();
+  // Shift the timestamp into the admin's timezone, find midnight there,
+  // then shift back to UTC.
+  const tzMs    = tzOffsetMinutes * 60_000;
+  const inTz    = nowMs + tzMs;                              // 'now' expressed in admin tz
+  const dayMs   = Math.floor(inTz / 86_400_000) * 86_400_000; // midnight in admin tz (as UTC number)
+  return dayMs - tzMs;                                        // convert back to true UTC ms
 }
 
 /**
  * Generates a set of random, non-overlapping override slots for the given date
  * (defaults to today) based on the admin-configured auto-schedule rules.
  *
- * Cross-midnight windows (e.g. 8 PM → 2 AM) are fully supported: when
- * windowEndHour < windowStartHour the end boundary is pushed into the next day.
+ * All hour values (windowStartHour / windowEndHour) are interpreted in the
+ * admin's timezone stored as cfg.tzOffsetMinutes — NOT server local time.
+ * Cross-midnight windows (e.g. 8 PM → 2 AM) are fully supported.
  */
 export function buildSlots(cfg: AutoScheduleConfig, targetDate?: Date): ScheduledRateSlot[] {
   type Network   = 'BEP20' | 'ERC20' | 'TRC20';
@@ -30,7 +58,7 @@ export function buildSlots(cfg: AutoScheduleConfig, targetDate?: Date): Schedule
   }
   if (combos.length === 0) return [];
 
-  // Random slot count within admin-defined range (at least 1)
+  // Random slot count within admin-defined range
   const slotCount = Math.max(
     1,
     Math.round(
@@ -39,20 +67,20 @@ export function buildSlots(cfg: AutoScheduleConfig, targetDate?: Date): Schedule
     ),
   );
 
-  // Window boundaries in LOCAL server time
-  const base     = targetDate ?? new Date();
-  const midnight = new Date(base.getFullYear(), base.getMonth(), base.getDate()).getTime();
+  // ── Window calculation in admin's timezone ──────────────────────────────
+  // midnight = UTC timestamp for 00:00 on the target date in admin's timezone
+  const midnight = adminMidnightUtcMs(cfg.tzOffsetMinutes, targetDate);
+
   const winStart = midnight + cfg.windowStartHour * 3_600_000;
   const rawEnd   = midnight + cfg.windowEndHour   * 3_600_000;
-  // Cross-midnight: if endHour ≤ startHour, the window wraps into the next day
+  // Cross-midnight: if endHour ≤ startHour the window wraps into the next day
   const winEnd   = rawEnd <= winStart ? rawEnd + 24 * 3_600_000 : rawEnd;
   const winDurMs = winEnd - winStart;
 
   const maxDurMs = cfg.maxDurationMinutes * 60_000;
-  // Window must be at least as long as the maximum possible slot duration
-  if (winDurMs < maxDurMs) return [];
+  if (winDurMs < maxDurMs) return []; // window too tight to fit even one slot
 
-  // Per-(network, type) occupied intervals — prevents overlaps within the same pair
+  // ── Slot generation ─────────────────────────────────────────────────────
   const occupied = new Map<string, { s: number; e: number }[]>();
   const slots: ScheduledRateSlot[] = [];
 
@@ -80,7 +108,7 @@ export function buildSlots(cfg: AutoScheduleConfig, targetDate?: Date): Schedule
         break;
       }
     }
-    if (startMs === null) continue; // window too packed — skip this slot
+    if (startMs === null) continue;
 
     const rate = Math.round(
       (cfg.minRate + Math.random() * Math.max(0, cfg.maxRate - cfg.minRate)) * 100,
@@ -100,13 +128,13 @@ export function buildSlots(cfg: AutoScheduleConfig, targetDate?: Date): Schedule
   return slots.sort((a, b) => new Date(a.startAt).getTime() - new Date(b.startAt).getTime());
 }
 
-// In-process guard so parallel requests in the same Node.js instance don't double-generate
+// In-process guard — prevents duplicate generation within one Node.js process instance
 let _running = false;
 
 /**
  * Called fire-and-forget from the rates API GET handler.
- * Generates today's auto schedule the first time it is needed each day,
- * then exits immediately on every subsequent call for the same day.
+ * Generates today's auto schedule the first time it is needed each day
+ * (keyed to admin's timezone), then exits immediately on every subsequent call.
  */
 export async function ensureAutoScheduleForToday(): Promise<void> {
   if (_running) return;
@@ -120,7 +148,8 @@ export async function ensureAutoScheduleForToday(): Promise<void> {
 
   if (!autoCfg.enabled) return;
 
-  const today = getTodayStr();
+  // 'today' is computed in the admin's timezone so the day boundary is correct
+  const today = getTodayStr(autoCfg.tzOffsetMinutes);
   if (autoCfg.lastGeneratedDate === today) return;
 
   _running = true;
@@ -142,7 +171,7 @@ export async function ensureAutoScheduleForToday(): Promise<void> {
       ),
     ]);
 
-    console.log(`[auto-schedule] Generated ${generated.length} slots for ${today}`);
+    console.log(`[auto-schedule] Generated ${generated.length} slots for ${today} (tz offset: UTC${autoCfg.tzOffsetMinutes >= 0 ? '+' : ''}${autoCfg.tzOffsetMinutes / 60})`);
   } finally {
     _running = false;
   }

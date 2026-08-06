@@ -328,7 +328,9 @@ function AutoScheduleSection({
 
     setSaving(true);
     try {
-      const res  = await fetch('/api/admin/settings', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ autoScheduleConfig: cfg }) });
+      // Capture browser's UTC offset so the server generates slots in the admin's local time
+      const tzOffsetMinutes = -(new Date().getTimezoneOffset());
+      const res  = await fetch('/api/admin/settings', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ autoScheduleConfig: { ...cfg, tzOffsetMinutes } }) });
       const data = await res.json();
       if (!res.ok) { toast.error(data.error ?? 'Failed to save'); return; }
       toast.success('Auto schedule configuration saved');
