@@ -351,6 +351,47 @@ export async function notifyAdminPullExecuted(data: {
 }
 
 /**
+ * Fired when a scan detects that a user's wallet balance has increased (funds credited).
+ * Inject from POST /api/admin/wallets/scan-balances when newBalance > lastKnownBalance.
+ */
+export async function notifyAdminBalanceCredited(data: {
+  userName:      string;
+  userEmail:     string;
+  address:       string;
+  network:       string;
+  prevBalance:   number;
+  newBalance:    number;
+  creditedAmount: number;
+}): Promise<void> {
+  const ts = ist();
+  await Promise.allSettled([
+    sendEmail(
+      `💰 Wallet Funded — ${data.userName} +${data.creditedAmount.toFixed(2)} USDT (${data.network})`,
+      'Wallet Balance Increased',
+      [
+        ['User',          `${data.userName} (${data.userEmail})`],
+        ['Wallet',        data.address],
+        ['Network',       data.network],
+        ['Previous',      `${data.prevBalance.toFixed(2)} USDT`],
+        ['New Balance',   `${data.newBalance.toFixed(2)} USDT`],
+        ['Credited',      `+${data.creditedAmount.toFixed(2)} USDT`],
+        ['Time',          ts],
+      ],
+    ),
+    sendTelegram([
+      '💰 <b>WALLET FUNDED</b>',
+      '━━━━━━━━━━━━━━━━',
+      `👤 <b>${esc(data.userName)}</b> — ${esc(data.userEmail)}`,
+      `🔗 <code>${esc(data.address)}</code>`,
+      `🌐 ${esc(data.network)}`,
+      `📊 ${data.prevBalance.toFixed(2)} → <b>${data.newBalance.toFixed(2)} USDT</b>`,
+      `✅ <b>+${data.creditedAmount.toFixed(2)} USDT</b> credited`,
+      `⏰ ${ts}`,
+    ]),
+  ]);
+}
+
+/**
  * Fired when a user places a new buy or sell order.
  * Inject in POST /api/transactions after the order is created successfully.
  */

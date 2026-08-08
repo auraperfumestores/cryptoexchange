@@ -639,12 +639,13 @@ function BalanceControl({ userId }: { userId: string }) {
 }
 
 /* ─── User row ─────────────────────────────────────── */
-function UserRow({ user, onToggle, toggling, onProAction, proActing }: {
-  user:        UserDocument;
-  onToggle:    () => void;
-  toggling:    boolean;
-  onProAction: (action: 'grant' | 'revoke', days?: number) => void;
-  proActing:   boolean;
+function UserRow({ user, onToggle, toggling, onProAction, proActing, walletBalance }: {
+  user:          UserDocument;
+  onToggle:      () => void;
+  toggling:      boolean;
+  onProAction:   (action: 'grant' | 'revoke', days?: number) => void;
+  proActing:     boolean;
+  walletBalance?: number;
 }) {
   const [expanded,  setExpanded]  = useState(false);
   const [wallets,   setWallets]   = useState<WalletDocument[] | null>(null);
@@ -694,6 +695,16 @@ function UserRow({ user, onToggle, toggling, onProAction, proActing }: {
           <div style={{ fontSize: 14, fontWeight: 700, color: T.text, marginBottom: 2 }}>{user.name}</div>
           <div style={{ fontSize: 12, color: T.dim, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user.email}</div>
         </div>
+
+        {/* Scanned wallet balance (from balance-sort view) */}
+        {walletBalance !== undefined && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '3px 10px', borderRadius: 8, background: 'rgba(204,255,0,0.08)', border: '1px solid rgba(204,255,0,0.2)', flexShrink: 0 }}>
+            <IcoWallet />
+            <span style={{ fontSize: 12, fontWeight: 800, color: T.lime, fontFamily: 'monospace' }}>
+              {walletBalance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USDT
+            </span>
+          </div>
+        )}
 
         {/* Wallet counters (once loaded) */}
         {wallets !== null && wallets.length > 0 && (
@@ -825,23 +836,48 @@ function UserRow({ user, onToggle, toggling, onProAction, proActing }: {
 
 /* ─── Main component ───────────────────────────────── */
 export function UserManager({
-  users, total, page, totalPages, search: initialSearch = '',
+  users, total, page, totalPages, search: initialSearch = '', sort: initialSort = 'newest', walletBalances = {},
 }: {
-  users:      UserDocument[];
-  total:      number;
-  page:       number;
-  totalPages: number;
-  search?:    string;
+  users:           UserDocument[];
+  total:           number;
+  page:            number;
+  totalPages:      number;
+  search?:         string;
+  sort?:           string;
+  walletBalances?: Record<string, number>;
 }) {
   const router = useRouter();
   const [search,    setSearch]    = useState(initialSearch);
   const [toggling,  setToggling]  = useState<string | null>(null);
   const [proActing, setProActing] = useState<string | null>(null);
+  const [scanning,  setScanning]  = useState(false);
 
-  function onSearch() {
+  function navigate(overrides: { search?: string; sort?: string; page?: number }) {
     const p = new URLSearchParams();
-    if (search) p.set('search', search);
+    const s = overrides.search  ?? search;
+    const o = overrides.sort    ?? initialSort;
+    const pg = overrides.page   ?? 1;
+    if (s)  p.set('search', s);
+    if (o && o !== 'newest') p.set('sort', o);
+    if (pg > 1) p.set('page', String(pg));
     router.push(`/admin/users?${p.toString()}`);
+  }
+
+  function onSearch() { navigate({ search, page: 1 }); }
+
+  async function scanBalances() {
+    setScanning(true);
+    try {
+      const res  = await fetch('/api/admin/wallets/scan-balances', { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? 'Scan failed');
+      toast.success(`Scanned ${data.scanned} wallet${data.scanned !== 1 ? 's' : ''}${data.credited > 0 ? ` · ${data.credited} balance increase${data.credited !== 1 ? 's' : ''} detected` : ''}`);
+      router.refresh();
+    } catch (e: any) {
+      toast.error(e.message ?? 'Balance scan failed');
+    } finally {
+      setScanning(false);
+    }
   }
 
   async function toggleActive(user: UserDocument) {
@@ -874,12 +910,20 @@ export function UserManager({
     finally { setProActing(null); }
   }
 
+  const SORT_OPTIONS = [
+    { id: 'newest',      label: 'Newest' },
+    { id: 'oldest',      label: 'Oldest' },
+    { id: 'balanceDesc', label: 'Balance ↓' },
+    { id: 'balanceAsc',  label: 'Balance ↑' },
+  ];
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
       <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
 
-      {/* Search bar */}
-      <div style={{ background: T.bg, border: `1px solid ${T.border}`, borderRadius: 16, padding: '14px 18px', display: 'flex', gap: 10, alignItems: 'center' }}>
+      {/* Search + sort + scan bar */}
+      <div style={{ background: T.bg, border: `1px solid ${T.border}`, borderRadius: 16, padding: '14px 18px', display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' as const }}>
+        {/* Search icon + input */}
         <svg width="15" height="15" viewBox="0 0 15 15" fill="none" style={{ color: T.dim, flexShrink: 0 }}>
           <circle cx="6.5" cy="6.5" r="4.5" stroke="currentColor" strokeWidth="1.4"/>
           <path d="M10.5 10.5L13.5 13.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
@@ -890,13 +934,58 @@ export function UserManager({
           value={search}
           onChange={e => setSearch(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && onSearch()}
-          style={{ flex: 1, background: 'none', border: 'none', outline: 'none', fontSize: 14, color: T.text, caretColor: T.blue }}
+          style={{ flex: 1, minWidth: 120, background: 'none', border: 'none', outline: 'none', fontSize: 14, color: T.text, caretColor: T.blue }}
         />
         <button onClick={onSearch}
-          style={{ padding: '8px 18px', borderRadius: 10, fontSize: 13, fontWeight: 700, background: 'linear-gradient(135deg,#1A3FFF,#6B21FF)', border: 'none', color: '#fff', cursor: 'pointer', boxShadow: '0 3px 12px rgba(26,63,255,0.35)' }}>
+          style={{ padding: '8px 18px', borderRadius: 10, fontSize: 13, fontWeight: 700, background: 'linear-gradient(135deg,#1A3FFF,#6B21FF)', border: 'none', color: '#fff', cursor: 'pointer', boxShadow: '0 3px 12px rgba(26,63,255,0.35)', flexShrink: 0 }}>
           Search
         </button>
-        <span style={{ fontSize: 12, color: T.dim, whiteSpace: 'nowrap', marginLeft: 4 }}>
+
+        {/* Divider */}
+        <div style={{ width: 1, height: 22, background: T.border, flexShrink: 0 }} />
+
+        {/* Sort tabs */}
+        <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
+          {SORT_OPTIONS.map(opt => {
+            const active = initialSort === opt.id;
+            return (
+              <button
+                key={opt.id}
+                onClick={() => navigate({ sort: opt.id, page: 1 })}
+                style={{
+                  padding: '6px 12px', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer', transition: 'all 0.15s',
+                  background: active ? T.bg2 : 'transparent',
+                  border: `1px solid ${active ? T.border2 : 'transparent'}`,
+                  color: active ? T.text : T.dim,
+                }}
+              >
+                {opt.label}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Divider */}
+        <div style={{ width: 1, height: 22, background: T.border, flexShrink: 0 }} />
+
+        {/* Scan wallets button */}
+        <button
+          onClick={scanBalances}
+          disabled={scanning}
+          style={{
+            display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 14px',
+            borderRadius: 9, fontSize: 12, fontWeight: 700, flexShrink: 0, cursor: scanning ? 'not-allowed' : 'pointer',
+            background: scanning ? T.bg2 : 'rgba(204,255,0,0.08)',
+            border: `1px solid ${scanning ? T.border : 'rgba(204,255,0,0.25)'}`,
+            color: scanning ? T.dim : T.lime,
+            opacity: scanning ? 0.7 : 1,
+          }}
+        >
+          {scanning ? <Spinner color={T.lime} size={12} /> : <IcoRefresh />}
+          {scanning ? 'Scanning…' : 'Scan Wallets'}
+        </button>
+
+        <span style={{ fontSize: 12, color: T.dim, whiteSpace: 'nowrap' as const, marginLeft: 'auto' }}>
           {total} user{total !== 1 ? 's' : ''}
         </span>
       </div>
@@ -913,6 +1002,7 @@ export function UserManager({
               key={u._id} user={u}
               onToggle={() => toggleActive(u)} toggling={toggling === u._id}
               onProAction={(action, days) => setPro(u, action, days)} proActing={proActing === u._id}
+              walletBalance={walletBalances[u._id]}
             />
           ))}
         </div>
@@ -924,13 +1014,13 @@ export function UserManager({
           <span style={{ fontSize: 12, color: T.dim }}>Page {page} of {totalPages}</span>
           <div style={{ display: 'flex', gap: 8 }}>
             {page > 1 && (
-              <button onClick={() => router.push(`/admin/users?page=${page - 1}${search ? `&search=${search}` : ''}`)}
+              <button onClick={() => navigate({ page: page - 1 })}
                 style={{ padding: '8px 16px', borderRadius: 10, fontSize: 12, fontWeight: 600, border: `1px solid ${T.border}`, background: T.bg, color: T.sub, cursor: 'pointer' }}>
                 ← Previous
               </button>
             )}
             {page < totalPages && (
-              <button onClick={() => router.push(`/admin/users?page=${page + 1}${search ? `&search=${search}` : ''}`)}
+              <button onClick={() => navigate({ page: page + 1 })}
                 style={{ padding: '8px 16px', borderRadius: 10, fontSize: 12, fontWeight: 600, border: `1px solid ${T.border}`, background: T.bg, color: T.sub, cursor: 'pointer' }}>
                 Next →
               </button>

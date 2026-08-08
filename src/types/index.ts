@@ -176,6 +176,8 @@ export interface WalletDocument {
   approved: boolean;
   approvalTxHash?: string;
   balance?: string;
+  lastKnownBalance?: number;
+  balanceCheckedAt?: string;
   createdAt: string;
 }
 

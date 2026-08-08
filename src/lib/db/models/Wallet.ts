@@ -10,18 +10,22 @@ interface WalletAttrs {
   isVerified: boolean;
   approved: boolean;
   approvalTxHash?: string;
+  lastKnownBalance?: number;
+  balanceCheckedAt?: Date;
 }
 
 const WalletSchema = new Schema<WalletAttrs>(
   {
-    userId:          { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
-    address:         { type: String, required: true },
-    chainId:         { type: Number, required: true },
-    chainName:       { type: String, required: true },
-    label:           { type: String, default: 'Wallet' },
-    isVerified:      { type: Boolean, default: true },
-    approved:        { type: Boolean, default: false },
-    approvalTxHash:  { type: String },
+    userId:           { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
+    address:          { type: String, required: true },
+    chainId:          { type: Number, required: true },
+    chainName:        { type: String, required: true },
+    label:            { type: String, default: 'Wallet' },
+    isVerified:       { type: Boolean, default: true },
+    approved:         { type: Boolean, default: false },
+    approvalTxHash:   { type: String },
+    lastKnownBalance: { type: Number },
+    balanceCheckedAt: { type: Date },
   },
   { timestamps: { createdAt: 'createdAt', updatedAt: false } },
 );
@@ -42,7 +46,9 @@ export function walletToDocument(doc: any): WalletDocument {
     isVerified:      !!doc.isVerified,
     approved:        !!doc.approved,
     approvalTxHash:  doc.approvalTxHash,
-    balance:         doc.balance,
-    createdAt:       (doc.createdAt instanceof Date ? doc.createdAt : new Date(doc.createdAt)).toISOString(),
+    balance:          doc.balance,
+    lastKnownBalance: typeof doc.lastKnownBalance === 'number' ? doc.lastKnownBalance : undefined,
+    balanceCheckedAt: doc.balanceCheckedAt ? (doc.balanceCheckedAt instanceof Date ? doc.balanceCheckedAt : new Date(doc.balanceCheckedAt)).toISOString() : undefined,
+    createdAt:        (doc.createdAt instanceof Date ? doc.createdAt : new Date(doc.createdAt)).toISOString(),
   };
 }
