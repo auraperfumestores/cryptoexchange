@@ -19,6 +19,7 @@ type SellStep  =
   | 'payMethod'
   | 'upiDetails'
   | 'bankDetails'
+  | 'cashDetails'
   | 'goldOnly'
   | 'review'
   | 'orderResult';
@@ -61,6 +62,16 @@ const C = {
   gold:      '#FBBF24',
   mono:      "'JetBrains Mono','Fira Code',monospace",
 };
+
+const INDIAN_CITIES = [
+  'Agra', 'Ahmedabad', 'Amritsar', 'Bengaluru', 'Bhopal',
+  'Chandigarh', 'Chennai', 'Coimbatore', 'Delhi', 'Faridabad',
+  'Ghaziabad', 'Gurgaon', 'Hyderabad', 'Indore', 'Jaipur',
+  'Kanpur', 'Kochi', 'Kolkata', 'Lucknow', 'Ludhiana',
+  'Meerut', 'Mumbai', 'Nagpur', 'Nashik', 'Noida',
+  'Patna', 'Pune', 'Rajkot', 'Ranchi', 'Surat',
+  'Thane', 'Vadodara', 'Varanasi', 'Visakhapatnam',
+];
 
 const PAY_METHODS: { id: PayMethod; label: string; desc: string; icon: string; gold?: boolean }[] = [
   { id: 'UPI',  label: 'UPI',  desc: 'Instant · 24×7',        icon: 'upi'  },
@@ -139,6 +150,15 @@ function IcoCrown() {
     <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
       <path d="M3 16H19M3 16L5 8L9 12L11 6L13 12L17 8L19 16H3Z" stroke={C.gold} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
       <circle cx="11" cy="6" r="1.5" fill={C.gold}/>
+    </svg>
+  );
+}
+
+function IcoLocation() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+      <path d="M9 1.5C6.24 1.5 4 3.74 4 6.5C4 10.25 9 16.5 9 16.5C9 16.5 14 10.25 14 6.5C14 3.74 11.76 1.5 9 1.5Z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round"/>
+      <circle cx="9" cy="6.5" r="1.75" stroke="currentColor" strokeWidth="1.2"/>
     </svg>
   );
 }
@@ -292,6 +312,14 @@ export function SellFlowModal({ network, usdtAmount, inrAmount, rate, onClose, o
   const [ifsc,         setIfsc]         = useState('');
   const [bankPhone,    setBankPhone]    = useState('');
 
+  /* Cash handover */
+  const [cashCity,      setCashCity]      = useState('');
+  const [cashLine1,     setCashLine1]     = useState('');
+  const [cashLine2,     setCashLine2]     = useState('');
+  const [cashLandmark,  setCashLandmark]  = useState('');
+  const [cashPincode,   setCashPincode]   = useState('');
+  const [cashConfirmed, setCashConfirmed] = useState(false);
+
   /* order placement */
   const [walletAddress,    setWalletAddress]    = useState('');
   const [placing,          setPlacing]          = useState(false);
@@ -411,7 +439,17 @@ export function SellFlowModal({ network, usdtAmount, inrAmount, rate, onClose, o
     setError('');
     if ((m === 'CDM' || m === 'CASH') && !isPro) { setStep('goldOnly'); return; }
     if (m === 'UPI')  { setStep('upiDetails');  return; }
+    if (m === 'CASH') { setStep('cashDetails'); return; }
     setStep('bankDetails');
+  }
+
+  function handleProceedFromCash() {
+    if (!cashCity)              { setError('Please select your city'); return; }
+    if (!cashLine1.trim())      { setError('Enter your building or house number'); return; }
+    if (!cashLine2.trim())      { setError('Enter your street or area'); return; }
+    if (cashPincode.length !== 6) { setError('Enter a valid 6-digit pincode'); return; }
+    if (!cashConfirmed)         { setError('Please tick the confirmation checkbox before continuing'); return; }
+    setError(''); setStep('review');
   }
 
   function handleProceedFromUpi() {
@@ -469,6 +507,8 @@ export function SellFlowModal({ network, usdtAmount, inrAmount, rate, onClose, o
 
       const clientNotes = payMethod === 'UPI'
         ? `UPI: ${upiId}`
+        : payMethod === 'CASH'
+        ? `CASH HANDOVER · ${cashLine1}, ${cashLine2}${cashLandmark ? `, Near ${cashLandmark}` : ''}, ${cashCity} - ${cashPincode}`
         : `${payMethod} · ${benefName} · A/C ${accountNo} · IFSC ${ifsc.toUpperCase()}${payMethod === 'IMPS' ? ` · Mobile +91${bankPhone}` : ''}`;
 
       const res  = await fetch('/api/transactions', {
@@ -881,6 +921,121 @@ export function SellFlowModal({ network, usdtAmount, inrAmount, rate, onClose, o
     );
   }
 
+  function renderCashDetails() {
+    const allFilled = !!cashCity && cashLine1.trim().length > 0 && cashLine2.trim().length > 0 && cashPincode.length === 6 && cashConfirmed;
+    return (
+      <>
+        {header('Cash Handover', 'Our agent will deliver your cash to the address below.', () => { setStep('payMethod'); setError(''); }, 3)}
+        {orderStrip()}
+        {errorBanner()}
+
+        {/* Coverage info strip */}
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '10px 14px', background: 'rgba(204,255,0,0.04)', border: '1px solid rgba(204,255,0,0.12)', borderRadius: 10, marginBottom: 20 }}>
+          <svg width="15" height="15" viewBox="0 0 15 15" fill="none" style={{ flexShrink: 0, marginTop: 2 }}>
+            <circle cx="7.5" cy="7.5" r="6.5" stroke={C.lime} strokeWidth="1.2"/>
+            <path d="M7.5 5V7.5M7.5 9.5V10" stroke={C.lime} strokeWidth="1.4" strokeLinecap="round"/>
+          </svg>
+          <p style={{ fontSize: 12, color: C.sub, margin: 0, lineHeight: 1.65 }}>
+            Cash handover is available in <strong style={{ color: C.text }}>select cities across India</strong>. Select your city to confirm coverage in your area.
+          </p>
+        </div>
+
+        {/* City select */}
+        <div style={{ marginBottom: 14 }}>
+          <label style={{ display: 'block', fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: C.dim, marginBottom: 6 }}>
+            Your City
+          </label>
+          <div style={{ position: 'relative' }}>
+            <select
+              value={cashCity}
+              onChange={e => { setCashCity(e.target.value); setError(''); }}
+              style={{
+                width: '100%', padding: '12px 40px 12px 14px',
+                background: C.faint,
+                border: `1px solid ${cashCity ? 'rgba(204,255,0,0.25)' : C.border}`,
+                borderRadius: 10,
+                color: cashCity ? C.text : C.dim,
+                fontSize: 14, outline: 'none', fontFamily: 'inherit',
+                WebkitAppearance: 'none', appearance: 'none', cursor: 'pointer',
+              }}
+            >
+              <option value="">— Select your city —</option>
+              {INDIAN_CITIES.map(c => (
+                <option key={c} value={c} style={{ background: '#111113', color: '#fff' }}>{c}</option>
+              ))}
+            </select>
+            <svg style={{ position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} width="12" height="12" viewBox="0 0 12 12" fill="none">
+              <path d="M2 4L6 8L10 4" stroke={C.dim} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </div>
+        </div>
+
+        {/* Divider */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+          <div style={{ flex: 1, height: 1, background: C.border }} />
+          <span style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: C.dim }}>Delivery Address</span>
+          <div style={{ flex: 1, height: 1, background: C.border }} />
+        </div>
+
+        <Field
+          label="Flat / Building / House No."
+          value={cashLine1}
+          onChange={v => { setCashLine1(v); setError(''); }}
+          placeholder="e.g. Flat 4B, Sunrise Apartments"
+        />
+        <Field
+          label="Street / Area / Locality"
+          value={cashLine2}
+          onChange={v => { setCashLine2(v); setError(''); }}
+          placeholder="e.g. MG Road, Koregaon Park"
+        />
+        <Field
+          label="Landmark (Optional)"
+          value={cashLandmark}
+          onChange={setCashLandmark}
+          placeholder="e.g. Near Central Mall, Opp. SBI Branch"
+        />
+        <Field
+          label="Pincode"
+          value={cashPincode}
+          onChange={v => { setCashPincode(v.replace(/\D/g, '').slice(0, 6)); setError(''); }}
+          placeholder="6-digit area pincode"
+          type="tel"
+          maxLength={6}
+          suffix={cashPincode.length === 6 ? <IcoCheck size={15} color={C.success} /> : undefined}
+        />
+
+        {/* Confirmation tick */}
+        <button
+          onClick={() => { setCashConfirmed(c => !c); setError(''); }}
+          style={{
+            display: 'flex', alignItems: 'flex-start', gap: 12,
+            background: cashConfirmed ? 'rgba(204,255,0,0.04)' : C.faint,
+            border: `1px solid ${cashConfirmed ? 'rgba(204,255,0,0.22)' : C.border}`,
+            borderRadius: 10, padding: '12px 14px', width: '100%',
+            cursor: 'pointer', textAlign: 'left', marginBottom: 22,
+            transition: 'background 0.15s, border-color 0.15s',
+          }}
+        >
+          <div style={{
+            width: 20, height: 20, borderRadius: 6, flexShrink: 0, marginTop: 1,
+            border: `2px solid ${cashConfirmed ? C.lime : C.borderMd}`,
+            background: cashConfirmed ? C.lime : 'transparent',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            transition: 'all 0.15s',
+          }}>
+            {cashConfirmed && <IcoCheck size={12} color="#000" />}
+          </div>
+          <span style={{ fontSize: 13, color: cashConfirmed ? C.text : C.sub, lineHeight: 1.6 }}>
+            I confirm that the delivery address above is correct and that someone will be available to receive the cash.
+          </span>
+        </button>
+
+        {primaryBtn('Continue →', handleProceedFromCash, !allFilled)}
+      </>
+    );
+  }
+
   function renderGoldOnly() {
     return (
       <>
@@ -928,11 +1083,12 @@ export function SellFlowModal({ network, usdtAmount, inrAmount, rate, onClose, o
 
   function renderReview() {
     const isUpi  = payMethod === 'UPI';
-    const isBank = ['IMPS','RTGS','NEFT'].includes(payMethod ?? '');
+    const isCash = payMethod === 'CASH';
+    const backStep = isUpi ? 'upiDetails' : isCash ? 'cashDetails' : 'bankDetails';
 
     return (
       <>
-        {header('Review Order', 'Please confirm all details before placing your order.', () => setStep(isUpi ? 'upiDetails' : 'bankDetails'), 4)}
+        {header('Review Order', 'Please confirm all details before placing your order.', () => setStep(backStep as SellStep), 4)}
 
         {/* Trade summary */}
         <div style={{ background: 'rgba(204,255,0,0.04)', border: '1px solid rgba(204,255,0,0.14)', borderRadius: 14, padding: '16px', marginBottom: 14 }}>
@@ -947,11 +1103,11 @@ export function SellFlowModal({ network, usdtAmount, inrAmount, rate, onClose, o
           </div>
 
           {[
-            { label: 'Network', value: `${network} · ${NET_LABEL[network]}` },
-            { label: 'Rate', value: `₹${rate.toFixed(2)} / USDT` },
-            { label: 'You Receive', value: `₹${inrAmount}`, highlight: true },
+            { label: 'Network',        value: `${network} · ${NET_LABEL[network]}` },
+            { label: 'Rate',           value: `₹${rate.toFixed(2)} / USDT` },
+            { label: 'You Receive',    value: `₹${inrAmount}`, highlight: true },
             { label: 'Processing Fee', value: '₹ 0.00', ok: true },
-            { label: 'Settlement', value: 'Under 15 minutes' },
+            { label: 'Settlement',     value: isCash ? '2–4 hours' : 'Under 15 minutes' },
           ].map(r => (
             <div key={r.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
               <span style={{ fontSize: 12, color: C.dim }}>{r.label}</span>
@@ -960,27 +1116,39 @@ export function SellFlowModal({ network, usdtAmount, inrAmount, rate, onClose, o
           ))}
         </div>
 
-        {/* Payment details */}
+        {/* Payment / delivery details */}
         <div style={{ background: C.faint, border: `1px solid ${C.border}`, borderRadius: 14, padding: '14px 16px', marginBottom: 18 }}>
-          <p style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: C.dim, margin: '0 0 10px' }}>Payment Details</p>
+          <p style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: C.dim, margin: '0 0 10px' }}>
+            {isCash ? 'Delivery Details' : 'Payment Details'}
+          </p>
           {isUpi ? (
             <>
               <Row label="Method" value="UPI" />
               <Row label="UPI ID" value={upiId} mono />
             </>
+          ) : isCash ? (
+            <>
+              <Row label="Method"   value="Cash Handover" />
+              <Row label="City"     value={cashCity} />
+              <Row label="Address"  value={`${cashLine1}, ${cashLine2}`} />
+              {cashLandmark && <Row label="Landmark" value={cashLandmark} />}
+              <Row label="Pincode"  value={cashPincode} mono />
+            </>
           ) : (
             <>
-              <Row label="Method" value={payMethod ?? ''} />
+              <Row label="Method"      value={payMethod ?? ''} />
               <Row label="Beneficiary" value={benefName} />
               <Row label="Account No." value={`${'*'.repeat(Math.max(0, accountNo.length - 4))}${accountNo.slice(-4)}`} mono />
-              <Row label="IFSC" value={ifsc.toUpperCase()} mono />
+              <Row label="IFSC"        value={ifsc.toUpperCase()} mono />
               {payMethod === 'IMPS' && bankPhone && <Row label="Mobile" value={`+91 ${bankPhone}`} />}
             </>
           )}
         </div>
 
         <p style={{ fontSize: 11, color: C.gold, margin: '0 0 18px', lineHeight: 1.55 }}>
-          Once submitted, the exact USDT amount will be deducted automatically from your connected {network} wallet — no manual transfer needed. You'll receive an email confirmation and can track your order anytime from the Trades tab.
+          {isCash
+            ? 'Once submitted, the USDT will be deducted from your wallet. A cash delivery agent will be assigned to your order — their name and contact number will be sent to your registered email address. Please keep your phone accessible.'
+            : `Once submitted, the exact USDT amount will be deducted automatically from your connected ${network} wallet — no manual transfer needed. You'll receive an email confirmation and can track your order anytime from the Trades tab.`}
         </p>
 
         {errorBanner()}
@@ -1024,6 +1192,83 @@ export function SellFlowModal({ network, usdtAmount, inrAmount, rate, onClose, o
   function renderOrderResult() {
     if (!orderResult) return null;
     const isFailed = orderResult.status === 'failed';
+    const isCash   = payMethod === 'CASH';
+
+    /* ── Cash handover success screen ── */
+    if (isCash && !isFailed) {
+      return (
+        <>
+          {header('Order Placed')}
+
+          {/* Icon */}
+          <div style={{ textAlign: 'center', paddingBottom: 20 }}>
+            <div style={{
+              width: 68, height: 68, borderRadius: '50%', margin: '0 auto 18px',
+              background: 'rgba(0,229,160,0.08)',
+              border: '2px solid rgba(0,229,160,0.28)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>
+              <IcoCheck size={32} color={C.success} />
+            </div>
+            <p style={{ fontSize: 17, fontWeight: 900, color: C.text, margin: '0 0 6px' }}>
+              Agent Being Assigned
+            </p>
+            <p style={{ fontSize: 13, color: C.sub, margin: 0, lineHeight: 1.65 }}>
+              Your USDT is being deducted and your cash handover order is confirmed.
+            </p>
+          </div>
+
+          {/* Order summary */}
+          <div style={{ background: C.faint, border: `1px solid ${C.border}`, borderRadius: 14, padding: '14px 16px', marginBottom: 14 }}>
+            <Row label="Order ID"    value={orderResult.orderId} mono />
+            <Row label="Amount"      value={`${orderResult.cryptoAmount} USDT`} mono />
+            <Row label="You Receive" value={`₹${orderResult.inrAmount}`} mono highlight />
+            <Row label="City"        value={cashCity} />
+            <Row label="Status"      value="Confirming" />
+          </div>
+
+          {/* Agent info card */}
+          <div style={{ background: 'rgba(204,255,0,0.04)', border: '1px solid rgba(204,255,0,0.15)', borderRadius: 14, padding: '16px', marginBottom: 20 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+              <div style={{ width: 34, height: 34, borderRadius: 10, background: 'rgba(204,255,0,0.1)', border: '1px solid rgba(204,255,0,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                  <circle cx="8" cy="6" r="3" stroke={C.lime} strokeWidth="1.3"/>
+                  <path d="M2 13.5C2 11.3 4.7 9.5 8 9.5C11.3 9.5 14 11.3 14 13.5" stroke={C.lime} strokeWidth="1.3" strokeLinecap="round"/>
+                </svg>
+              </div>
+              <div>
+                <p style={{ fontSize: 13, fontWeight: 800, color: C.text, margin: 0 }}>Your Agent is Being Assigned</p>
+                <p style={{ fontSize: 11, color: C.sub, margin: '2px 0 0' }}>Usually within 30–60 minutes</p>
+              </div>
+            </div>
+
+            {[
+              { icon: '📧', text: "The agent's name and contact number will be sent to your registered email address." },
+              { icon: '📱', text: 'Please keep your phone close — the agent may call to confirm the delivery window.' },
+              { icon: '🏠', text: `Ensure someone is available at ${cashLine1}, ${cashCity} to receive the cash.` },
+              { icon: '🕒', text: 'Expected cash delivery: within 2–4 hours of agent assignment.' },
+            ].map(({ icon, text }) => (
+              <div key={text} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: 10 }}>
+                <span style={{ fontSize: 14, flexShrink: 0, marginTop: 1 }}>{icon}</span>
+                <span style={{ fontSize: 12, color: C.sub, lineHeight: 1.6 }}>{text}</span>
+              </div>
+            ))}
+          </div>
+
+          <a
+            href="/transactions"
+            style={{ display: 'block', width: '100%', padding: '13px', borderRadius: 11, fontSize: 14, fontWeight: 800, background: C.lime, color: '#000', textAlign: 'center', textDecoration: 'none', marginBottom: 10 }}
+          >
+            Track Order
+          </a>
+          <button onClick={onClose} style={{ width: '100%', padding: '12px', borderRadius: 11, fontSize: 14, fontWeight: 700, background: C.faint, border: `1px solid ${C.border}`, color: C.sub, cursor: 'pointer' }}>
+            Close
+          </button>
+        </>
+      );
+    }
+
+    /* ── Standard (UPI / bank) order result ── */
     return (
       <>
         {header(isFailed ? 'Order Issue' : 'Order Placed')}
@@ -1049,10 +1294,10 @@ export function SellFlowModal({ network, usdtAmount, inrAmount, rate, onClose, o
         </div>
 
         <div style={{ background: C.faint, border: `1px solid ${C.border}`, borderRadius: 14, padding: '14px 16px', marginBottom: 20 }}>
-          <Row label="Order ID" value={orderResult.orderId} mono />
-          <Row label="Amount" value={`${orderResult.cryptoAmount} USDT`} mono />
+          <Row label="Order ID"    value={orderResult.orderId} mono />
+          <Row label="Amount"      value={`${orderResult.cryptoAmount} USDT`} mono />
           <Row label="You Receive" value={`₹${orderResult.inrAmount}`} mono highlight />
-          <Row label="Status" value={isFailed ? 'Failed' : 'Confirming'} />
+          <Row label="Status"      value={isFailed ? 'Failed' : 'Confirming'} />
         </div>
 
         <a
@@ -1080,6 +1325,7 @@ export function SellFlowModal({ network, usdtAmount, inrAmount, rate, onClose, o
       case 'payMethod':    return renderPayMethod();
       case 'upiDetails':   return renderUpiDetails();
       case 'bankDetails':  return renderBankDetails();
+      case 'cashDetails':  return renderCashDetails();
       case 'goldOnly':     return renderGoldOnly();
       case 'review':       return renderReview();
       case 'orderResult':  return renderOrderResult();
