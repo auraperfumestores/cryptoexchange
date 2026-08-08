@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { connectToDatabase, Transaction, transactionToDocument, Rate, PaymentMethod, User, PlatformWallet, getDynamicRateSettings, getScheduledRateSettings, getActiveOverride } from '@/lib/db';
+import { connectToDatabase, Transaction, transactionToDocument, Rate, PaymentMethod, User, PlatformWallet, getDynamicRateSettings, getScheduledRateSettings, getActiveOverride, getWidgetLimits } from '@/lib/db';
 import { applyDynamicRate } from '@/lib/utils/dynamic-rate';
 import { errorResponse, badRequest, notFound } from '@/lib/utils/errors';
 import { requireAuth } from '@/lib/auth/require-auth';
@@ -78,10 +78,21 @@ export async function POST(req: Request) {
 
     const cryptoAmount = parsed.data.cryptoAmount;
     const network      = parsed.data.network;
-    const [dynamicRateCfg, scheduledCfg] = await Promise.all([
+    const [dynamicRateCfg, scheduledCfg, widgetLimits] = await Promise.all([
       getDynamicRateSettings(),
       getScheduledRateSettings(),
+      getWidgetLimits(),
     ]);
+
+    // Cash Handover minimum — enforced independently from the general sell minimum
+    if (!isBuy && (parsed.data.clientNotes ?? '').startsWith('CASH HANDOVER')) {
+      if (cryptoAmount < widgetLimits.minCashSellUsdt) {
+        return NextResponse.json(
+          { error: `Cash handover requires a minimum of ${widgetLimits.minCashSellUsdt} USDT. Your order is for ${cryptoAmount} USDT.`, code: 'CASH_MIN_LIMIT' },
+          { status: 400 },
+        );
+      }
+    }
     const baseRate       = isBuy ? rate.buyRate : rate.sellRate;
     const activeSlot     = getActiveOverride(scheduledCfg, network, isBuy ? 'buy' : 'sell');
     const applicableRate = activeSlot

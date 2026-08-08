@@ -106,12 +106,16 @@ export async function PATCH(req: Request) {
 
     if (body.widgetLimits !== undefined) {
       const wl = body.widgetLimits;
-      if (typeof wl.minBuyUsdt !== 'number' || typeof wl.minSellUsdt !== 'number' || wl.minBuyUsdt < 0 || wl.minSellUsdt < 0) {
+      if (
+        typeof wl.minBuyUsdt  !== 'number' || wl.minBuyUsdt  < 0 ||
+        typeof wl.minSellUsdt !== 'number' || wl.minSellUsdt < 0 ||
+        (wl.minCashSellUsdt !== undefined && (typeof wl.minCashSellUsdt !== 'number' || wl.minCashSellUsdt < 0))
+      ) {
         return NextResponse.json({ error: 'Invalid widgetLimits values' }, { status: 400 });
       }
       updates.push(SiteSetting.findOneAndUpdate(
         { key: 'widgetLimits' },
-        { $set: { value: { minBuyUsdt: wl.minBuyUsdt, minSellUsdt: wl.minSellUsdt } } },
+        { $set: { value: { minBuyUsdt: wl.minBuyUsdt, minSellUsdt: wl.minSellUsdt, minCashSellUsdt: wl.minCashSellUsdt ?? 500 } } },
         { upsert: true, new: true },
       ));
     }

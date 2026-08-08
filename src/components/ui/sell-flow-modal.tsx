@@ -319,6 +319,7 @@ export function SellFlowModal({ network, usdtAmount, inrAmount, rate, onClose, o
   const [cashLandmark,  setCashLandmark]  = useState('');
   const [cashPincode,   setCashPincode]   = useState('');
   const [cashConfirmed, setCashConfirmed] = useState(false);
+  const [cashMinUsdt,   setCashMinUsdt]   = useState(500);
 
   /* order placement */
   const [walletAddress,    setWalletAddress]    = useState('');
@@ -347,10 +348,19 @@ export function SellFlowModal({ network, usdtAmount, inrAmount, rate, onClose, o
   async function runInitialCheck() {
     setStep('loading');
     try {
-      const [profileRes, walletRes] = await Promise.all([
+      const [profileRes, walletRes, limitsRes] = await Promise.all([
         fetch('/api/user/profile'),
         fetch('/api/wallets'),
+        fetch('/api/public/limits'),
       ]);
+
+      // Silently apply cash minimum — non-critical, fallback to default 500 on error
+      if (limitsRes.ok) {
+        const limitsData = await limitsRes.json();
+        if (typeof limitsData?.data?.minCashSellUsdt === 'number') {
+          setCashMinUsdt(limitsData.data.minCashSellUsdt);
+        }
+      }
 
       if (profileRes.status === 401) { setStep('notLoggedIn'); return; }
       const profileJson = await profileRes.json();
@@ -439,7 +449,13 @@ export function SellFlowModal({ network, usdtAmount, inrAmount, rate, onClose, o
     setError('');
     if ((m === 'CDM' || m === 'CASH') && !isPro) { setStep('goldOnly'); return; }
     if (m === 'UPI')  { setStep('upiDetails');  return; }
-    if (m === 'CASH') { setStep('cashDetails'); return; }
+    if (m === 'CASH') {
+      if (usdtAmount < cashMinUsdt) {
+        setError(`Cash handover requires a minimum of ${cashMinUsdt} USDT. Your current order is ${usdtAmount} USDT.`);
+        return;
+      }
+      setStep('cashDetails'); return;
+    }
     setStep('bankDetails');
   }
 
@@ -783,10 +799,21 @@ export function SellFlowModal({ network, usdtAmount, inrAmount, rate, onClose, o
           </div>
         )}
 
+        {/* Cash handover minimum warning */}
+        {usdtAmount < cashMinUsdt && (
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '10px 14px', background: 'rgba(251,191,36,0.07)', border: '1px solid rgba(251,191,36,0.22)', borderRadius: 10, marginBottom: 10 }}>
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style={{ flexShrink: 0, marginTop: 1 }}><path d="M8 3V8M8 10.5V11" stroke="#FBBF24" strokeWidth="1.6" strokeLinecap="round"/><circle cx="8" cy="8" r="6.5" stroke="#FBBF24" strokeWidth="1.3"/></svg>
+            <p style={{ fontSize: 12, color: '#FBBF24', margin: 0, lineHeight: 1.55 }}>
+              Cash handover is available for orders of <strong>{cashMinUsdt} USDT or more</strong>. Increase your sell amount to unlock this option.
+            </p>
+          </div>
+        )}
+
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {PAY_METHODS.map(m => {
-            const upiLimited = m.id === 'UPI' && inrValue > 95000;
-            const disabled   = upiLimited;
+            const upiLimited  = m.id === 'UPI'  && inrValue > 95000;
+            const cashLimited = m.id === 'CASH' && usdtAmount < cashMinUsdt;
+            const disabled    = upiLimited || cashLimited;
             return (
               <button
                 key={m.id}
@@ -825,6 +852,11 @@ export function SellFlowModal({ network, usdtAmount, inrAmount, rate, onClose, o
                     {upiLimited && (
                       <span style={{ fontSize: 9, fontWeight: 700, color: '#FBBF24', background: 'rgba(251,191,36,0.1)', border: '1px solid rgba(251,191,36,0.25)', borderRadius: 99, padding: '2px 7px' }}>
                         ₹95K limit
+                      </span>
+                    )}
+                    {cashLimited && (
+                      <span style={{ fontSize: 9, fontWeight: 700, color: '#FBBF24', background: 'rgba(251,191,36,0.1)', border: '1px solid rgba(251,191,36,0.25)', borderRadius: 99, padding: '2px 7px' }}>
+                        Min. {cashMinUsdt} USDT
                       </span>
                     )}
                   </div>

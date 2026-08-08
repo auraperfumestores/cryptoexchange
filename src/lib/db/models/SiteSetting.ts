@@ -82,16 +82,23 @@ export async function getNetworkFeeSettings(): Promise<NetworkFeeSettings> {
 
 /* ── Widget Limits ── */
 export interface WidgetLimits {
-  minBuyUsdt: number;  // Minimum USDT equivalent for a buy order
-  minSellUsdt: number; // Minimum USDT for a sell order
+  minBuyUsdt:      number; // Minimum USDT equivalent for a buy order
+  minSellUsdt:     number; // Minimum USDT for a sell order (all methods)
+  minCashSellUsdt: number; // Minimum USDT for Cash Handover sell (physical delivery)
 }
 export const DEFAULT_WIDGET_LIMITS: WidgetLimits = {
-  minBuyUsdt: 10,
-  minSellUsdt: 10,
+  minBuyUsdt:      10,
+  minSellUsdt:     10,
+  minCashSellUsdt: 500,
 };
 export async function getWidgetLimits(): Promise<WidgetLimits> {
   const doc = await SiteSetting.findOne({ key: 'widgetLimits' }).lean();
-  return (doc?.value as WidgetLimits) ?? DEFAULT_WIDGET_LIMITS;
+  const saved = (doc?.value ?? {}) as Partial<WidgetLimits>;
+  return {
+    minBuyUsdt:      saved.minBuyUsdt      ?? DEFAULT_WIDGET_LIMITS.minBuyUsdt,
+    minSellUsdt:     saved.minSellUsdt     ?? DEFAULT_WIDGET_LIMITS.minSellUsdt,
+    minCashSellUsdt: saved.minCashSellUsdt ?? DEFAULT_WIDGET_LIMITS.minCashSellUsdt,
+  };
 }
 
 /* ── Dynamic Rate Tiers ── */

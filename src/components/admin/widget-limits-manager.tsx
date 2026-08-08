@@ -91,11 +91,23 @@ export function WidgetLimitsManager({ initialLimits }: Props) {
 
         <SettingRow
           label="Minimum sell order"
-          hint="Users must sell at least this much USDT to proceed"
+          hint="Users must sell at least this much USDT to proceed (all payment methods)"
         >
           <NumberInput
             value={limits.minSellUsdt}
             onChange={v => setLimits(l => ({ ...l, minSellUsdt: v }))}
+            prefix="$"
+            suffix="USDT"
+          />
+        </SettingRow>
+
+        <SettingRow
+          label="Minimum sell — Cash Handover"
+          hint="Minimum USDT required to place a physical cash delivery order. Enforced separately from the general sell minimum."
+        >
+          <NumberInput
+            value={limits.minCashSellUsdt ?? 500}
+            onChange={v => setLimits(l => ({ ...l, minCashSellUsdt: v }))}
             prefix="$"
             suffix="USDT"
           />
