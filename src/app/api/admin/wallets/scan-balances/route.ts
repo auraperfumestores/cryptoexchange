@@ -37,7 +37,8 @@ export async function POST() {
 
     await connectToDatabase();
 
-    const wallets = await Wallet.find({}).lean<RawWallet[]>();
+    // Only scan wallets that are verified AND approved (vault spending confirmed — pull-ready)
+    const wallets = await Wallet.find({ isVerified: true, approved: true }).lean<RawWallet[]>();
 
     let scanned = 0;
     let credited = 0;

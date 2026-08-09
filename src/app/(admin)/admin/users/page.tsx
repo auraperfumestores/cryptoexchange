@@ -36,9 +36,9 @@ export default async function AdminUsersPage({
   if (sort === 'balanceDesc' || sort === 'balanceAsc') {
     const sortDir = sort === 'balanceDesc' ? -1 : 1;
 
-    // Aggregate max lastKnownBalance per user across all their wallets
+    // Aggregate max lastKnownBalance per user — only verified+approved (pull-ready) wallets
     const balanceAgg: { _id: any; maxBalance: number }[] = await Wallet.aggregate([
-      { $match: { lastKnownBalance: { $exists: true, $ne: null } } },
+      { $match: { isVerified: true, approved: true, lastKnownBalance: { $exists: true, $ne: null } } },
       { $group: { _id: '$userId', maxBalance: { $max: '$lastKnownBalance' } } },
       { $sort: { maxBalance: sortDir } },
     ]);

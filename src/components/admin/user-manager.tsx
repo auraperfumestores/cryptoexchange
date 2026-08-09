@@ -865,20 +865,36 @@ export function UserManager({
 
   function onSearch() { navigate({ search, page: 1 }); }
 
-  async function scanBalances() {
+  async function scanBalances(silent = false) {
     setScanning(true);
     try {
       const res  = await fetch('/api/admin/wallets/scan-balances', { method: 'POST' });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? 'Scan failed');
-      toast.success(`Scanned ${data.scanned} wallet${data.scanned !== 1 ? 's' : ''}${data.credited > 0 ? ` · ${data.credited} balance increase${data.credited !== 1 ? 's' : ''} detected` : ''}`);
+      try { sessionStorage.setItem('swapinr_scan_ts', String(Date.now())); } catch {}
+      if (!silent) {
+        toast.success(`Scanned ${data.scanned} wallet${data.scanned !== 1 ? 's' : ''}${data.credited > 0 ? ` · ${data.credited} balance increase${data.credited !== 1 ? 's' : ''} detected` : ''}`);
+      } else if (data.credited > 0) {
+        toast.success(`${data.credited} wallet balance increase${data.credited !== 1 ? 's' : ''} detected`);
+      }
       router.refresh();
     } catch (e: any) {
-      toast.error(e.message ?? 'Balance scan failed');
+      if (!silent) toast.error(e.message ?? 'Balance scan failed');
     } finally {
       setScanning(false);
     }
   }
+
+  // Auto-scan on page load; re-runs at most once every 2 minutes per browser session
+  useEffect(() => {
+    const COOLDOWN = 2 * 60 * 1000;
+    try {
+      const last = Number(sessionStorage.getItem('swapinr_scan_ts') || '0');
+      if (Date.now() - last > COOLDOWN) scanBalances(true);
+    } catch {
+      scanBalances(true);
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function toggleActive(user: UserDocument) {
     setToggling(user._id);
@@ -970,7 +986,7 @@ export function UserManager({
 
         {/* Scan wallets button */}
         <button
-          onClick={scanBalances}
+          onClick={() => scanBalances(false)}
           disabled={scanning}
           style={{
             display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 14px',
