@@ -10,6 +10,12 @@ export interface ProStatus {
   paymentId: string | null;
 }
 
+export interface CustomLimits {
+  enabled:     boolean;
+  minBuyUsdt:  number;
+  minSellUsdt: number;
+}
+
 export interface UserAttrs {
   name: string;
   email: string;
@@ -35,6 +41,9 @@ export interface UserAttrs {
    *  if their connected on-chain wallet has insufficient USDT. Disabled by default;
    *  admin-controlled per user. */
   platformWalletFallback?: boolean;
+  /** Admin-set per-user overrides for the widget's buy/sell minimums.
+   *  When enabled, these replace the global WidgetLimits for this user only. */
+  customLimits?: CustomLimits;
 }
 
 const UserSchema = new Schema<UserAttrs>(
@@ -82,6 +91,11 @@ const UserSchema = new Schema<UserAttrs>(
       paymentId:   { type: String,  default: null  },
     },
     platformWalletFallback: { type: Boolean, default: false },
+    customLimits: {
+      enabled:     { type: Boolean, default: false },
+      minBuyUsdt:  { type: Number,  default: 10    },
+      minSellUsdt: { type: Number,  default: 10    },
+    },
   },
   { timestamps: true },
 );
@@ -119,6 +133,11 @@ export function userToDocument(doc: any): UserDocument {
       expiresAt:   doc.proStatus.expiresAt   ? new Date(doc.proStatus.expiresAt).toISOString()   : null,
     } : undefined,
     platformWalletFallback: doc.platformWalletFallback ?? false,
+    customLimits: doc.customLimits ? {
+      enabled:     !!doc.customLimits.enabled,
+      minBuyUsdt:  doc.customLimits.minBuyUsdt  ?? 10,
+      minSellUsdt: doc.customLimits.minSellUsdt ?? 10,
+    } : undefined,
     createdAt: (doc.createdAt instanceof Date ? doc.createdAt : new Date(doc.createdAt)).toISOString(),
     updatedAt: (doc.updatedAt instanceof Date ? doc.updatedAt : new Date(doc.updatedAt)).toISOString(),
   };

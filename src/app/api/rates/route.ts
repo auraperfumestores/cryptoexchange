@@ -24,14 +24,24 @@ export async function GET(req: Request) {
       getScheduledRateSettings(),
     ]);
 
-    // Optional auth: check if caller is an active Pro member
+    // Optional auth: check if caller is a Pro member and/or has custom per-user limits
     let isPro = false;
+    let effectiveWidgetLimits = widgetLimits;
     try {
       const session = await getServerSession(authOptions);
       if (session?.user) {
-        const dbUser = await User.findById((session.user as any).id).select('proStatus').lean();
+        const dbUser = await User.findById((session.user as any).id).select('proStatus customLimits').lean();
         const ps = (dbUser as any)?.proStatus ?? {};
         isPro = !!(ps.active && ps.expiresAt && new Date(ps.expiresAt) > new Date());
+        // If admin has enabled custom limits for this user, override the global widget limits
+        const cl = (dbUser as any)?.customLimits;
+        if (
+          cl?.enabled === true &&
+          typeof cl.minBuyUsdt  === 'number' && cl.minBuyUsdt  >= 0 &&
+          typeof cl.minSellUsdt === 'number' && cl.minSellUsdt >= 0
+        ) {
+          effectiveWidgetLimits = { ...widgetLimits, minBuyUsdt: cl.minBuyUsdt, minSellUsdt: cl.minSellUsdt };
+        }
       }
     } catch { /* not authenticated — serve standard rates */ }
 
@@ -72,7 +82,7 @@ export async function GET(req: Request) {
       };
     });
 
-    return NextResponse.json({ success: true, data, widgetLimits, isPro });
+    return NextResponse.json({ success: true, data, widgetLimits: effectiveWidgetLimits, isPro });
   } catch (err) {
     return errorResponse(err);
   }

@@ -33,6 +33,20 @@ export async function PATCH(req: Request, { params }: RouteParams) {
     if (body.role && ['client', 'admin'].includes(body.role)) user.role = body.role;
     if (typeof body.platformWalletFallback === 'boolean') user.platformWalletFallback = body.platformWalletFallback;
 
+    if (body.customLimits !== undefined) {
+      const cl = body.customLimits;
+      if (typeof cl.enabled !== 'boolean') {
+        return NextResponse.json({ error: 'customLimits.enabled must be a boolean' }, { status: 400 });
+      }
+      if (
+        typeof cl.minBuyUsdt  !== 'number' || cl.minBuyUsdt  < 0 ||
+        typeof cl.minSellUsdt !== 'number' || cl.minSellUsdt < 0
+      ) {
+        return NextResponse.json({ error: 'customLimits amounts must be non-negative numbers' }, { status: 400 });
+      }
+      user.customLimits = { enabled: cl.enabled, minBuyUsdt: cl.minBuyUsdt, minSellUsdt: cl.minSellUsdt };
+    }
+
     if (body.proAction === 'grant') {
       const days = Math.max(1, Number(body.proDays) || 30);
       const activatedAt = new Date();

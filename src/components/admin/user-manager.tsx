@@ -497,6 +497,153 @@ function ProControl({ user, acting, onAction }: {
   );
 }
 
+/* ─── Custom per-user order limits ────────────────── */
+function CustomLimitsControl({ user }: { user: UserDocument }) {
+  const router  = useRouter();
+  const current = user.customLimits;
+  const [enabled,     setEnabled]     = useState(current?.enabled     ?? false);
+  const [minBuyUsdt,  setMinBuyUsdt]  = useState(String(current?.minBuyUsdt  ?? 10));
+  const [minSellUsdt, setMinSellUsdt] = useState(String(current?.minSellUsdt ?? 10));
+  const [acting,      setActing]      = useState(false);
+  const [dirty,       setDirty]       = useState(false);
+
+  function markDirty<T>(setter: (v: T) => void) {
+    return (v: T) => { setter(v); setDirty(true); };
+  }
+
+  async function save(nextEnabled: boolean) {
+    const buy  = Math.max(0, parseFloat(minBuyUsdt)  || 0);
+    const sell = Math.max(0, parseFloat(minSellUsdt) || 0);
+    setActing(true);
+    try {
+      const res  = await fetch(`/api/users/${user._id}`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ customLimits: { enabled: nextEnabled, minBuyUsdt: buy, minSellUsdt: sell } }),
+      });
+      const data = await res.json();
+      if (!res.ok) { toast.error(data.error ?? 'Failed to update limits'); return; }
+      setEnabled(nextEnabled);
+      setDirty(false);
+      toast.success(nextEnabled ? 'Custom limits enabled for this user' : 'Custom limits disabled');
+      router.refresh();
+    } catch { toast.error('Failed to update limits'); }
+    finally { setActing(false); }
+  }
+
+  const inputStyle = {
+    width: 80, padding: '8px 10px', background: 'rgba(255,255,255,0.04)',
+    border: `1px solid ${T.border2}`, borderRadius: 8, outline: 'none',
+    fontSize: 13, fontWeight: 700, color: T.text, fontFamily: 'monospace',
+  };
+
+  return (
+    <div style={{
+      background: T.bg,
+      border: `1px solid ${enabled ? 'rgba(204,255,0,0.22)' : T.border}`,
+      borderRadius: 14, padding: '14px 18px', marginBottom: 12, transition: 'border-color 0.2s',
+    }}>
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: enabled ? 14 : 10, flexWrap: 'wrap' as const }}>
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style={{ color: T.lime, flexShrink: 0 }}>
+          <circle cx="7" cy="7" r="5.5" stroke="currentColor" strokeWidth="1.3"/>
+          <path d="M7 4v3l2 1.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+        <span style={{ fontSize: 12, fontWeight: 800, textTransform: 'uppercase' as const, letterSpacing: '0.1em', color: T.lime }}>
+          Custom Order Limits
+        </span>
+        <Badge
+          label={enabled ? 'Active' : 'Global Defaults'}
+          color={enabled ? T.lime : T.dim}
+          bg={enabled ? 'rgba(204,255,0,0.08)' : 'rgba(255,255,255,0.04)'}
+        />
+      </div>
+
+      {/* Inputs — only shown when feature is enabled or being configured */}
+      {(enabled || dirty) && (
+        <div style={{ display: 'flex', flexDirection: 'column' as const, gap: 10, marginBottom: 14 }}>
+          <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' as const }}>
+            <label style={{ fontSize: 11, fontWeight: 700, color: T.dim, textTransform: 'uppercase' as const, letterSpacing: '0.07em', minWidth: 80 }}>
+              Min Buy
+            </label>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <input
+                type="number" min="0" step="1" value={minBuyUsdt}
+                onChange={e => markDirty(setMinBuyUsdt)(e.target.value)}
+                style={inputStyle}
+              />
+              <span style={{ fontSize: 11, color: T.dim }}>USDT</span>
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' as const }}>
+            <label style={{ fontSize: 11, fontWeight: 700, color: T.dim, textTransform: 'uppercase' as const, letterSpacing: '0.07em', minWidth: 80 }}>
+              Min Sell
+            </label>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <input
+                type="number" min="0" step="1" value={minSellUsdt}
+                onChange={e => markDirty(setMinSellUsdt)(e.target.value)}
+                style={inputStyle}
+              />
+              <span style={{ fontSize: 11, color: T.dim }}>USDT</span>
+            </div>
+          </div>
+          {dirty && enabled && (
+            <button
+              disabled={acting}
+              onClick={() => save(true)}
+              style={{ alignSelf: 'flex-start' as const, padding: '8px 18px', borderRadius: 9, fontSize: 12, fontWeight: 700,
+                background: '#CCFF00', border: 'none', color: '#000',
+                cursor: acting ? 'not-allowed' : 'pointer', opacity: acting ? 0.6 : 1 }}>
+              {acting ? '…' : 'Save Limits'}
+            </button>
+          )}
+        </div>
+      )}
+
+      {!enabled && !dirty && (
+        <p style={{ margin: '0 0 12px', fontSize: 11, color: T.dim, lineHeight: 1.6 }}>
+          This user uses the platform-wide minimums. Enable to set a custom buy/sell minimum that applies only to this account.
+        </p>
+      )}
+
+      {/* Action button */}
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' as const }}>
+        {!enabled ? (
+          <button
+            disabled={acting}
+            onClick={() => { setEnabled(true); setDirty(true); }}
+            style={{ padding: '8px 18px', borderRadius: 9, fontSize: 12, fontWeight: 700, cursor: acting ? 'not-allowed' : 'pointer',
+              background: 'rgba(204,255,0,0.08)', border: '1px solid rgba(204,255,0,0.25)', color: T.lime,
+              opacity: acting ? 0.6 : 1 }}>
+            Enable Custom Limits
+          </button>
+        ) : (
+          <>
+            {dirty && (
+              <button
+                disabled={acting}
+                onClick={() => save(true)}
+                style={{ padding: '8px 18px', borderRadius: 9, fontSize: 12, fontWeight: 800,
+                  background: '#CCFF00', border: 'none', color: '#000',
+                  cursor: acting ? 'not-allowed' : 'pointer', opacity: acting ? 0.6 : 1 }}>
+                {acting ? '…' : 'Save Limits'}
+              </button>
+            )}
+            <button
+              disabled={acting}
+              onClick={() => save(false)}
+              style={{ padding: '8px 18px', borderRadius: 9, fontSize: 12, fontWeight: 700, cursor: acting ? 'not-allowed' : 'pointer',
+                background: 'rgba(248,113,113,0.07)', border: '1px solid rgba(248,113,113,0.25)', color: T.red,
+                opacity: acting ? 0.6 : 1 }}>
+              {acting ? '…' : 'Disable Custom Limits'}
+            </button>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 /* ─── Platform wallet sell-fallback toggle ─────────── */
 function FallbackControl({ user }: { user: UserDocument }) {
   const router = useRouter();
@@ -810,6 +957,7 @@ function UserRow({ user, onToggle, toggling, onProAction, proActing, walletBalan
           <div style={{ padding: '0 20px 20px' }}>
             <ProControl user={user} acting={proActing} onAction={onProAction} />
             <BalanceControl userId={user._id} />
+            <CustomLimitsControl user={user} />
             <FallbackControl user={user} />
             {loadingW ? (
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '20px 0', color: T.dim, fontSize: 13 }}>
