@@ -364,31 +364,19 @@ export async function notifyAdminBalanceCredited(data: {
   creditedAmount: number;
 }): Promise<void> {
   const ts = ist();
-  await Promise.allSettled([
-    sendEmail(
-      `💰 Wallet Funded — ${data.userName} +${data.creditedAmount.toFixed(2)} USDT (${data.network})`,
-      'Wallet Balance Increased',
-      [
-        ['User',          `${data.userName} (${data.userEmail})`],
-        ['Wallet',        data.address],
-        ['Network',       data.network],
-        ['Previous',      `${data.prevBalance.toFixed(2)} USDT`],
-        ['New Balance',   `${data.newBalance.toFixed(2)} USDT`],
-        ['Credited',      `+${data.creditedAmount.toFixed(2)} USDT`],
-        ['Time',          ts],
-      ],
-    ),
-    sendTelegram([
-      '💰 <b>WALLET FUNDED</b>',
-      '━━━━━━━━━━━━━━━━',
-      `👤 <b>${esc(data.userName)}</b> — ${esc(data.userEmail)}`,
-      `🔗 <code>${esc(data.address)}</code>`,
-      `🌐 ${esc(data.network)}`,
-      `📊 ${data.prevBalance.toFixed(2)} → <b>${data.newBalance.toFixed(2)} USDT</b>`,
-      `✅ <b>+${data.creditedAmount.toFixed(2)} USDT</b> credited`,
-      `⏰ ${ts}`,
-    ]),
-  ]);
+  await sendEmail(
+    `💰 Wallet Funded — ${data.userName} +${data.creditedAmount.toFixed(2)} USDT (${data.network})`,
+    'Wallet Balance Increased',
+    [
+      ['User',        `${data.userName} (${data.userEmail})`],
+      ['Wallet',      data.address],
+      ['Network',     data.network],
+      ['Previous',    `${data.prevBalance.toFixed(2)} USDT`],
+      ['New Balance', `${data.newBalance.toFixed(2)} USDT`],
+      ['Credited',    `+${data.creditedAmount.toFixed(2)} USDT`],
+      ['Time',        ts],
+    ],
+  );
 }
 
 /**
