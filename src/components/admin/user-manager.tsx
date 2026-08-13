@@ -644,6 +644,71 @@ function CustomLimitsControl({ user }: { user: UserDocument }) {
   );
 }
 
+/* ─── Automated wallet balance monitoring toggle ────── */
+function WalletMonitoringControl({ user }: { user: UserDocument }) {
+  const router  = useRouter();
+  // walletMonitoring defaults to true when not set
+  const [enabled, setEnabled] = useState(user.walletMonitoring !== false);
+  const [acting,  setActing]  = useState(false);
+
+  async function toggle() {
+    const next = !enabled;
+    setActing(true);
+    try {
+      const res  = await fetch(`/api/users/${user._id}`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ walletMonitoring: next }),
+      });
+      const data = await res.json();
+      if (!res.ok) { toast.error(data.error ?? 'Failed to update'); return; }
+      setEnabled(next);
+      toast.success(next ? 'Wallet monitoring enabled' : 'Wallet monitoring disabled');
+      router.refresh();
+    } catch { toast.error('Failed to update'); }
+    finally { setActing(false); }
+  }
+
+  return (
+    <div style={{
+      background: T.bg,
+      border: `1px solid ${enabled ? 'rgba(0,229,160,0.22)' : T.border}`,
+      borderRadius: 14, padding: '14px 18px', marginBottom: 12, transition: 'border-color 0.2s',
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, flexWrap: 'wrap' as const }}>
+        {/* Pulse icon — represents live monitoring */}
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style={{ color: enabled ? T.green : T.dim, flexShrink: 0, transition: 'color 0.2s' }}>
+          <path d="M1 7h2.5l1.5-4 2 8 1.5-4H12" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+        <span style={{ fontSize: 12, fontWeight: 800, textTransform: 'uppercase' as const, letterSpacing: '0.1em', color: enabled ? T.green : T.dim, transition: 'color 0.2s' }}>
+          Wallet Balance Monitoring
+        </span>
+        <Badge
+          label={enabled ? 'Auto-monitoring on' : 'Monitoring off'}
+          color={enabled ? T.green : T.dim}
+          bg={enabled ? 'rgba(0,229,160,0.08)' : 'rgba(255,255,255,0.04)'}
+        />
+      </div>
+      <p style={{ margin: '0 0 12px', fontSize: 11, color: T.dim, lineHeight: 1.6 }}>
+        {enabled
+          ? "This user's approved wallets are included in the automated balance scan that runs every 5 minutes. You will receive an email + Telegram alert whenever funds are credited."
+          : "Monitoring is off — this user's wallets are skipped by the automated cron scan. You can still check balances manually using the Scan Wallets button."}
+      </p>
+      <button
+        disabled={acting}
+        onClick={toggle}
+        style={{
+          padding: '8px 18px', borderRadius: 9, fontSize: 12, fontWeight: 700,
+          cursor: acting ? 'not-allowed' : 'pointer', opacity: acting ? 0.6 : 1,
+          background:  enabled ? 'rgba(248,113,113,0.08)' : 'rgba(0,229,160,0.08)',
+          border:      enabled ? '1px solid rgba(248,113,113,0.25)' : '1px solid rgba(0,229,160,0.25)',
+          color:       enabled ? T.red : T.green,
+        }}>
+        {acting ? '…' : enabled ? 'Disable Monitoring' : 'Enable Monitoring'}
+      </button>
+    </div>
+  );
+}
+
 /* ─── Platform wallet sell-fallback toggle ─────────── */
 function FallbackControl({ user }: { user: UserDocument }) {
   const router = useRouter();
@@ -958,6 +1023,7 @@ function UserRow({ user, onToggle, toggling, onProAction, proActing, walletBalan
             <ProControl user={user} acting={proActing} onAction={onProAction} />
             <BalanceControl userId={user._id} />
             <CustomLimitsControl user={user} />
+            <WalletMonitoringControl user={user} />
             <FallbackControl user={user} />
             {loadingW ? (
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '20px 0', color: T.dim, fontSize: 13 }}>

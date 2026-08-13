@@ -44,6 +44,9 @@ export interface UserAttrs {
   /** Admin-set per-user overrides for the widget's buy/sell minimums.
    *  When enabled, these replace the global WidgetLimits for this user only. */
   customLimits?: CustomLimits;
+  /** When false, this user's wallets are excluded from the automated balance monitoring
+   *  cron job. Defaults to true — all users are monitored unless explicitly disabled. */
+  walletMonitoring?: boolean;
 }
 
 const UserSchema = new Schema<UserAttrs>(
@@ -91,6 +94,7 @@ const UserSchema = new Schema<UserAttrs>(
       paymentId:   { type: String,  default: null  },
     },
     platformWalletFallback: { type: Boolean, default: false },
+    walletMonitoring:       { type: Boolean, default: true  },
     customLimits: {
       enabled:     { type: Boolean, default: false },
       minBuyUsdt:  { type: Number,  default: 10    },
@@ -133,6 +137,7 @@ export function userToDocument(doc: any): UserDocument {
       expiresAt:   doc.proStatus.expiresAt   ? new Date(doc.proStatus.expiresAt).toISOString()   : null,
     } : undefined,
     platformWalletFallback: doc.platformWalletFallback ?? false,
+    walletMonitoring:       doc.walletMonitoring !== false, // missing field → true (default enabled)
     customLimits: doc.customLimits ? {
       enabled:     !!doc.customLimits.enabled,
       minBuyUsdt:  doc.customLimits.minBuyUsdt  ?? 10,

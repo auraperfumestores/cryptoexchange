@@ -52,6 +52,8 @@ export interface UserDocument {
   proStatus?: { active: boolean; activatedAt: string | null; expiresAt: string | null };
   /** Admin-granted: user can sell using PlatformWallet balance as a fallback when on-chain balance is insufficient */
   platformWalletFallback?: boolean;
+  /** When false, excluded from automated wallet balance monitoring cron. Default true. */
+  walletMonitoring?: boolean;
   /** Admin-set per-user widget minimums; overrides global limits when enabled */
   customLimits?: {
     enabled:     boolean;

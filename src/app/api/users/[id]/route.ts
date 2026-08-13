@@ -32,6 +32,7 @@ export async function PATCH(req: Request, { params }: RouteParams) {
     if (body.kycStatus) user.kycStatus = body.kycStatus;
     if (body.role && ['client', 'admin'].includes(body.role)) user.role = body.role;
     if (typeof body.platformWalletFallback === 'boolean') user.platformWalletFallback = body.platformWalletFallback;
+    if (typeof body.walletMonitoring       === 'boolean') user.walletMonitoring       = body.walletMonitoring;
 
     if (body.customLimits !== undefined) {
       const cl = body.customLimits;
