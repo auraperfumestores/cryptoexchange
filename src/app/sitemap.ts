@@ -1,7 +1,7 @@
 import type { MetadataRoute } from 'next';
 import { BLOG_POSTS } from '@/lib/blog/posts';
 
-const SITE_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://swappinr.com';
+const SITE_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://swappinr.in';
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const staticRoutes: MetadataRoute.Sitemap = [

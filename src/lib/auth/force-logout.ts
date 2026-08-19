@@ -5,7 +5,7 @@ import { pageLoader } from '@/store/page-loader-store';
 
 // Runs NextAuth's normal sign-out (clears the current session cookie),
 // then sweeps any leftover legacy session cookie that predates the
-// Domain=.swappinr.com cookie scoping change — see
+// Domain=.swappinr.in cookie scoping change — see
 // /api/auth/force-logout for why that sweep is necessary — before
 // navigating away. Replaces a bare `signOut()` call wherever a logout
 // button exists.

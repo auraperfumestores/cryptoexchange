@@ -11,7 +11,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'SwappINR Fees — Cheapest USDT to INR Exchange | SwappINR',
     description: '0.5–0.8% exchange fee. No hidden charges. Full USDT to INR fee breakdown.',
-    url: 'https://www.swappinr.com/fees',
+    url: 'https://www.swappinr.in/fees',
   },
 };
 
@@ -78,7 +78,7 @@ const FAQ_ITEMS = [
   },
 ];
 
-const SITE_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://www.swappinr.com';
+const SITE_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://www.swappinr.in';
 
 export default function FeesPage() {
   const faqLd = {

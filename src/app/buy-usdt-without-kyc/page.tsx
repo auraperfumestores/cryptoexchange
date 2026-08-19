@@ -16,7 +16,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'Buy USDT Without KYC Hassle — 5-Min One-Time Verification | SwappINR',
     description: 'KYC in 5 minutes. Done once. Buy USDT with UPI or bank transfer instantly on every trade after.',
-    url: 'https://www.swappinr.com/buy-usdt-without-kyc',
+    url: 'https://www.swappinr.in/buy-usdt-without-kyc',
   },
 };
 
@@ -101,7 +101,7 @@ const FAQ_ITEMS = [
   },
 ];
 
-const SITE_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://www.swappinr.com';
+const SITE_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://www.swappinr.in';
 
 export default function BuyUsdtWithoutKycPage() {
   const faqLd = {

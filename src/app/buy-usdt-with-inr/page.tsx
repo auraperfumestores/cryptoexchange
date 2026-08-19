@@ -11,7 +11,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'Buy USDT with INR in India — UPI & Bank Transfer | SwappINR',
     description: 'Buy USDT paying with UPI, IMPS or NEFT. TRC-20, BEP-20, ERC-20 delivered to your wallet instantly.',
-    url: 'https://www.swappinr.com/buy-usdt-with-inr',
+    url: 'https://www.swappinr.in/buy-usdt-with-inr',
   },
 };
 
@@ -70,7 +70,7 @@ const FAQ_ITEMS = [
   },
 ];
 
-const SITE_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://www.swappinr.com';
+const SITE_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://www.swappinr.in';
 
 export default function BuyUsdtWithInrPage() {
   const faqLd = {

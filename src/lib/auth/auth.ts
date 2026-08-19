@@ -41,9 +41,9 @@ export const authOptions: NextAuthOptions = {
         sameSite: 'lax',
         path: '/',
         secure: process.env.NODE_ENV === 'production',
-        // Scope the cookie to the whole domain so it's valid on both swappinr.com and
-        // www.swappinr.com — without this, a session set on one host isn't sent on the other.
-        domain: process.env.NODE_ENV === 'production' ? '.swappinr.com' : undefined,
+        // Scope the cookie to the whole domain so it's valid on both swappinr.in and
+        // www.swappinr.in — without this, a session set on one host isn't sent on the other.
+        domain: process.env.NODE_ENV === 'production' ? '.swappinr.in' : undefined,
       },
     },
   },

@@ -7,7 +7,7 @@ function getResend() {
 }
 
 // EMAIL_FROM is already in "Name <email>" format — use as-is
-const FROM = process.env.EMAIL_FROM ?? 'SwappINR <noreply@swappinr.com>';
+const FROM = process.env.EMAIL_FROM ?? 'SwappINR <noreply@swappinr.in>';
 
 /** Thin shim so call sites can keep using transport.sendMail({ from, to, subject, html }) unchanged. */
 function createTransport() {

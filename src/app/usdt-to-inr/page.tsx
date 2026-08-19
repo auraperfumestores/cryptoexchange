@@ -12,7 +12,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'USDT to INR Live Rate — Best Exchange in India | SwappINR',
     description: 'Live USDT to INR rate updated every minute. Sell USDT for rupees in under 15 minutes.',
-    url: 'https://www.swappinr.com/usdt-to-inr',
+    url: 'https://www.swappinr.in/usdt-to-inr',
   },
 };
 
@@ -63,7 +63,7 @@ const FAQ_ITEMS = [
   },
 ];
 
-const SITE_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://www.swappinr.com';
+const SITE_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://www.swappinr.in';
 
 export default async function UsdtToInrPage() {
   // Fetch live rates for display

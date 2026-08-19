@@ -7,7 +7,7 @@ import PageLoader from '@/components/ui/page-loader';
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter', display: 'swap' });
 const jetbrainsMono = JetBrains_Mono({ subsets: ['latin'], variable: '--font-mono', weight: ['400','500','600','700','800'], display: 'swap' });
 
-const SITE_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://swappinr.com';
+const SITE_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://swappinr.in';
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),

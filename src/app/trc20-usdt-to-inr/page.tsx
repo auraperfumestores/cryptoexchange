@@ -11,7 +11,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'TRC-20 USDT to INR — Sell TRON USDT for Rupees | SwappINR',
     description: 'Sell TRC-20 USDT for INR with near-zero TRON gas fees. UPI settlement in ~10 minutes.',
-    url: 'https://www.swappinr.com/trc20-usdt-to-inr',
+    url: 'https://www.swappinr.in/trc20-usdt-to-inr',
   },
 };
 
@@ -79,7 +79,7 @@ const FAQ_ITEMS = [
   },
 ];
 
-const SITE_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://www.swappinr.com';
+const SITE_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://www.swappinr.in';
 
 export default function Trc20UsdtToInrPage() {
   const faqLd = {

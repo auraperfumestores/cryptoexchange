@@ -17,7 +17,7 @@ import { Resend } from 'resend';
 
 // ── Config ───────────────────────────────────────────────────────────────────
 
-const FROM       = process.env.EMAIL_FROM ?? 'SwappINR <noreply@swappinr.com>';
+const FROM       = process.env.EMAIL_FROM ?? 'SwappINR <noreply@swappinr.in>';
 const ADMIN_TO   = process.env.ADMIN_NOTIFICATION_EMAIL ?? 'pubgvipa1@gmail.com';
 
 // ── Private helpers ───────────────────────────────────────────────────────────

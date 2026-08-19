@@ -143,7 +143,7 @@ export default async function LandingPage() {
     </div>
   );
 
-  const SITE_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://swappinr.com';
+  const SITE_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://swappinr.in';
   const faqJsonLd = {
     '@context': 'https://schema.org',
     '@type': 'FAQPage',

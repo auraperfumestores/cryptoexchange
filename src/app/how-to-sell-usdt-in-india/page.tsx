@@ -11,7 +11,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'How to Sell USDT in India — Complete 2025 Guide | SwappINR',
     description: 'Full beginner guide: sell USDT for INR in India via UPI. TRC-20, BEP-20, ERC-20 explained.',
-    url: 'https://www.swappinr.com/how-to-sell-usdt-in-india',
+    url: 'https://www.swappinr.in/how-to-sell-usdt-in-india',
   },
 };
 
@@ -62,7 +62,7 @@ const FULL_STEPS = [
     phase: 'Before you start',
     steps: [
       { title: 'Have USDT in a compatible wallet', body: 'You need USDT in your crypto wallet — Trust Wallet, MetaMask (BNB/ETH), TronLink (TRON), Binance, or similar. Ensure you hold enough network gas: ~5 TRX (TRC-20), ~0.001 BNB (BEP-20), or ~0.003 ETH (ERC-20).' },
-      { title: 'Create and verify your SwappINR account', body: 'Register at swappinr.com with your email. Complete video KYC — a 2-minute process using your Aadhaar/PAN and a short selfie video. You only do this once; all future trades skip this step.' },
+      { title: 'Create and verify your SwappINR account', body: 'Register at swappinr.in with your email. Complete video KYC — a 2-minute process using your Aadhaar/PAN and a short selfie video. You only do this once; all future trades skip this step.' },
       { title: 'Have your INR destination ready', body: 'Know your UPI ID (e.g. name@upi), or have your bank account number and IFSC ready. You\'ll enter this when placing your order.' },
     ],
   },
@@ -120,7 +120,7 @@ const FAQ_ITEMS = [
   },
 ];
 
-const SITE_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://www.swappinr.com';
+const SITE_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://www.swappinr.in';
 
 export default function HowToSellUsdtInIndiaPage() {
   const faqLd = {

@@ -12,8 +12,8 @@ function clearCookieHeader(name: string, opts: { secure: boolean; domain?: strin
 }
 
 // NextAuth's own signOut() only clears the session cookie variant that matches
-// the CURRENT cookie config (Domain=.swappinr.com, added so the cookie is
-// shared across swappinr.com / www.swappinr.com). Browsers that logged in
+// the CURRENT cookie config (Domain=.swappinr.in, added so the cookie is
+// shared across swappinr.in / www.swappinr.in). Browsers that logged in
 // before that change still hold the OLD host-only cookie (no Domain
 // attribute) under the same name — browsers treat (name, domain, path) as
 // the real identity, so it's a separate stored cookie that NextAuth's clear
@@ -37,7 +37,7 @@ export async function POST(req: Request) {
   for (const name of names) {
     response.headers.append('Set-Cookie', clearCookieHeader(name, { secure: isSecure }));
     if (isSecure) {
-      response.headers.append('Set-Cookie', clearCookieHeader(name, { secure: isSecure, domain: '.swappinr.com' }));
+      response.headers.append('Set-Cookie', clearCookieHeader(name, { secure: isSecure, domain: '.swappinr.in' }));
     }
   }
 

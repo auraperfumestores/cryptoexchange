@@ -11,7 +11,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'Sell USDT for INR — Instant UPI & Bank Settlement | SwappINR',
     description: 'Sell USDT for INR in under 15 minutes via UPI or bank transfer. Best rates, zero hidden fees.',
-    url: 'https://www.swappinr.com/sell-usdt-for-inr',
+    url: 'https://www.swappinr.in/sell-usdt-for-inr',
   },
 };
 
@@ -77,7 +77,7 @@ const FAQ_ITEMS = [
   },
 ];
 
-const SITE_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://www.swappinr.com';
+const SITE_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://www.swappinr.in';
 
 export default function SellUsdtForInrPage() {
   const faqLd = {

@@ -15,7 +15,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'Sell USDT Without KYC Hassle — 5-Min One-Time Verification | SwappINR',
     description: 'KYC in 5 minutes. Done once. Sell USDT for INR instantly on every trade after.',
-    url: 'https://www.swappinr.com/sell-usdt-without-kyc',
+    url: 'https://www.swappinr.in/sell-usdt-without-kyc',
   },
 };
 
@@ -93,7 +93,7 @@ const FAQ_ITEMS = [
   },
 ];
 
-const SITE_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://www.swappinr.com';
+const SITE_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://www.swappinr.in';
 
 export default function SellUsdtWithoutKycPage() {
   const faqLd = {

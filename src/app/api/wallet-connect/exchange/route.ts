@@ -71,8 +71,8 @@ export async function GET(req: Request) {
       maxAge:   30 * 24 * 60 * 60,
       path:     '/',
       // Must match the domain scoping in authOptions.cookies so this cookie is valid on
-      // both swappinr.com and www.swappinr.com, same as a normal credentials login.
-      domain:   isSecure ? '.swappinr.com' : undefined,
+      // both swappinr.in and www.swappinr.in, same as a normal credentials login.
+      domain:   isSecure ? '.swappinr.in' : undefined,
     });
 
     return response;

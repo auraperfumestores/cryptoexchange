@@ -11,7 +11,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'BEP-20 USDT to INR — Lowest Fee Exchange India | SwappINR',
     description: 'Sell BEP-20 USDT for INR at the lowest 0.5% fee. BNB Chain, UPI settlement in ~8 minutes.',
-    url: 'https://www.swappinr.com/bep20-usdt-to-inr',
+    url: 'https://www.swappinr.in/bep20-usdt-to-inr',
   },
 };
 
@@ -77,7 +77,7 @@ const FAQ_ITEMS = [
   },
 ];
 
-const SITE_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://www.swappinr.com';
+const SITE_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://www.swappinr.in';
 
 export default function Bep20UsdtToInrPage() {
   const faqLd = {

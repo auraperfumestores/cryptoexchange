@@ -15,7 +15,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'Sell USDT for Cash in India — CDM & Physical Payout | SwappINR PRO',
     description: 'Get physical INR cash for your USDT via CDM or arranged in-person settlement. SwappINR PRO service.',
-    url: 'https://www.swappinr.com/sell-usdt-for-cash',
+    url: 'https://www.swappinr.in/sell-usdt-for-cash',
   },
 };
 
@@ -108,7 +108,7 @@ const FAQ_ITEMS = [
   },
 ];
 
-const SITE_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://www.swappinr.com';
+const SITE_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://www.swappinr.in';
 
 export default function SellUsdtForCashPage() {
   const faqLd = {

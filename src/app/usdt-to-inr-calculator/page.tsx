@@ -13,7 +13,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'USDT to INR Calculator — Live Payout Estimator | SwappINR',
     description: 'Calculate exactly how much INR you\'ll receive for your USDT. Live rates, all networks.',
-    url: 'https://www.swappinr.com/usdt-to-inr-calculator',
+    url: 'https://www.swappinr.in/usdt-to-inr-calculator',
   },
 };
 
@@ -59,7 +59,7 @@ const FAQ_ITEMS = [
   },
 ];
 
-const SITE_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://www.swappinr.com';
+const SITE_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://www.swappinr.in';
 
 export default async function UsdtToInrCalculatorPage() {
   let approxRate = 86.5;

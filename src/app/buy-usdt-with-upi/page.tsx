@@ -15,7 +15,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'Buy USDT with UPI India — GPay, PhonePe, Paytm | SwappINR',
     description: 'Pay with any UPI app. Receive USDT in your wallet in under 30 minutes. BEP-20, TRC-20, ERC-20.',
-    url: 'https://www.swappinr.com/buy-usdt-with-upi',
+    url: 'https://www.swappinr.in/buy-usdt-with-upi',
   },
 };
 
@@ -103,7 +103,7 @@ const WALLETS = [
   { name: 'Coinbase Wallet', networks: 'ERC-20, BEP-20',         type: 'Mobile',    best: 'ERC-20 users, US-based DeFi' },
 ];
 
-const SITE_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://www.swappinr.com';
+const SITE_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://www.swappinr.in';
 
 export default function BuyUsdtWithUpiPage() {
   const faqLd = {

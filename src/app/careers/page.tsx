@@ -54,7 +54,7 @@ export default function CareersPage() {
             <p style={{ fontSize: 14.5, color: 'var(--fr-text-secondary)', lineHeight: 1.8, marginBottom: 16 }}>
               We don't have specific openings posted right now, but we're always open to hearing from strong engineers, compliance specialists, and customer support talent who want to work on crypto-to-INR infrastructure.
             </p>
-            <a href="mailto:careers@swappinr.com" className="fr-btn fr-btn--secondary">Send us your resume</a>
+            <a href="mailto:careers@swappinr.in" className="fr-btn fr-btn--secondary">Send us your resume</a>
           </div>
         </section>
 
