@@ -1,16 +1,20 @@
+// ============================================================================
+// !! TEMPORARY SIMULATOR-ONLY MODE !!
+//
+// This middleware serves public/simulator.html for EVERY request and makes
+// the entire site (all pages, API routes, and assets) unreachable.
+//
+// The original middleware is preserved at:
+//   - src/middleware.ts.bak                       (this repo)
+//   - E:\crypto-exchange-backup-2026-08-19\       (full project backup)
+//
+// To restore the original site, follow RESTORE_ORIGINAL.md at the repo root.
+// ============================================================================
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
-// NEXTAUTH_URL (and therefore every next-auth client call: signIn, signOut,
-// getSession, csrf) is pinned at build time to the canonical production host
-// below — see next.config.js's resolveAppUrl(). swappinr.com (no www) is also
-// live and serves the same app with no DNS/CDN-level redirect, so a visitor
-// landing on the bare apex domain gets HTML whose auth requests are sent
-// cross-host to the canonical domain. Host-bound cookies (e.g. the CSRF
-// cookie, which can't carry a Domain attribute) never travel on those
-// cross-host requests, which silently breaks CSRF-gated flows like sign-out.
-// Redirecting the apex to the canonical host up front keeps every request —
-// page loads, cookies, and auth calls — on a single origin.
+// Preserved from the original middleware: keep apex-domain visitors on the
+// canonical host so the eventual restore doesn't change redirect behavior.
 const CANONICAL_HOST = 'www.swappinr.com';
 const APEX_HOST = 'swappinr.com';
 
@@ -23,9 +27,16 @@ export function middleware(req: NextRequest) {
     url.port = '';
     return NextResponse.redirect(url, 308);
   }
-  return NextResponse.next();
+
+  if (req.nextUrl.pathname === '/simulator.html') {
+    return NextResponse.next();
+  }
+  return NextResponse.rewrite(new URL('/simulator.html', req.url));
 }
 
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
+  // Intentionally matches EVERYTHING (including /_next and /api): the
+  // simulator page is a single self-contained HTML file and needs no app
+  // assets, so nothing else should be servable while this mode is active.
+  matcher: ['/:path*'],
 };
