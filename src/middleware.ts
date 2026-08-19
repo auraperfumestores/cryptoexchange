@@ -1,8 +1,10 @@
 // ============================================================================
 // !! TEMPORARY SIMULATOR-ONLY MODE !!
 //
-// This middleware serves public/simulator.html for EVERY request and makes
-// the entire site (all pages, API routes, and assets) unreachable.
+// This middleware:
+//   - serves public/simulator.html for the main page (/) ONLY
+//   - returns a plain 404 for EVERY other URL (pages, API routes, assets,
+//     even /simulator.html directly) without running any app code
 //
 // The original middleware is preserved at:
 //   - src/middleware.ts.bak                       (this repo)
@@ -28,10 +30,19 @@ export function middleware(req: NextRequest) {
     return NextResponse.redirect(url, 308);
   }
 
-  if (req.nextUrl.pathname === '/simulator.html') {
-    return NextResponse.next();
+  // Main page only: internally rewrite to the static simulator file.
+  // (Middleware does not re-run on the rewritten request, so /simulator.html
+  // itself still 404s when visited directly.)
+  if (req.nextUrl.pathname === '/') {
+    return NextResponse.rewrite(new URL('/simulator.html', req.url));
   }
-  return NextResponse.rewrite(new URL('/simulator.html', req.url));
+
+  // Everything else: plain 404 served straight from the edge — no page,
+  // API route, or asset of the original site is ever reached.
+  return new NextResponse(
+    '<!DOCTYPE html><html><head><title>404 Not Found</title></head><body style="background:#050505;color:#fff;font-family:system-ui;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0"><p>404 — This page could not be found.</p></body></html>',
+    { status: 404, headers: { 'content-type': 'text/html; charset=utf-8' } }
+  );
 }
 
 export const config = {

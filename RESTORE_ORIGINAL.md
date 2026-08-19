@@ -1,8 +1,10 @@
 # Restore the original site (undo simulator-only mode)
 
 On **2026-08-19** the site was put into a temporary "simulator-only" mode:
-`src/middleware.ts` was replaced with a version that rewrites every request to
-`public/simulator.html`, making all other pages and API routes unreachable.
+`src/middleware.ts` was replaced with a version that serves
+`public/simulator.html` for the main page (`/`) only and returns a plain 404
+for every other URL (pages, API routes, assets), making the rest of the site
+completely unreachable.
 
 **Nothing else in the project was modified.** A full backup (everything except
 `node_modules` and `.next`) exists at `E:\crypto-exchange-backup-2026-08-19`.
