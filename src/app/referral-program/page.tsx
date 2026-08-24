@@ -25,7 +25,7 @@ export default async function ReferralProgramPage() {
   const refereeAmount = settings.refereeRewardUsdt;
 
   const STEPS = [
-    { n: '01', title: 'Get your link', body: 'Create a free SwappINR account (or sign in if you already have one) and grab your personal referral link from your dashboard.' },
+    { n: '01', title: 'Get your link', body: 'Create a free SwappINR account (or sign in if you already have one) and grab your personal referral link from your profile page.' },
     { n: '02', title: 'Share it', body: 'Send it to friends over WhatsApp, Telegram, or anywhere else — there is no limit on how many people you can invite.' },
     { n: '03', title: 'They verify', body: 'Your friend signs up through your link and completes SwappINR’s standard identity verification (KYC) — a one-time, ~2-minute process.' },
     { n: '04', title: 'You both get paid', body: `The moment their KYC is approved, $${referrerAmount.toFixed(2)} USDT lands in your wallet${refereeAmount > 0 ? ` and $${refereeAmount.toFixed(2)} USDT lands in theirs` : ''} — automatically, no claim required.` },
@@ -42,7 +42,7 @@ export default async function ReferralProgramPage() {
     },
     {
       q: 'Where do I find my referral link?',
-      a: 'Sign in to your SwappINR account and open the Referrals tab from your dashboard sidebar. Your unique link and live stats (referred, pending, rewarded, total earned) are all there.',
+      a: 'Sign in to your SwappINR account, open your Profile page, and tap “Get My Link” in the Refer & Earn section. Your unique link, share buttons, and live stats (referred, pending, rewarded, total earned) are all in one place.',
     },
     {
       q: 'Does my friend need to trade for me to get paid?',

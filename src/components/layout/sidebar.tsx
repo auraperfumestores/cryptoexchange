@@ -35,8 +35,6 @@ const CLIENT_NAV: NavItem[] = [
     icon: <svg width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M3 9L1 7L3 5M12 6L14 8L12 10M1 7H14" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/></svg> },
   { href: '/transactions', label: 'My Orders',
     icon: <svg width="15" height="15" viewBox="0 0 15 15" fill="none"><rect x="1.5" y="1.5" width="12" height="12" rx="2" stroke="currentColor" strokeWidth="1.3"/><path d="M4.5 5H10.5M4.5 7.5H10.5M4.5 10H7.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg> },
-  { href: '/referrals', label: 'Referrals',
-    icon: <svg width="15" height="15" viewBox="0 0 15 15" fill="none"><circle cx="5" cy="4.5" r="2" stroke="currentColor" strokeWidth="1.3"/><circle cx="11" cy="10.5" r="2" stroke="currentColor" strokeWidth="1.3"/><path d="M6.5 5.5L9.5 9.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg> },
 ];
 
 function NavLink({ href, label, icon, active, onClick }: NavItem & { active: boolean; onClick: () => void }) {

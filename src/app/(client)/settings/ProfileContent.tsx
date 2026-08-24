@@ -5,7 +5,8 @@ import { signOut } from 'next-auth/react';
 import type { KycStatus } from '@/types';
 import { PhoneVerifyModal } from '@/components/ui/phone-verify-modal';
 import { ProUpgradeModal } from '@/components/ui/pro-upgrade-modal';
-import { Crown } from '@phosphor-icons/react';
+import { ReferralModal } from '@/components/ui/referral-modal';
+import { Crown, Users } from '@phosphor-icons/react';
 
 interface ProfileUser {
   id: string; name: string; email: string; phone?: string;
@@ -210,6 +211,7 @@ export function ProfileContent({ user: initialUser }: { user: { name: string; em
   const [proExpiresAt,   setProExpiresAt]   = useState<string | null>(null);
   const [managerTelegram,setManagerTelegram]= useState('');
   const [showProModal,   setShowProModal]   = useState(false);
+  const [showReferralModal, setShowReferralModal] = useState(false);
   const [editName,       setEditName]       = useState(false);
   const [editUsername,   setEditUsername]   = useState(false);
   const [nameVal,        setNameVal]        = useState('');
@@ -449,6 +451,22 @@ export function ProfileContent({ user: initialUser }: { user: { name: string; em
         </div>
       )}
 
+      {/* ── Refer & Earn card ── */}
+      <div style={{ background: 'rgba(204,255,0,0.03)', border: '1px solid rgba(204,255,0,0.12)', borderRadius: 20, padding: '16px 22px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0, flex: '1 1 200px' }}>
+          <div style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(204,255,0,0.08)', border: '1px solid rgba(204,255,0,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <Users size={18} weight="fill" color="#CCFF00" />
+          </div>
+          <div style={{ minWidth: 0 }}>
+            <p style={{ fontSize: 13, fontWeight: 700, color: '#CCFF00', margin: 0 }}>Refer &amp; Earn</p>
+            <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', margin: '2px 0 0' }}>Invite friends · Earn USDT together</p>
+          </div>
+        </div>
+        <button onClick={() => setShowReferralModal(true)} style={{ padding: '9px 20px', borderRadius: 10, background: 'linear-gradient(135deg,#CCFF00,#9AD900)', color: '#000', fontSize: 12, fontWeight: 900, border: 'none', cursor: 'pointer', flexShrink: 0, whiteSpace: 'nowrap', boxShadow: '0 2px 12px rgba(204,255,0,0.22)' }}>
+          Get My Link →
+        </button>
+      </div>
+
       {/* ── Account Details ── */}
       <div style={{ background: '#111111', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 20, overflow: 'hidden' }}>
         <div style={{ padding: '14px 22px', borderBottom: '1px solid rgba(255,255,255,0.07)', display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -608,6 +626,7 @@ export function ProfileContent({ user: initialUser }: { user: { name: string; em
       )}
 
       {showProModal && <ProUpgradeModal onClose={() => setShowProModal(false)} />}
+      {showReferralModal && <ReferralModal onClose={() => setShowReferralModal(false)} />}
 
       <style>{`
         @keyframes spin { to { transform: rotate(360deg) } }
