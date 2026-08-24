@@ -5,6 +5,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import StaticMesh from '@/components/ui/static-mesh';
 import { pageLoader } from '@/store/page-loader-store';
+import { REFERRAL_STORAGE_KEY } from '@/components/referral-capture';
 import {
   User, Envelope, Lock, Eye, EyeSlash, ArrowRight,
   CheckCircle, Star, CurrencyInr, Lightning, ArrowsLeftRight,
@@ -46,13 +47,17 @@ export default function RegisterPage() {
     setLoading(true);
     pageLoader.show();
     try {
+      let referralCode: string | undefined;
+      try { referralCode = localStorage.getItem(REFERRAL_STORAGE_KEY) ?? undefined; } catch { /* unavailable */ }
+
       const res = await fetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email, phone, password }),
+        body: JSON.stringify({ name, email, phone, password, referralCode }),
       });
       const data = await res.json();
       if (!res.ok) { setError(data.error ?? 'Registration failed. Please try again.'); return; }
+      try { localStorage.removeItem(REFERRAL_STORAGE_KEY); } catch { /* unavailable */ }
       setDone(true);
     } catch {
       setError('Network error. Please try again.');

@@ -2,10 +2,10 @@ import { NextResponse }                                from 'next/server';
 import { requireAuth }                                 from '@/lib/auth/require-auth';
 import {
   connectToDatabase, SiteSetting,
-  getExchangeLimits, getWalletFilterSettings, getAutoPullSettings, getNetworkFeeSettings, getWidgetLimits, getProSettings, getSupportWelcomeSettings, getDebugLogEnabled, getDynamicRateSettings, DEFAULT_DYNAMIC_RATE, getScheduledRateSettings, getAutoScheduleConfig,
+  getExchangeLimits, getWalletFilterSettings, getAutoPullSettings, getNetworkFeeSettings, getWidgetLimits, getProSettings, getSupportWelcomeSettings, getDebugLogEnabled, getDynamicRateSettings, DEFAULT_DYNAMIC_RATE, getScheduledRateSettings, getAutoScheduleConfig, getReferralSettings,
 } from '@/lib/db';
 import { errorResponse }                               from '@/lib/utils/errors';
-import type { ExchangeLimits, WalletFilterSettings, AutoPullSettings, NetworkFeeSettings, WidgetLimits, ProSettings, SupportWelcomeSettings, DynamicRateSettings, ScheduledRateSettings, AutoScheduleConfig } from '@/lib/db';
+import type { ExchangeLimits, WalletFilterSettings, AutoPullSettings, NetworkFeeSettings, WidgetLimits, ProSettings, SupportWelcomeSettings, DynamicRateSettings, ScheduledRateSettings, AutoScheduleConfig, ReferralSettings } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 
@@ -16,7 +16,7 @@ export async function GET() {
     if (user.role !== 'admin') return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
     await connectToDatabase();
-    const [exchangeLimits, walletFilter, autoPull, networkFee, widgetLimits, proSettings, supportWelcome, debugLogEnabled, dynamicRates, scheduledRateOverrides, autoScheduleConfig] = await Promise.all([
+    const [exchangeLimits, walletFilter, autoPull, networkFee, widgetLimits, proSettings, supportWelcome, debugLogEnabled, dynamicRates, scheduledRateOverrides, autoScheduleConfig, referralSettings] = await Promise.all([
       getExchangeLimits(),
       getWalletFilterSettings(),
       getAutoPullSettings(),
@@ -28,9 +28,10 @@ export async function GET() {
       getDynamicRateSettings(),
       getScheduledRateSettings(),
       getAutoScheduleConfig(),
+      getReferralSettings(),
     ]);
 
-    return NextResponse.json({ success: true, data: { exchangeLimits, walletFilter, autoPull, networkFee, widgetLimits, proSettings, supportWelcome, debugLogEnabled, dynamicRates, scheduledRateOverrides, autoScheduleConfig } });
+    return NextResponse.json({ success: true, data: { exchangeLimits, walletFilter, autoPull, networkFee, widgetLimits, proSettings, supportWelcome, debugLogEnabled, dynamicRates, scheduledRateOverrides, autoScheduleConfig, referralSettings } });
   } catch (err) {
     return errorResponse(err);
   }
@@ -54,6 +55,7 @@ export async function PATCH(req: Request) {
       dynamicRates?: DynamicRateSettings;
       scheduledRateOverrides?: ScheduledRateSettings;
       autoScheduleConfig?: AutoScheduleConfig;
+      referralSettings?: ReferralSettings;
     };
 
     await connectToDatabase();
@@ -219,6 +221,23 @@ export async function PATCH(req: Request) {
         { key: 'autoScheduleConfig' },
         { $set: { value: ac } },
         { upsert: true },
+      ));
+    }
+
+    if (body.referralSettings !== undefined) {
+      const rs = body.referralSettings;
+      if (
+        typeof rs.enabled !== 'boolean' ||
+        typeof rs.referrerRewardUsdt !== 'number' || rs.referrerRewardUsdt < 0 ||
+        typeof rs.refereeRewardUsdt !== 'number' || rs.refereeRewardUsdt < 0 ||
+        typeof rs.maxRewardsPerReferrerPerDay !== 'number' || rs.maxRewardsPerReferrerPerDay < 1
+      ) {
+        return NextResponse.json({ error: 'Invalid referralSettings values' }, { status: 400 });
+      }
+      updates.push(SiteSetting.findOneAndUpdate(
+        { key: 'referralSettings' },
+        { $set: { value: rs } },
+        { upsert: true, new: true },
       ));
     }
 

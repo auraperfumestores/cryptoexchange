@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import crypto from 'crypto';
-import { connectToDatabase, User, userToDocument, generateUsername } from '@/lib/db';
+import { connectToDatabase, User, userToDocument, generateUsername, generateReferralCode, Referral } from '@/lib/db';
 import { registerSchema } from '@/lib/validators/schemas';
 import { errorResponse } from '@/lib/utils/errors';
 import { sendVerificationEmail } from '@/lib/email';
@@ -18,6 +18,7 @@ export async function POST(req: Request) {
       );
     }
     const { name, email, password, phone } = parsed.data;
+    const referralCodeUsed: string | undefined = typeof body.referralCode === 'string' ? body.referralCode.trim().toUpperCase() : undefined;
 
     await connectToDatabase();
 
@@ -44,6 +45,13 @@ export async function POST(req: Request) {
     const username = generateUsername(name);
     const defaultAvatar = `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(name)}&backgroundColor=1a3fff,6b21ff,00e5a0&fontFamily=Arial&fontSize=40`;
 
+    // Resolve the referral code to a real referrer before account creation — a bad/typo'd
+    // code must never block signup, so an invalid code is simply ignored (treated as none).
+    let referrer: { _id: unknown } | null = null;
+    if (referralCodeUsed) {
+      referrer = await User.findOne({ referralCode: referralCodeUsed }).select('_id').lean();
+    }
+
     const user = await User.create({
       name,
       email,
@@ -59,7 +67,24 @@ export async function POST(req: Request) {
       // Only accounts created from this point on are eligible for the $5
       // phone-verification signup bonus — pre-existing users never get this field.
       eligibleForSignupBonus: true,
+      referralCode: generateReferralCode(name),
+      ...(referrer ? { referredBy: referrer._id } : {}),
     });
+
+    if (referrer) {
+      try {
+        await Referral.create({
+          referrerId: referrer._id,
+          refereeId: user._id,
+          referralCode: referralCodeUsed,
+          status: 'pending',
+        });
+      } catch (e) {
+        // Most likely cause: this user somehow already has a Referral doc (unique index
+        // on refereeId) — never block a successful registration over a bookkeeping row.
+        console.error('[register] Referral doc creation failed:', e);
+      }
+    }
 
     // Fire admin signup notification (never blocks registration)
     notifyAdminNewSignup({ name, email, phone: phone ?? '' }).catch(e => console.error('[admin-notify] signup:', e));

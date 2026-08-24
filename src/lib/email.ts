@@ -583,6 +583,88 @@ export async function sendKycRejectedEmail(email: string, name: string, reason: 
   });
 }
 
+/** Sent to both parties the moment a referral reward is credited (referee's KYC approved).
+ *  `role` controls the copy: the referrer is told who they referred, the referee is
+ *  told they got a welcome bonus for signing up via a referral link. */
+export async function sendReferralBonusEmail(
+  email: string, name: string, role: 'referrer' | 'referee', amount: number, counterpartName: string,
+) {
+  const link = `${APP_URL}/dashboard`;
+  const transport = createTransport();
+
+  const subject = role === 'referrer'
+    ? `🎉 You earned $${amount.toFixed(2)} USDT — SwappINR Referral`
+    : `🎉 Welcome bonus credited — $${amount.toFixed(2)} USDT | SwappINR`;
+  const heading = role === 'referrer' ? 'Your referral just paid off' : 'Welcome bonus credited';
+  const intro = role === 'referrer'
+    ? `Great news — <strong style="color:#ffffff">${counterpartName}</strong> completed identity verification after joining SwappINR through your referral link. <strong style="color:#CCFF00">$${amount.toFixed(2)} USDT</strong> has been added to your SwappINR wallet.`
+    : `Thanks for joining SwappINR through <strong style="color:#ffffff">${counterpartName}</strong>'s referral link and completing identity verification. <strong style="color:#CCFF00">$${amount.toFixed(2)} USDT</strong> has been added to your SwappINR wallet as a welcome bonus.`;
+
+  if (!transport) {
+    console.log(`[email] Referral bonus (${role}) for ${email}: $${amount} USDT`);
+    return;
+  }
+
+  await transport.sendMail({
+    from: FROM,
+    to: email,
+    subject,
+    html: `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${heading} — SwappINR</title></head>
+<body style="margin:0;padding:0;background:#080808;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#080808;padding:48px 16px">
+<tr><td align="center">
+<table width="520" cellpadding="0" cellspacing="0" style="max-width:520px;width:100%">
+  <tr><td style="background:#111111;border:1px solid rgba(204,255,0,0.18);border-radius:20px;overflow:hidden">
+    <table width="100%" cellpadding="0" cellspacing="0">
+      <tr><td style="background:linear-gradient(180deg,rgba(204,255,0,0.09) 0%,rgba(204,255,0,0.02) 100%);border-bottom:1px solid rgba(204,255,0,0.12);padding:44px 32px 36px;text-align:center">
+        <table cellpadding="0" cellspacing="0" style="margin:0 auto 20px"><tr>
+          <td style="text-align:center;vertical-align:middle">
+            <table cellpadding="0" cellspacing="0" style="display:inline-table"><tr>
+              <td style="width:44px;height:44px;background:#CCFF00;border-radius:11px;text-align:center;vertical-align:middle;line-height:44px">
+                <span style="color:#000;font-size:20px;font-weight:900;line-height:44px">S</span>
+              </td>
+              <td style="padding-left:11px;font-size:24px;font-weight:900;color:#ffffff;letter-spacing:-0.03em;vertical-align:middle;white-space:nowrap">
+                Swapp<span style="color:#CCFF00">INR</span>
+              </td>
+            </tr></table>
+          </td>
+        </tr></table>
+        <div style="width:56px;height:56px;background:rgba(204,255,0,0.14);border:1px solid rgba(204,255,0,0.3);border-radius:16px;margin:0 auto 20px;display:flex;align-items:center;justify-content:center">
+          <svg width="26" height="26" viewBox="0 0 26 26" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M13 2L15.4 8.6L22 9.6L17.2 14.4L18.4 21L13 17.8L7.6 21L8.8 14.4L4 9.6L10.6 8.6L13 2Z" stroke="#CCFF00" stroke-width="1.6" stroke-linejoin="round"/></svg>
+        </div>
+        <h1 style="margin:0 0 10px;font-size:26px;font-weight:800;color:#ffffff;letter-spacing:-0.025em">${heading}</h1>
+        <p style="margin:0;font-size:14px;color:rgba(255,255,255,0.4)">$${amount.toFixed(2)} USDT added to your wallet</p>
+      </td></tr>
+    </table>
+    <table width="100%" cellpadding="0" cellspacing="0">
+      <tr><td style="padding:40px 36px">
+        <p style="margin:0 0 10px;font-size:17px;font-weight:700;color:#ffffff">Hello, ${name} 👋</p>
+        <p style="margin:0 0 36px;font-size:14px;line-height:1.8;color:rgba(255,255,255,0.48)">${intro}</p>
+        <table width="100%" cellpadding="0" cellspacing="0">
+          <tr><td align="center" style="padding-bottom:8px">
+            <a href="${link}" style="display:inline-block;background:#CCFF00;color:#000000;text-decoration:none;font-weight:800;font-size:16px;padding:17px 52px;border-radius:12px;letter-spacing:-0.01em">
+              Transact Now &rarr;
+            </a>
+          </td></tr>
+        </table>
+      </td></tr>
+    </table>
+    <table width="100%" cellpadding="0" cellspacing="0">
+      <tr><td style="background:rgba(0,0,0,0.35);border-top:1px solid rgba(255,255,255,0.05);padding:18px 36px;text-align:center">
+        <p style="font-size:12px;color:rgba(255,255,255,0.22);margin:0">&copy; 2026 SwappINR &middot; USDT &#8596; INR Exchange</p>
+      </td></tr>
+    </table>
+  </td></tr>
+</table>
+</td></tr>
+</table>
+</body>
+</html>`,
+  });
+}
+
 interface WithdrawalEmailInfo {
   amount: number;
   network: string;

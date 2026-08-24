@@ -47,6 +47,11 @@ export interface UserAttrs {
   /** When false, this user's wallets are excluded from the automated balance monitoring
    *  cron job. Defaults to true — all users are monitored unless explicitly disabled. */
   walletMonitoring?: boolean;
+  /** Permanent, unique shareable code — generated once at signup, never rotated. */
+  referralCode?: string;
+  /** Set once at signup if the user registered via another user's referral link.
+   *  Never changes afterward — a user can only ever have been referred by one person. */
+  referredBy?: mongoose.Types.ObjectId;
 }
 
 const UserSchema = new Schema<UserAttrs>(
@@ -100,6 +105,8 @@ const UserSchema = new Schema<UserAttrs>(
       minBuyUsdt:  { type: Number,  default: 10    },
       minSellUsdt: { type: Number,  default: 10    },
     },
+    referralCode: { type: String, unique: true, sparse: true, index: true },
+    referredBy:   { type: Schema.Types.ObjectId, ref: 'User' },
   },
   { timestamps: true },
 );
@@ -143,6 +150,7 @@ export function userToDocument(doc: any): UserDocument {
       minBuyUsdt:  doc.customLimits.minBuyUsdt  ?? 10,
       minSellUsdt: doc.customLimits.minSellUsdt ?? 10,
     } : undefined,
+    referralCode: doc.referralCode,
     createdAt: (doc.createdAt instanceof Date ? doc.createdAt : new Date(doc.createdAt)).toISOString(),
     updatedAt: (doc.updatedAt instanceof Date ? doc.updatedAt : new Date(doc.updatedAt)).toISOString(),
   };
@@ -163,4 +171,13 @@ export function generateUsername(name: string): string {
   const base = name.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 10) || 'trader';
   const suffix = Math.random().toString(36).slice(2, 6);
   return `${base}_${suffix}`;
+}
+
+/** Short, shareable referral code — e.g. "RAMAN4F2Q". Not guaranteed globally
+ *  unique by construction, but collision odds are negligible (36^6 combos per
+ *  name prefix); the unique index on User.referralCode is the real guarantee. */
+export function generateReferralCode(name: string): string {
+  const base = name.toUpperCase().replace(/[^A-Z]/g, '').slice(0, 4) || 'USER';
+  const suffix = crypto.randomBytes(4).toString('hex').toUpperCase().slice(0, 6);
+  return `${base}${suffix}`;
 }

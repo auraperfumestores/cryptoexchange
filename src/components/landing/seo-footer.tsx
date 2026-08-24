@@ -8,6 +8,7 @@ const COL_PRODUCT = [
   ['TRC-20 USDT to INR',     '/trc20-usdt-to-inr'      ],
   ['BEP-20 USDT to INR',     '/bep20-usdt-to-inr'      ],
   ['Fees & Limits',          '/fees'                   ],
+  ['Referral Program',       '/referral-program'       ],
 ];
 
 const COL_COMPANY = [

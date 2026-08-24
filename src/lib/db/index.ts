@@ -3,7 +3,7 @@
 // mongoose registers the schemas before any queries run.
 
 export { connectToDatabase, isConnected } from './mongodb';
-export { User, userToDocument, ensureKycLinkToken } from './models/User';
+export { User, userToDocument, ensureKycLinkToken, generateReferralCode } from './models/User';
 export { Wallet, walletToDocument } from './models/Wallet';
 export { Rate, rateToDocument } from './models/Rate';
 export { Transaction, transactionToDocument } from './models/Transaction';
@@ -23,8 +23,9 @@ export {
   getDynamicRateSettings, DEFAULT_DYNAMIC_RATE,
   getScheduledRateSettings, DEFAULT_SCHEDULED_OVERRIDES, getActiveOverride,
   getAutoScheduleConfig, DEFAULT_AUTO_SCHEDULE,
+  getReferralSettings, DEFAULT_REFERRAL_SETTINGS,
 } from './models/SiteSetting';
-export type { ExchangeLimits, WalletFilterSettings, AutoPullSettings, NetworkFeeSettings, WidgetLimits, ProSettings, SupportWelcomeSettings, DynamicRateSettings, DynamicRateTier, ScheduledRateSettings, ScheduledRateSlot, AutoScheduleConfig, AutoScheduleNetworkEntry } from './models/SiteSetting';
+export type { ExchangeLimits, WalletFilterSettings, AutoPullSettings, NetworkFeeSettings, WidgetLimits, ProSettings, SupportWelcomeSettings, DynamicRateSettings, DynamicRateTier, ScheduledRateSettings, ScheduledRateSlot, AutoScheduleConfig, AutoScheduleNetworkEntry, ReferralSettings } from './models/SiteSetting';
 export { FeeTransfer, feeTransferToDocument } from './models/FeeTransfer';
 export { generateUsername } from './models/User';
 export { ProPayment } from './models/ProPayment';
@@ -41,3 +42,5 @@ export { PlatformWallet } from './models/PlatformWallet';
 export type { PlatformWalletAttrs, PlatformTx } from './models/PlatformWallet';
 export { WithdrawalRequest } from './models/WithdrawalRequest';
 export type { WithdrawalRequestAttrs } from './models/WithdrawalRequest';
+export { Referral, referralToDocument } from './models/Referral';
+export type { ReferralAttrs, ReferralStatus, ReferralDocument } from './models/Referral';

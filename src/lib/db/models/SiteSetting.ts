@@ -145,6 +145,25 @@ export async function getDynamicRateSettings(): Promise<DynamicRateSettings> {
   };
 }
 
+/* ── Referral Program ── */
+export interface ReferralSettings {
+  enabled: boolean;
+  referrerRewardUsdt: number;      // paid to the referrer when their referee's KYC is approved
+  refereeRewardUsdt: number;       // paid to the referee at the same moment (0 disables their side)
+  maxRewardsPerReferrerPerDay: number; // anti-abuse throttle; a burst past this needs admin review
+}
+export const DEFAULT_REFERRAL_SETTINGS: ReferralSettings = {
+  enabled: false,
+  referrerRewardUsdt: 3,
+  refereeRewardUsdt: 2,
+  maxRewardsPerReferrerPerDay: 20,
+};
+export async function getReferralSettings(): Promise<ReferralSettings> {
+  const doc = await SiteSetting.findOne({ key: 'referralSettings' }).lean();
+  const saved = (doc?.value ?? {}) as Partial<ReferralSettings>;
+  return { ...DEFAULT_REFERRAL_SETTINGS, ...saved };
+}
+
 /* ── Developer / Debug Settings ── */
 export async function getDebugLogEnabled(): Promise<boolean> {
   const doc = await SiteSetting.findOne({ key: 'debugLogEnabled' }).lean();

@@ -437,3 +437,42 @@ export async function notifyAdminNewOrder(data: {
     }
   }
 }
+
+/**
+ * Fired when a referral reward is credited — the referee's KYC was just approved
+ * and both parties (if applicable) were paid out via creditPlatformWallet.
+ * Inject in POST /api/admin/kyc/[id]/decision right after the credit succeeds.
+ */
+export async function notifyAdminReferralReward(data: {
+  referrerName:  string;
+  referrerEmail: string;
+  refereeName:   string;
+  refereeEmail:  string;
+  referrerRewardUsdt: number;
+  refereeRewardUsdt:  number;
+}): Promise<void> {
+  const ts = ist();
+  await Promise.allSettled([
+    sendEmail(
+      `🎁 Referral Reward Paid — ${data.referrerName} → ${data.refereeName}`,
+      'Referral Reward Credited',
+      [
+        ['Referrer', `${data.referrerName} (${data.referrerEmail})`],
+        ['Referee',  `${data.refereeName} (${data.refereeEmail})`],
+        ['Referrer Reward', `$${data.referrerRewardUsdt.toFixed(2)} USDT`],
+        ['Referee Reward',  `$${data.refereeRewardUsdt.toFixed(2)} USDT`],
+        ['Trigger', "Referee's KYC was approved"],
+        ['Time', ts],
+      ],
+    ),
+    sendTelegram([
+      '🎁 <b>REFERRAL REWARD PAID</b>',
+      '━━━━━━━━━━━━━━━━',
+      `👤 Referrer: <b>${esc(data.referrerName)}</b> — ${esc(data.referrerEmail)}`,
+      `👤 Referee: <b>${esc(data.refereeName)}</b> — ${esc(data.refereeEmail)}`,
+      `💵 $${data.referrerRewardUsdt.toFixed(2)} USDT → referrer`,
+      `💵 $${data.refereeRewardUsdt.toFixed(2)} USDT → referee`,
+      `⏰ ${ts}`,
+    ]),
+  ]);
+}

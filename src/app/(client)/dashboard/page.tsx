@@ -1,11 +1,12 @@
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth/auth';
 import { redirect } from 'next/navigation';
-import { connectToDatabase, Transaction, transactionToDocument, User } from '@/lib/db';
+import { connectToDatabase, Transaction, transactionToDocument, User, Referral } from '@/lib/db';
 import { ClientShell } from '@/components/layout/client-shell';
 import ExchangeWidget from '@/components/landing/exchange-widget';
 import { DashboardLiveFeed } from '@/components/dashboard/dashboard-live-feed';
 import { SignupBonusBanner } from '@/components/dashboard/signup-bonus-banner';
+import { ReferralBonusBanner } from '@/components/dashboard/referral-bonus-banner';
 import Link from 'next/link';
 import { formatINR, formatCrypto } from '@/lib/utils';
 import type { TransactionDocument } from '@/types';
@@ -24,14 +25,34 @@ export default async function DashboardPage() {
   if (!session?.user) redirect('/login');
 
   await connectToDatabase();
-  const [allTx, dbUser] = await Promise.all([
+  const [allTx, dbUser, referralBanner] = await Promise.all([
     Transaction.find({ userId: session.user.id }).sort({ createdAt: -1 }).limit(5).lean(),
     User.findById(session.user.id).select('phone phoneVerified eligibleForSignupBonus signupBonusGranted').lean(),
+    Referral.findOne({
+      status: 'rewarded',
+      $or: [
+        { referrerId: session.user.id, referrerBannerSeen: false },
+        { refereeId: session.user.id, refereeBannerSeen: false },
+      ],
+    }).sort({ rewardedAt: -1 }).lean(),
   ]);
   const txDocs = allTx.map(transactionToDocument) as TransactionDocument[];
 
   const firstName = session.user.name?.split(' ')[0] ?? 'there';
   const showBonusBanner = !!dbUser?.eligibleForSignupBonus && !dbUser?.signupBonusGranted;
+
+  let referralBannerProps: { referralId: string; role: 'referrer' | 'referee'; amount: number; counterpartName: string } | null = null;
+  if (referralBanner) {
+    const isReferrer = String(referralBanner.referrerId) === session.user.id;
+    const counterpartId = isReferrer ? referralBanner.refereeId : referralBanner.referrerId;
+    const counterpart = await User.findById(counterpartId).select('name').lean();
+    referralBannerProps = {
+      referralId: String(referralBanner._id),
+      role: isReferrer ? 'referrer' : 'referee',
+      amount: (isReferrer ? referralBanner.referrerRewardUsdt : referralBanner.refereeRewardUsdt) ?? 0,
+      counterpartName: counterpart?.name?.split(' ')[0] ?? 'A friend',
+    };
+  }
 
   return (
     <ClientShell user={session.user as any} rates={[]}>
@@ -57,6 +78,7 @@ export default async function DashboardPage() {
         </div>
 
         {showBonusBanner && <SignupBonusBanner phone={dbUser?.phone} />}
+        {referralBannerProps && <ReferralBonusBanner {...referralBannerProps} />}
 
         {/* Main content: widget + history */}
         <div className="user-dash-grid" style={{ display: 'grid', gridTemplateColumns: 'minmax(0,480px) 1fr', gap: 24, alignItems: 'start' }}>

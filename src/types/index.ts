@@ -60,6 +60,7 @@ export interface UserDocument {
     minBuyUsdt:  number;
     minSellUsdt: number;
   };
+  referralCode?: string;
   createdAt: string;
   updatedAt: string;
 }
