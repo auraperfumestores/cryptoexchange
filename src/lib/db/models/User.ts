@@ -173,6 +173,28 @@ export function generateUsername(name: string): string {
   return `${base}_${suffix}`;
 }
 
+/** Returns the user's permanent referral code, generating + persisting one on
+ *  first call. Idempotent — accounts created before the referral program shipped
+ *  get theirs backfilled the first time they open the Refer & Earn panel. */
+export async function ensureReferralCode(userId: string, name: string): Promise<string | null> {
+  const existing = await User.findById(userId).select('referralCode name').lean<{ referralCode?: string; name?: string }>();
+  if (existing?.referralCode) return existing.referralCode;
+
+  // Backfill for accounts created before the referral program shipped. Retries on
+  // the (vanishingly rare) unique-index collision rather than failing the request.
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const code = generateReferralCode(existing?.name ?? name);
+    try {
+      await User.findByIdAndUpdate(userId, { referralCode: code });
+      return code;
+    } catch {
+      // duplicate key — regenerate and retry
+    }
+  }
+  console.error('[referral] could not generate a unique referral code for', userId);
+  return null;
+}
+
 /** Short, shareable referral code — e.g. "RAMAN4F2Q". Not guaranteed globally
  *  unique by construction, but collision odds are negligible (36^6 combos per
  *  name prefix); the unique index on User.referralCode is the real guarantee. */

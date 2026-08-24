@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth/require-auth';
-import { connectToDatabase, Referral, User, getReferralSettings } from '@/lib/db';
+import { connectToDatabase, Referral, User, getReferralSettings, ensureReferralCode } from '@/lib/db';
 import { errorResponse } from '@/lib/utils/errors';
 
 export const dynamic = 'force-dynamic';
@@ -12,8 +12,10 @@ export async function GET() {
     const auth = await requireAuth();
     await connectToDatabase();
 
-    const [me, settings, referrals] = await Promise.all([
-      User.findById(auth.id).select('referralCode').lean(),
+    // Generates + persists the code on first access, so accounts that predate the
+    // referral program still get a working link instead of an empty box.
+    const [referralCode, settings, referrals] = await Promise.all([
+      ensureReferralCode(auth.id, auth.name),
       getReferralSettings(),
       Referral.find({ referrerId: auth.id }).sort({ createdAt: -1 }).lean(),
     ]);
@@ -28,7 +30,7 @@ export async function GET() {
     return NextResponse.json({
       success: true,
       data: {
-        referralCode: me?.referralCode ?? null,
+        referralCode,
         enabled: settings.enabled,
         referrerRewardUsdt: settings.referrerRewardUsdt,
         refereeRewardUsdt: settings.refereeRewardUsdt,

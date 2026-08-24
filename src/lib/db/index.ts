@@ -3,7 +3,7 @@
 // mongoose registers the schemas before any queries run.
 
 export { connectToDatabase, isConnected } from './mongodb';
-export { User, userToDocument, ensureKycLinkToken, generateReferralCode } from './models/User';
+export { User, userToDocument, ensureKycLinkToken, generateReferralCode, ensureReferralCode } from './models/User';
 export { Wallet, walletToDocument } from './models/Wallet';
 export { Rate, rateToDocument } from './models/Rate';
 export { Transaction, transactionToDocument } from './models/Transaction';

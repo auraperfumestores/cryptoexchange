@@ -280,15 +280,15 @@ export function ProUpgradeModal({ onClose }: { onClose: () => void }) {
      ALREADY PRO
   ════════════════════════════════════════════════════════════════ */
   if (screen === 'alreadyPro' && proStatus) return shell(
-    <div style={{ padding: '24px 24px 28px' }}>
+    <div style={{ padding: '18px 20px 20px' }}>
       {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <div style={{ width: 48, height: 48, borderRadius: 16, background: 'linear-gradient(135deg,rgba(255,210,0,0.2),rgba(255,150,0,0.12))', border: '1.5px solid rgba(255,210,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Crown size={24} weight="fill" color={T.gold} />
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{ width: 40, height: 40, borderRadius: 13, background: 'linear-gradient(135deg,rgba(255,210,0,0.2),rgba(255,150,0,0.12))', border: '1.5px solid rgba(255,210,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Crown size={20} weight="fill" color={T.gold} />
           </div>
           <div>
-            <p style={{ fontSize: 18, fontWeight: 900, color: T.text, margin: 0, letterSpacing: '-0.02em' }}>SwappINR <span style={{ color: T.gold }}>PRO</span></p>
+            <p style={{ fontSize: 16, fontWeight: 900, color: T.text, margin: 0, letterSpacing: '-0.02em' }}>SwappINR <span style={{ color: T.gold }}>PRO</span></p>
             <p style={{ fontSize: 11, color: T.dim, margin: '2px 0 0' }}>Your membership is active</p>
           </div>
         </div>
@@ -297,33 +297,33 @@ export function ProUpgradeModal({ onClose }: { onClose: () => void }) {
 
       {/* Status pill */}
       {proStatus.expiresAt && (
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '10px', background: T.goldBg, border: `1px solid ${T.goldBdr}`, borderRadius: 12, marginBottom: 20 }}>
-          <div style={{ width: 8, height: 8, borderRadius: '50%', background: T.gold, boxShadow: '0 0 8px rgba(255,210,0,0.6)' }} />
-          <span style={{ fontSize: 13, fontWeight: 700, color: T.gold }}>
-            Active until {new Date(proStatus.expiresAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '8px', background: T.goldBg, border: `1px solid ${T.goldBdr}`, borderRadius: 11, marginBottom: 14 }}>
+          <div style={{ width: 7, height: 7, borderRadius: '50%', background: T.gold, boxShadow: '0 0 8px rgba(255,210,0,0.6)' }} />
+          <span style={{ fontSize: 12, fontWeight: 700, color: T.gold }}>
+            Active until {new Date(proStatus.expiresAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
           </span>
         </div>
       )}
 
       {/* Feature comparison */}
-      <div style={{ marginBottom: 16 }}>
-        <ComparisonTable />
+      <div style={{ marginBottom: 12 }}>
+        <ComparisonTable compact />
       </div>
 
       {proStatus.managerTelegram && (
-        <a href={proStatus.managerTelegram} target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '13px 16px', background: 'rgba(0,136,204,0.07)', border: '1px solid rgba(0,136,204,0.2)', borderRadius: 14, textDecoration: 'none', marginBottom: 14 }}>
-          <div style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(0,136,204,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="#0088cc"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.562 8.248l-1.97 9.28c-.145.658-.537.818-1.084.508l-3-2.21-1.447 1.394c-.16.16-.295.295-.605.295l.213-3.053 5.56-5.023c.242-.213-.054-.333-.373-.12L6.248 13.78l-2.95-.924c-.64-.204-.657-.64.136-.954l11.498-4.431c.535-.194 1.003.131.63.777z"/></svg>
+        <a href={proStatus.managerTelegram} target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '11px 14px', background: 'rgba(0,136,204,0.07)', border: '1px solid rgba(0,136,204,0.2)', borderRadius: 12, textDecoration: 'none', marginBottom: 11 }}>
+          <div style={{ width: 32, height: 32, borderRadius: 9, background: 'rgba(0,136,204,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="#0088cc"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.562 8.248l-1.97 9.28c-.145.658-.537.818-1.084.508l-3-2.21-1.447 1.394c-.16.16-.295.295-.605.295l.213-3.053 5.56-5.023c.242-.213-.054-.333-.373-.12L6.248 13.78l-2.95-.924c-.64-.204-.657-.64.136-.954l11.498-4.431c.535-.194 1.003.131.63.777z"/></svg>
           </div>
           <div style={{ flex: 1 }}>
-            <p style={{ fontSize: 13, fontWeight: 800, color: '#29B6F6', margin: 0 }}>Personal Manager</p>
-            <p style={{ fontSize: 11, color: T.dim, margin: '2px 0 0' }}>Direct Telegram access · Priority support</p>
+            <p style={{ fontSize: 12.5, fontWeight: 800, color: '#29B6F6', margin: 0 }}>Personal Manager</p>
+            <p style={{ fontSize: 10.5, color: T.dim, margin: '2px 0 0' }}>Direct Telegram access · Priority support</p>
           </div>
           <ArrowRight size={14} color="rgba(0,136,204,0.5)" />
         </a>
       )}
 
-      <button onClick={onClose} style={{ width: '100%', padding: '13px', borderRadius: 13, background: 'linear-gradient(135deg,#FFD700,#FFB800)', color: '#000', fontSize: 14, fontWeight: 900, border: 'none', cursor: 'pointer', letterSpacing: '-0.01em' }}>
+      <button onClick={onClose} style={{ width: '100%', padding: '12px', borderRadius: 12, background: 'linear-gradient(135deg,#FFD700,#FFB800)', color: '#000', fontSize: 13.5, fontWeight: 900, border: 'none', cursor: 'pointer', letterSpacing: '-0.01em' }}>
         Continue Trading as PRO
       </button>
     </div>
@@ -335,52 +335,52 @@ export function ProUpgradeModal({ onClose }: { onClose: () => void }) {
   if (screen === 'payment' && proStatus) return shell(
     <div>
       {/* ── Hero ── */}
-      <div style={{ padding: '26px 24px 20px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 22 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
-            <div style={{ width: 44, height: 44, borderRadius: 14, background: 'linear-gradient(135deg,rgba(255,215,0,0.2),rgba(255,140,0,0.1))', border: '1.5px solid rgba(255,210,0,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Crown size={22} weight="fill" color={T.gold} />
+      <div style={{ padding: '18px 20px 14px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{ width: 38, height: 38, borderRadius: 12, background: 'linear-gradient(135deg,rgba(255,215,0,0.2),rgba(255,140,0,0.1))', border: '1.5px solid rgba(255,210,0,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Crown size={19} weight="fill" color={T.gold} />
             </div>
             <div>
-              <p style={{ fontSize: 18, fontWeight: 900, margin: 0, letterSpacing: '-0.02em', color: T.text }}>
+              <p style={{ fontSize: 16, fontWeight: 900, margin: 0, letterSpacing: '-0.02em', color: T.text }}>
                 SwappINR <span style={{ color: T.gold }}>Pro</span>
               </p>
-              <p style={{ fontSize: 11.5, color: T.sub, margin: '3px 0 0', fontWeight: 500 }}>Premium trading membership</p>
+              <p style={{ fontSize: 11, color: T.sub, margin: '2px 0 0', fontWeight: 500 }}>Premium trading membership</p>
             </div>
           </div>
           {closeBtn}
         </div>
 
         {/* Price card */}
-        <div style={{ position: 'relative', overflow: 'hidden', padding: '18px 20px', background: T.card2, border: '1px solid rgba(255,255,255,0.08)', borderRadius: 18, marginBottom: 4 }}>
+        <div style={{ position: 'relative', overflow: 'hidden', padding: '13px 16px', background: T.card2, border: '1px solid rgba(255,255,255,0.08)', borderRadius: 14 }}>
           <div aria-hidden style={{ position: 'absolute', top: -44, right: -44, width: 150, height: 150, borderRadius: '50%', background: 'radial-gradient(circle,rgba(255,210,0,0.12) 0%,transparent 70%)' }} />
-          <div style={{ position: 'relative', display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 12 }}>
+          <div style={{ position: 'relative', display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 10 }}>
             <div>
-              <p style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: T.dim, margin: '0 0 6px' }}>Membership fee</p>
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: 5 }}>
-                <span style={{ fontSize: 14, fontWeight: 700, color: T.sub }}>$</span>
-                <span style={{ fontSize: 38, fontWeight: 900, color: T.text, letterSpacing: '-0.03em', lineHeight: 1, fontFamily: 'monospace' }}>{proStatus.priceUsdt.toFixed(2)}</span>
-                <span style={{ fontSize: 13, fontWeight: 700, color: T.dim }}>USDT</span>
+              <p style={{ fontSize: 9.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: T.dim, margin: '0 0 4px' }}>Membership fee</p>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
+                <span style={{ fontSize: 13, fontWeight: 700, color: T.sub }}>$</span>
+                <span style={{ fontSize: 28, fontWeight: 900, color: T.text, letterSpacing: '-0.03em', lineHeight: 1, fontFamily: 'monospace' }}>{proStatus.priceUsdt.toFixed(2)}</span>
+                <span style={{ fontSize: 12, fontWeight: 700, color: T.dim }}>USDT</span>
               </div>
             </div>
-            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '7px 13px', borderRadius: 99, background: T.goldBg, border: `1px solid ${T.goldBdr}`, whiteSpace: 'nowrap' }}>
-              <span style={{ fontSize: 11, fontWeight: 800, color: T.gold, letterSpacing: '0.02em' }}>{proStatus.durationDays}-day access</span>
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '6px 11px', borderRadius: 99, background: T.goldBg, border: `1px solid ${T.goldBdr}`, whiteSpace: 'nowrap' }}>
+              <span style={{ fontSize: 10.5, fontWeight: 800, color: T.gold, letterSpacing: '0.02em' }}>{proStatus.durationDays}-day access</span>
             </div>
           </div>
         </div>
       </div>
 
       {/* ── Feature comparison ── */}
-      <div style={{ padding: '0 24px 22px' }}>
-        <p style={{ fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', color: T.sub, margin: '0 0 12px' }}>Free vs Pro</p>
-        <ComparisonTable />
+      <div style={{ padding: '0 20px 14px' }}>
+        <p style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', color: T.sub, margin: '0 0 8px' }}>Free vs Pro</p>
+        <ComparisonTable compact />
       </div>
 
       {/* ── CTA ── */}
-      <div style={{ padding: '0 24px 26px' }}>
+      <div style={{ padding: '0 20px 20px' }}>
         <button
           onClick={() => setScreen('checkout')}
-          style={{ width: '100%', padding: '16px', borderRadius: 14, background: 'linear-gradient(135deg,#FFD700 0%,#FFB800 100%)', color: '#000', fontSize: 15, fontWeight: 900, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 9, boxShadow: '0 6px 20px rgba(255,195,0,0.28)', letterSpacing: '-0.01em', transition: 'transform 0.15s, box-shadow 0.15s' }}
+          style={{ width: '100%', padding: '14px', borderRadius: 13, background: 'linear-gradient(135deg,#FFD700 0%,#FFB800 100%)', color: '#000', fontSize: 14.5, fontWeight: 900, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 9, boxShadow: '0 6px 20px rgba(255,195,0,0.28)', letterSpacing: '-0.01em', transition: 'transform 0.15s, box-shadow 0.15s' }}
           onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 8px 26px rgba(255,195,0,0.4)'; }}
           onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = '0 6px 20px rgba(255,195,0,0.28)'; }}
         >
