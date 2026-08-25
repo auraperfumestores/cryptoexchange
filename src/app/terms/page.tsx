@@ -51,25 +51,36 @@ const SECTIONS = [
     title: '6. Fees & Settlement',
     body: [
       `Applicable fees, if any, are disclosed transparently on the order confirmation screen prior to you finalizing a transaction. SwappINR reserves the right to revise its fee structure from time to time, with such changes taking effect prospectively and not affecting orders already confirmed.`,
-      `Standard settlement timelines are displayed on the Platform and may vary based on network congestion on the relevant blockchain, banking-hours restrictions on UPI/IMPS/NEFT/RTGS rails, and the outcome of any fraud or compliance screening triggered by your transaction. SwappINR will make commercially reasonable efforts to settle within the displayed timeframe but does not guarantee settlement within any specific period where delay arises from causes outside its reasonable control, including those described in Section 11 (Force Majeure).`,
+      `Standard settlement timelines are displayed on the Platform and may vary based on network congestion on the relevant blockchain, banking-hours restrictions on UPI/IMPS/NEFT/RTGS rails, and the outcome of any fraud or compliance screening triggered by your transaction. SwappINR will make commercially reasonable efforts to settle within the displayed timeframe but does not guarantee settlement within any specific period where delay arises from causes outside its reasonable control, including those described in Section 12 (Force Majeure).`,
     ],
   },
   {
     title: '7. Prohibited Conduct',
     body: [
-      `You agree not to: (a) use the Platform for any unlawful purpose or in violation of any applicable law or regulation; (b) provide false, misleading, or fraudulent information during registration, KYC, or any transaction; (c) attempt to circumvent any security, rate-limiting, or anti-fraud measure implemented on the Platform; (d) use automated means (bots, scripts, scrapers) to access the Platform without our prior written consent; (e) engage in any activity that could disrupt, damage, or impair the Platform's functioning or the experience of other users; or (f) use the Platform to launder funds, finance terrorism, evade taxes, or facilitate any other illicit activity.`,
-      `Any violation of this Section may result in immediate suspension or termination of your account, forfeiture of any pending transaction, and referral to law enforcement or regulatory authorities, in addition to any other remedies available to SwappINR under law or these Terms.`,
+      `You agree not to: (a) use the Platform for any unlawful purpose or in violation of any applicable law or regulation; (b) provide false, misleading, or fraudulent information during registration, KYC, or any transaction; (c) attempt to circumvent any security, rate-limiting, or anti-fraud measure implemented on the Platform; (d) use automated means (bots, scripts, scrapers) to access the Platform without our prior written consent; (e) engage in any activity that could disrupt, damage, or impair the Platform's functioning or the experience of other users; (f) use the Platform to launder funds, finance terrorism, evade taxes, or facilitate any other illicit activity; (g) exploit, or attempt to exploit, any bug, defect, loophole, rate or pricing misconfiguration, duplicated credit, or other error in the Platform, whether technical or human in origin, for your own benefit or the benefit of any third party; (h) abuse, manipulate, or artificially trigger any promotional offer, bonus, referral reward, fee concession, or membership benefit, including through the creation or control of multiple or duplicate accounts, the use of another person's identity, documents, or payment instruments, or coordinated activity with other users; or (i) structure, split, or otherwise arrange transactions with the intent of circumventing applicable transaction limits, verification thresholds, or regulatory reporting obligations.`,
+      `Any violation of this Section may result in immediate suspension or termination of your account, forfeiture of any pending transaction, and referral to law enforcement or regulatory authorities, in addition to any other remedies available to SwappINR under law or these Terms, including the enforcement measures set out in Section 8.`,
     ],
   },
   {
-    title: '8. Risk Disclosure',
+    title: '8. Platform Integrity, System Errors & Enforcement Measures',
+    body: [
+      `The integrity of the Platform depends upon all users transacting in good faith. Where you become aware of any bug, defect, loophole, rate or pricing misconfiguration, duplicated credit, or other error — whether technical or human in origin — that confers, or could confer, an unintended benefit upon you or any other person, you must promptly report it to our support team and refrain from acting upon it. Continuing to transact in reliance upon such an error, or repeating, scaling, or otherwise arranging transactions in order to extract value from it, constitutes abuse of the Platform under these Terms.`,
+      `You acknowledge and agree that no rate, credit, balance, reward, or benefit arising from a manifest error, system malfunction, or conduct prohibited under Section 7 creates any entitlement in your favour, and that no binding contract shall be deemed to have been formed in respect of any such transaction. SwappINR reserves the right to void, reverse, adjust, or decline settlement of any affected transaction, and to withhold, debit, or recover any amount, bonus, referral reward, or membership benefit credited in error or obtained through such conduct.`,
+      `Where SwappINR reasonably determines, on the basis of its internal risk, fraud, and compliance monitoring, that a user has engaged in, attempted, or facilitated conduct prohibited under Section 7 or this Section 8, we may apply one or more of the following measures, individually or in combination, and for such duration as we consider appropriate: (a) restrict access to specific features, payment methods, or settlement rails, including buy, sell, cash-settlement, or withdrawal functionality; (b) modify the transaction limits applicable to that user's account on an individual basis, including reducing per-transaction, daily, or monthly limits below the standard limits otherwise published for their verification tier; (c) require the completion of enhanced or repeat verification, which may include re-KYC, live video verification, proof of source of funds, proof of wallet or bank account ownership, or such other documentation as we may reasonably request; (d) place a temporary hold on pending transactions or on any balance held in the account pending the outcome of a compliance review; (e) suspend the account on a temporary basis; or (f) disable or permanently terminate the account.`,
+      `Measures applied under this Section will be proportionate to the nature, severity, and recurrence of the conduct concerned. Where lawful and operationally practicable, we will notify you of the measure applied and its general basis. SwappINR is not, however, obliged to disclose the specific detection methods, risk parameters, thresholds, or monitoring systems that informed its determination, as disclosure would materially compromise the effectiveness of those controls for all users of the Platform.`,
+      `An account to which a measure has been applied will remain subject to that measure until any verification required of you has been completed to our reasonable satisfaction and any associated compliance review has concluded. Completion of additional verification does not of itself entitle you to reinstatement of previously available limits, features, or benefits, the restoration of which remains at SwappINR's reasonable discretion. Deliberate, repeated, or large-scale abuse may result in permanent termination of your account, forfeiture of ineligible gains, and referral to law enforcement or regulatory authorities, without prejudice to any other remedy available to SwappINR at law.`,
+      `If you consider that a measure has been applied to your account in error, you may request a review by contacting our support team and providing any information relevant to your case. We will consider such requests in good faith and respond within a reasonable period. Nothing in this Section limits or excludes your rights under Section 13 (Dispute Resolution & Governing Law) or any right you may have under applicable Indian law.`,
+    ],
+  },
+  {
+    title: '9. Risk Disclosure',
     body: [
       `Virtual digital assets, including USDT, are subject to high market volatility, regulatory uncertainty, and technological risk. You acknowledge that you are transacting with the Platform at your own risk and that SwappINR does not provide financial, investment, legal, or tax advice. You are solely responsible for evaluating the merits and risks of any transaction and for any applicable tax obligations, including under the Income-tax Act, 1961, arising from your transactions on the Platform.`,
       `Blockchain transactions are irreversible once confirmed on the underlying network. SwappINR is not responsible for losses arising from user error, including but not limited to sending assets to an incorrect address, to an unsupported network, or in an incorrect amount.`,
     ],
   },
   {
-    title: '9. Limitation of Liability',
+    title: '10. Limitation of Liability',
     body: [
       `To the maximum extent permitted by applicable law, SwappINR, its directors, officers, employees, and affiliates shall not be liable for any indirect, incidental, special, consequential, or punitive damages, or any loss of profits or revenues, arising out of or in connection with your use of, or inability to use, the Platform, even if advised of the possibility of such damages.`,
       `Notwithstanding the foregoing, nothing in these Terms limits or excludes SwappINR's liability for fraud, willful misconduct, or gross negligence, or any other liability that cannot be excluded or limited under applicable Indian law.`,
@@ -77,33 +88,33 @@ const SECTIONS = [
     ],
   },
   {
-    title: '10. Suspension & Termination',
+    title: '11. Suspension & Termination',
     body: [
-      `We may suspend or terminate your access to the Platform, with or without notice, where we reasonably believe you have violated these Terms, applicable law, or where required to do so by a regulatory or law-enforcement directive. Upon termination, any pending transactions will be processed, reversed, or held in accordance with applicable law and our internal compliance policies, and any unutilized balance held in your account wallet (if any) will be returned to a verified bank account or wallet address associated with your profile, subject to completion of any pending compliance review.`,
+      `In addition to the graduated measures set out in Section 8, we may suspend or terminate your access to the Platform, with or without notice, where we reasonably believe you have violated these Terms, applicable law, or where required to do so by a regulatory or law-enforcement directive. Upon termination, any pending transactions will be processed, reversed, or held in accordance with applicable law and our internal compliance policies, and any unutilized balance held in your account wallet (if any) will be returned to a verified bank account or wallet address associated with your profile, subject to completion of any pending compliance review.`,
       `You may close your account at any time by submitting a request through the Platform's support channel, provided you have no pending transactions or compliance holds.`,
     ],
   },
   {
-    title: '11. Force Majeure',
+    title: '12. Force Majeure',
     body: [
       `SwappINR shall not be liable for any failure or delay in performance resulting from causes beyond its reasonable control, including but not limited to acts of God, natural disasters, war, terrorism, civil unrest, governmental action, changes in law or regulation, blockchain network failures or congestion, banking system outages, internet or telecommunications failures, or the acts or omissions of third-party payment processors or banking partners.`,
     ],
   },
   {
-    title: '12. Dispute Resolution & Governing Law',
+    title: '13. Dispute Resolution & Governing Law',
     body: [
       `These Terms shall be governed by and construed in accordance with the laws of India, without regard to its conflict-of-law principles. Any dispute, controversy, or claim arising out of or relating to these Terms, or the breach, termination, or validity thereof, shall first be addressed through good-faith negotiation between the parties via our support channel.`,
       `If a dispute cannot be resolved through negotiation within thirty (30) days, it shall be referred to and finally resolved by arbitration in accordance with the Arbitration and Conciliation Act, 1996, with a sole arbitrator appointed by mutual agreement of the parties. The seat and venue of arbitration shall be Mumbai, Maharashtra, India, and the language of arbitration shall be English. Subject to the foregoing, the courts at Mumbai shall have exclusive jurisdiction over any matter not subject to arbitration.`,
     ],
   },
   {
-    title: '13. Severability & Entire Agreement',
+    title: '14. Severability & Entire Agreement',
     body: [
       `If any provision of these Terms is held to be invalid, illegal, or unenforceable by a court or tribunal of competent jurisdiction, the remaining provisions shall continue in full force and effect. These Terms, together with our Privacy Policy and any order-specific terms presented at the time of a transaction, constitute the entire agreement between you and SwappINR with respect to your use of the Platform, superseding any prior agreements or understandings.`,
     ],
   },
   {
-    title: '14. Contact Us',
+    title: '15. Contact Us',
     body: [
       `If you have any questions about these Terms, please contact our support team through the in-app support widget or by writing to us at the email address listed on the Platform's contact page. We aim to respond to all queries within two (2) business days.`,
     ],
@@ -124,7 +135,7 @@ export default function TermsPage() {
         </Link>
 
         <h1 style={{ fontSize: 'clamp(28px,4vw,38px)', fontWeight: 900, letterSpacing: '-0.02em', marginBottom: 8 }}>Terms of Service</h1>
-        <p style={{ fontSize: 13, color: 'var(--fr-text-tertiary)', marginBottom: 40 }}>Last updated: June 23, 2026</p>
+        <p style={{ fontSize: 13, color: 'var(--fr-text-tertiary)', marginBottom: 40 }}>Last updated: August 20, 2026</p>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
           {SECTIONS.map(s => (
