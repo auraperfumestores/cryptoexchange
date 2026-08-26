@@ -40,7 +40,16 @@ export async function GET(req: Request) {
           typeof cl.minBuyUsdt  === 'number' && cl.minBuyUsdt  >= 0 &&
           typeof cl.minSellUsdt === 'number' && cl.minSellUsdt >= 0
         ) {
-          effectiveWidgetLimits = { ...widgetLimits, minBuyUsdt: cl.minBuyUsdt, minSellUsdt: cl.minSellUsdt };
+          effectiveWidgetLimits = {
+            ...widgetLimits,
+            minBuyUsdt:  cl.minBuyUsdt,
+            minSellUsdt: cl.minSellUsdt,
+            // Keep this payload honest for custom-limit users. The withdrawal UI
+            // reads its figure from /api/user/platform-wallet, not from here.
+            minWithdrawUsdt: typeof cl.minWithdrawUsdt === 'number' && cl.minWithdrawUsdt >= 0
+              ? cl.minWithdrawUsdt
+              : widgetLimits.minWithdrawUsdt,
+          };
         }
       }
     } catch { /* not authenticated — serve standard rates */ }

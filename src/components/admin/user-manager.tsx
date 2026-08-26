@@ -504,6 +504,7 @@ function CustomLimitsControl({ user }: { user: UserDocument }) {
   const [enabled,     setEnabled]     = useState(current?.enabled     ?? false);
   const [minBuyUsdt,  setMinBuyUsdt]  = useState(String(current?.minBuyUsdt  ?? 10));
   const [minSellUsdt, setMinSellUsdt] = useState(String(current?.minSellUsdt ?? 10));
+  const [minWithdrawUsdt, setMinWithdrawUsdt] = useState(String(current?.minWithdrawUsdt ?? 0));
   const [acting,      setActing]      = useState(false);
   const [dirty,       setDirty]       = useState(false);
 
@@ -512,13 +513,14 @@ function CustomLimitsControl({ user }: { user: UserDocument }) {
   }
 
   async function save(nextEnabled: boolean) {
-    const buy  = Math.max(0, parseFloat(minBuyUsdt)  || 0);
-    const sell = Math.max(0, parseFloat(minSellUsdt) || 0);
+    const buy      = Math.max(0, parseFloat(minBuyUsdt)      || 0);
+    const sell     = Math.max(0, parseFloat(minSellUsdt)     || 0);
+    const withdraw = Math.max(0, parseFloat(minWithdrawUsdt) || 0);
     setActing(true);
     try {
       const res  = await fetch(`/api/users/${user._id}`, {
         method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ customLimits: { enabled: nextEnabled, minBuyUsdt: buy, minSellUsdt: sell } }),
+        body: JSON.stringify({ customLimits: { enabled: nextEnabled, minBuyUsdt: buy, minSellUsdt: sell, minWithdrawUsdt: withdraw } }),
       });
       const data = await res.json();
       if (!res.ok) { toast.error(data.error ?? 'Failed to update limits'); return; }
@@ -587,6 +589,22 @@ function CustomLimitsControl({ user }: { user: UserDocument }) {
               <span style={{ fontSize: 11, color: T.dim }}>USDT</span>
             </div>
           </div>
+          <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' as const }}>
+            <label style={{ fontSize: 11, fontWeight: 700, color: T.dim, textTransform: 'uppercase' as const, letterSpacing: '0.07em', minWidth: 80 }}>
+              Min Withdraw
+            </label>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <input
+                type="number" min="0" step="1" value={minWithdrawUsdt}
+                onChange={e => markDirty(setMinWithdrawUsdt)(e.target.value)}
+                style={inputStyle}
+              />
+              <span style={{ fontSize: 11, color: T.dim }}>USDT</span>
+            </div>
+          </div>
+          <p style={{ margin: 0, fontSize: 10.5, color: T.dim, lineHeight: 1.5 }}>
+            Min Withdraw applies to SwappINR wallet withdrawals and is enforced regardless of the user&apos;s balance. Set 0 to use the global minimum.
+          </p>
           {dirty && enabled && (
             <button
               disabled={acting}

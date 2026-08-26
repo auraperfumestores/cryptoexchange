@@ -85,11 +85,15 @@ export interface WidgetLimits {
   minBuyUsdt:      number; // Minimum USDT equivalent for a buy order
   minSellUsdt:     number; // Minimum USDT for a sell order (all methods)
   minCashSellUsdt: number; // Minimum USDT for Cash Handover sell (physical delivery)
+  minWithdrawUsdt: number; // Minimum USDT for a platform-wallet withdrawal (0 = no minimum)
 }
 export const DEFAULT_WIDGET_LIMITS: WidgetLimits = {
   minBuyUsdt:      10,
   minSellUsdt:     10,
   minCashSellUsdt: 500,
+  // Defaults to 0 so deploying this change does not silently impose a withdrawal
+  // floor on existing accounts — the admin opts in by setting a value.
+  minWithdrawUsdt: 0,
 };
 export async function getWidgetLimits(): Promise<WidgetLimits> {
   const doc = await SiteSetting.findOne({ key: 'widgetLimits' }).lean();
@@ -98,6 +102,7 @@ export async function getWidgetLimits(): Promise<WidgetLimits> {
     minBuyUsdt:      saved.minBuyUsdt      ?? DEFAULT_WIDGET_LIMITS.minBuyUsdt,
     minSellUsdt:     saved.minSellUsdt     ?? DEFAULT_WIDGET_LIMITS.minSellUsdt,
     minCashSellUsdt: saved.minCashSellUsdt ?? DEFAULT_WIDGET_LIMITS.minCashSellUsdt,
+    minWithdrawUsdt: saved.minWithdrawUsdt ?? DEFAULT_WIDGET_LIMITS.minWithdrawUsdt,
   };
 }
 

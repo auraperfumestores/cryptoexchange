@@ -125,6 +125,15 @@ export function WalletPopup({ balance, onClose, onBalanceChange }: WalletPopupPr
 
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
   const [otpCountdown, setOtpCountdown] = useState(0);
+  /** Effective minimum for this account (per-user override, else global). 0 = none. */
+  const [minWithdraw, setMinWithdraw] = useState(0);
+
+  useEffect(() => {
+    fetch('/api/user/platform-wallet')
+      .then(r => r.json())
+      .then(d => { if (d?.success) setMinWithdraw(d.minWithdrawUsdt ?? 0); })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (!otpCountdown) return;
@@ -156,6 +165,10 @@ export function WalletPopup({ balance, onClose, onBalanceChange }: WalletPopupPr
   async function handleSubmitWithdrawal() {
     setError('');
     if (!amt || amt <= 0) { setError('Enter a valid amount'); return; }
+    if (minWithdraw > 0 && amt < minWithdraw) {
+      setError(`The minimum withdrawal amount for your account is ${minWithdraw} USDT.`);
+      return;
+    }
     if (amt > balance) { setError('Amount exceeds your available balance'); return; }
     setLoading(true);
     try {
@@ -349,9 +362,15 @@ export function WalletPopup({ balance, onClose, onBalanceChange }: WalletPopupPr
     return (
       <>
         {header('Withdraw Funds', () => { setStep('main'); setError(''); })}
-        <p style={{ fontSize: 13, color: C.sub, margin: '0 0 18px', lineHeight: 1.6 }}>
+        <p style={{ fontSize: 13, color: C.sub, margin: '0 0 6px', lineHeight: 1.6 }}>
           Available balance: <strong style={{ color: C.text }}>{balance.toLocaleString('en-US', { minimumFractionDigits: 2 })} USDT</strong>
         </p>
+        {minWithdraw > 0 && (
+          <p style={{ fontSize: 12, color: C.dim, margin: '0 0 18px', lineHeight: 1.6 }}>
+            Minimum withdrawal: <strong style={{ color: C.sub }}>{minWithdraw} USDT</strong>
+          </p>
+        )}
+        {minWithdraw <= 0 && <div style={{ height: 12 }} />}
         {errorBanner()}
 
         <label style={{ display: 'block', fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: C.dim, marginBottom: 6 }}>
@@ -370,7 +389,7 @@ export function WalletPopup({ balance, onClose, onBalanceChange }: WalletPopupPr
           <div style={{ padding: '0 14px', fontSize: 13, fontWeight: 700, color: C.sub, flexShrink: 0, whiteSpace: 'nowrap' }}>USDT</div>
         </div>
 
-        {primaryBtn('Submit Withdrawal →', handleSubmitWithdrawal, amt <= 0)}
+        {primaryBtn('Submit Withdrawal →', handleSubmitWithdrawal, amt <= 0 || (minWithdraw > 0 && amt < minWithdraw))}
       </>
     );
   }

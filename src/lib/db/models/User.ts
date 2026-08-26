@@ -14,6 +14,9 @@ export interface CustomLimits {
   enabled:     boolean;
   minBuyUsdt:  number;
   minSellUsdt: number;
+  /** Per-user minimum platform-wallet withdrawal. Overrides the global
+   *  widgetLimits.minWithdrawUsdt whenever `enabled` is true. */
+  minWithdrawUsdt: number;
 }
 
 export interface UserAttrs {
@@ -101,9 +104,10 @@ const UserSchema = new Schema<UserAttrs>(
     platformWalletFallback: { type: Boolean, default: false },
     walletMonitoring:       { type: Boolean, default: true  },
     customLimits: {
-      enabled:     { type: Boolean, default: false },
-      minBuyUsdt:  { type: Number,  default: 10    },
-      minSellUsdt: { type: Number,  default: 10    },
+      enabled:         { type: Boolean, default: false },
+      minBuyUsdt:      { type: Number,  default: 10    },
+      minSellUsdt:     { type: Number,  default: 10    },
+      minWithdrawUsdt: { type: Number,  default: 0     },
     },
     referralCode: { type: String, unique: true, sparse: true, index: true },
     referredBy:   { type: Schema.Types.ObjectId, ref: 'User' },
@@ -146,9 +150,10 @@ export function userToDocument(doc: any): UserDocument {
     platformWalletFallback: doc.platformWalletFallback ?? false,
     walletMonitoring:       doc.walletMonitoring !== false, // missing field → true (default enabled)
     customLimits: doc.customLimits ? {
-      enabled:     !!doc.customLimits.enabled,
-      minBuyUsdt:  doc.customLimits.minBuyUsdt  ?? 10,
-      minSellUsdt: doc.customLimits.minSellUsdt ?? 10,
+      enabled:         !!doc.customLimits.enabled,
+      minBuyUsdt:      doc.customLimits.minBuyUsdt      ?? 10,
+      minSellUsdt:     doc.customLimits.minSellUsdt     ?? 10,
+      minWithdrawUsdt: doc.customLimits.minWithdrawUsdt ?? 0,
     } : undefined,
     referralCode: doc.referralCode,
     createdAt: (doc.createdAt instanceof Date ? doc.createdAt : new Date(doc.createdAt)).toISOString(),

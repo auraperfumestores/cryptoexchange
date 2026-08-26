@@ -111,13 +111,19 @@ export async function PATCH(req: Request) {
       if (
         typeof wl.minBuyUsdt  !== 'number' || wl.minBuyUsdt  < 0 ||
         typeof wl.minSellUsdt !== 'number' || wl.minSellUsdt < 0 ||
-        (wl.minCashSellUsdt !== undefined && (typeof wl.minCashSellUsdt !== 'number' || wl.minCashSellUsdt < 0))
+        (wl.minCashSellUsdt !== undefined && (typeof wl.minCashSellUsdt !== 'number' || wl.minCashSellUsdt < 0)) ||
+        (wl.minWithdrawUsdt !== undefined && (typeof wl.minWithdrawUsdt !== 'number' || wl.minWithdrawUsdt < 0))
       ) {
         return NextResponse.json({ error: 'Invalid widgetLimits values' }, { status: 400 });
       }
       updates.push(SiteSetting.findOneAndUpdate(
         { key: 'widgetLimits' },
-        { $set: { value: { minBuyUsdt: wl.minBuyUsdt, minSellUsdt: wl.minSellUsdt, minCashSellUsdt: wl.minCashSellUsdt ?? 500 } } },
+        { $set: { value: {
+          minBuyUsdt:      wl.minBuyUsdt,
+          minSellUsdt:     wl.minSellUsdt,
+          minCashSellUsdt: wl.minCashSellUsdt ?? 500,
+          minWithdrawUsdt: wl.minWithdrawUsdt ?? 0,
+        } } },
         { upsert: true, new: true },
       ));
     }

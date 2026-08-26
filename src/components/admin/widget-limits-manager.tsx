@@ -112,6 +112,18 @@ export function WidgetLimitsManager({ initialLimits }: Props) {
             suffix="USDT"
           />
         </SettingRow>
+
+        <SettingRow
+          label="Minimum withdrawal"
+          hint="Minimum USDT a user must withdraw from their SwappINR wallet. Set to 0 for no minimum. Users with custom limits use their own value instead."
+        >
+          <NumberInput
+            value={limits.minWithdrawUsdt ?? 0}
+            onChange={v => setLimits(l => ({ ...l, minWithdrawUsdt: v }))}
+            prefix="$"
+            suffix="USDT"
+          />
+        </SettingRow>
       </div>
 
       <div style={{ padding: '14px 22px 18px', display: 'flex', alignItems: 'center', gap: 12 }}>

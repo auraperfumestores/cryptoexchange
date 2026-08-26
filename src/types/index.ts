@@ -56,9 +56,10 @@ export interface UserDocument {
   walletMonitoring?: boolean;
   /** Admin-set per-user widget minimums; overrides global limits when enabled */
   customLimits?: {
-    enabled:     boolean;
-    minBuyUsdt:  number;
-    minSellUsdt: number;
+    enabled:         boolean;
+    minBuyUsdt:      number;
+    minSellUsdt:     number;
+    minWithdrawUsdt: number;
   };
   referralCode?: string;
   createdAt: string;

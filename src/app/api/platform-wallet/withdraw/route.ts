@@ -5,6 +5,7 @@ import { connectToDatabase, User, Wallet, PlatformWallet, WithdrawalRequest, Tra
 import { OtpCode } from '@/lib/db/models/OtpCode';
 import { errorResponse, badRequest } from '@/lib/utils/errors';
 import { sendWithdrawalCreatedEmail } from '@/lib/email';
+import { getEffectiveMinWithdraw } from '@/lib/wallet/withdrawal-limits';
 
 export const dynamic = 'force-dynamic';
 
@@ -41,6 +42,21 @@ export async function POST(req: Request) {
     const otpRecord = await OtpCode.findOne({ phone, purpose: 'withdraw-verify', verified: true }).sort({ createdAt: -1 });
     if (!otpRecord || otpRecord.expiresAt < new Date()) {
       return badRequest('Please verify the withdrawal code sent to your phone');
+    }
+
+    // Minimum withdrawal — per-user override when the admin has enabled custom
+    // limits for this account, otherwise the global setting. Enforced here rather
+    // than only in the popup, since the client is a UX guide and not a boundary.
+    const minWithdraw = await getEffectiveMinWithdraw(auth.id);
+    if (minWithdraw > 0 && amt < minWithdraw) {
+      return NextResponse.json(
+        {
+          error: `The minimum withdrawal amount for your account is ${minWithdraw} USDT.`,
+          code: 'BELOW_MIN_WITHDRAW',
+          minWithdrawUsdt: minWithdraw,
+        },
+        { status: 400 },
+      );
     }
 
     const uid = new mongoose.Types.ObjectId(auth.id);

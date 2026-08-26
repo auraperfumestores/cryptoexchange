@@ -41,11 +41,18 @@ export async function PATCH(req: Request, { params }: RouteParams) {
       }
       if (
         typeof cl.minBuyUsdt  !== 'number' || cl.minBuyUsdt  < 0 ||
-        typeof cl.minSellUsdt !== 'number' || cl.minSellUsdt < 0
+        typeof cl.minSellUsdt !== 'number' || cl.minSellUsdt < 0 ||
+        (cl.minWithdrawUsdt !== undefined && (typeof cl.minWithdrawUsdt !== 'number' || cl.minWithdrawUsdt < 0))
       ) {
         return NextResponse.json({ error: 'customLimits amounts must be non-negative numbers' }, { status: 400 });
       }
-      user.customLimits = { enabled: cl.enabled, minBuyUsdt: cl.minBuyUsdt, minSellUsdt: cl.minSellUsdt };
+      user.customLimits = {
+        enabled:         cl.enabled,
+        minBuyUsdt:      cl.minBuyUsdt,
+        minSellUsdt:     cl.minSellUsdt,
+        // Preserve any existing value when the client omits the field.
+        minWithdrawUsdt: cl.minWithdrawUsdt ?? user.customLimits?.minWithdrawUsdt ?? 0,
+      };
     }
 
     if (body.proAction === 'grant') {
