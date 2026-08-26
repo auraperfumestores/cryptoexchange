@@ -8,6 +8,10 @@ import type { SessionUser } from '@/types';
 declare module 'next-auth' {
   interface Session {
     user: SessionUser;
+    /** Set only on admin-impersonated sessions — the admin's user id. */
+    impersonatedBy?: string;
+    /** Display name of the impersonating admin, for the "viewing as" banner. */
+    impersonatorName?: string;
   }
   interface User {
     id: string;
@@ -27,6 +31,9 @@ declare module 'next-auth/jwt' {
     kycStatus?: string;
     username?: string;
     avatarUrl?: string;
+    /** Present only on impersonated sessions — see /api/admin/users/[id]/impersonate. */
+    impersonatedBy?: string;
+    impersonatorName?: string;
   }
 }
 
@@ -103,6 +110,12 @@ export const authOptions: NextAuthOptions = {
         session.user.kycStatus = token.kycStatus as any;
         session.user.username  = token.username;
         session.user.avatarUrl = token.avatarUrl;
+      }
+      // Surfaced so the client can render the impersonation banner and the
+      // stop-impersonating endpoint can restore the original admin session.
+      if (token.impersonatedBy) {
+        session.impersonatedBy   = token.impersonatedBy;
+        session.impersonatorName = token.impersonatorName;
       }
       return session;
     },

@@ -42,5 +42,7 @@ export { PlatformWallet } from './models/PlatformWallet';
 export type { PlatformWalletAttrs, PlatformTx } from './models/PlatformWallet';
 export { WithdrawalRequest } from './models/WithdrawalRequest';
 export type { WithdrawalRequestAttrs } from './models/WithdrawalRequest';
+export { ImpersonationLog } from './models/ImpersonationLog';
+export type { ImpersonationLogAttrs } from './models/ImpersonationLog';
 export { Referral, referralToDocument } from './models/Referral';
 export type { ReferralAttrs, ReferralStatus, ReferralDocument } from './models/Referral';

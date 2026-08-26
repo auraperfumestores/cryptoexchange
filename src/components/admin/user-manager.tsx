@@ -710,6 +710,60 @@ function WalletMonitoringControl({ user }: { user: UserDocument }) {
 }
 
 /* ─── Platform wallet sell-fallback toggle ─────────── */
+function ImpersonateControl({ user }: { user: UserDocument }) {
+  const [acting,  setActing]  = useState(false);
+  const [confirm, setConfirm] = useState(false);
+
+  async function start() {
+    setActing(true);
+    try {
+      const res  = await fetch(`/api/admin/users/${user._id}/impersonate`, { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok) { toast.error(data.error ?? 'Could not open this account'); setActing(false); return; }
+      // Full reload, not router.push — the session cookie was just swapped and every
+      // server component needs to re-render under the new identity.
+      window.location.href = '/dashboard';
+    } catch {
+      toast.error('Could not open this account');
+      setActing(false);
+    }
+  }
+
+  return (
+    <div style={{ background: T.bg, border: `1px solid ${confirm ? 'rgba(245,158,11,0.4)' : T.border}`, borderRadius: 14, padding: '14px 18px', marginBottom: 12, transition: 'border-color 0.2s' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, flexWrap: 'wrap' as const }}>
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style={{ color: '#F59E0B', flexShrink: 0 }}>
+          <path d="M7 2.5C3.8 2.5 1.5 7 1.5 7S3.8 11.5 7 11.5 12.5 7 12.5 7 10.2 2.5 7 2.5Z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round"/>
+          <circle cx="7" cy="7" r="1.8" stroke="currentColor" strokeWidth="1.3"/>
+        </svg>
+        <span style={{ fontSize: 12, fontWeight: 800, textTransform: 'uppercase' as const, letterSpacing: '0.1em', color: '#F59E0B' }}>Open User&apos;s Account</span>
+      </div>
+      <p style={{ margin: '0 0 12px', fontSize: 11, color: T.dim, lineHeight: 1.6 }}>
+        Signs you in as <strong style={{ color: T.text }}>{user.name}</strong> so you can see exactly what they see — useful for
+        diagnosing a reported issue. You will have access to their KYC details, wallets, and order history. The session lasts
+        one hour, shows a warning bar throughout, and is recorded in the audit log.
+      </p>
+      {confirm ? (
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' as const }}>
+          <button onClick={start} disabled={acting}
+            style={{ padding: '8px 16px', borderRadius: 9, background: '#F59E0B', color: '#1a1a1a', fontSize: 12, fontWeight: 800, border: 'none', cursor: acting ? 'not-allowed' : 'pointer', opacity: acting ? 0.6 : 1 }}>
+            {acting ? 'Opening…' : `Yes, sign in as ${user.name.split(' ')[0]}`}
+          </button>
+          <button onClick={() => setConfirm(false)} disabled={acting}
+            style={{ padding: '8px 14px', borderRadius: 9, background: 'none', color: T.dim, fontSize: 12, fontWeight: 700, border: `1px solid ${T.border}`, cursor: 'pointer' }}>
+            Cancel
+          </button>
+        </div>
+      ) : (
+        <button onClick={() => setConfirm(true)}
+          style={{ padding: '8px 16px', borderRadius: 9, background: 'rgba(245,158,11,0.1)', color: '#F59E0B', fontSize: 12, fontWeight: 800, border: '1px solid rgba(245,158,11,0.3)', cursor: 'pointer' }}>
+          Open account →
+        </button>
+      )}
+    </div>
+  );
+}
+
 function FallbackControl({ user }: { user: UserDocument }) {
   const router = useRouter();
   const [enabled, setEnabled] = useState(user.platformWalletFallback ?? false);
@@ -1025,6 +1079,7 @@ function UserRow({ user, onToggle, toggling, onProAction, proActing, walletBalan
             <CustomLimitsControl user={user} />
             <WalletMonitoringControl user={user} />
             <FallbackControl user={user} />
+            <ImpersonateControl user={user} />
             {loadingW ? (
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '20px 0', color: T.dim, fontSize: 13 }}>
                 <Spinner /> Loading wallets…

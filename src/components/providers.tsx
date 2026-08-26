@@ -8,6 +8,7 @@ import { wagmiConfig } from '@/lib/web3/config';
 import { ToastContainer } from '@/components/ui/toast';
 import SupportChatWidget from '@/components/ui/support-chat-widget';
 import { ReferralCapture } from '@/components/referral-capture';
+import { ImpersonationBanner } from '@/components/admin/impersonation-banner';
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(() => new QueryClient({ defaultOptions: { queries: { staleTime: 30_000 } } }));
@@ -20,6 +21,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
           <ToastContainer />
           <SupportChatWidget />
           <ReferralCapture />
+          <ImpersonationBanner />
         </WagmiProvider>
       </QueryClientProvider>
     </SessionProvider>
