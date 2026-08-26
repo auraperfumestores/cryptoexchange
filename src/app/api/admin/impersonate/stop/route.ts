@@ -42,19 +42,22 @@ export async function POST(req: Request) {
       maxAge: ADMIN_SESSION_MAX_AGE,
     });
 
-    await ImpersonationLog.create({
-      adminId:     admin._id,
-      adminName:   admin.name,
-      adminEmail:  admin.email,
-      targetId:    session!.user.id,
-      targetName:  session!.user.name,
-      targetEmail: session!.user.email,
-      action:      'stop',
-      ip:          req.headers.get('x-forwarded-for')?.split(',')[0]?.trim(),
-      userAgent:   req.headers.get('user-agent') ?? undefined,
-    }).catch(e => console.error('[impersonate] audit log failed:', e));
+    // Mirrors the gating in the start route — no audit trail in development.
+    if (IS_PROD) {
+      await ImpersonationLog.create({
+        adminId:     admin._id,
+        adminName:   admin.name,
+        adminEmail:  admin.email,
+        targetId:    session!.user.id,
+        targetName:  session!.user.name,
+        targetEmail: session!.user.email,
+        action:      'stop',
+        ip:          req.headers.get('x-forwarded-for')?.split(',')[0]?.trim(),
+        userAgent:   req.headers.get('user-agent') ?? undefined,
+      }).catch(e => console.error('[impersonate] audit log failed:', e));
 
-    console.warn(`[impersonate] ${admin.email} stopped impersonating ${session!.user.email}`);
+      console.warn(`[impersonate] ${admin.email} stopped impersonating ${session!.user.email}`);
+    }
 
     const response = NextResponse.json({ success: true });
     response.cookies.set(COOKIE_NAME, sessionToken, {

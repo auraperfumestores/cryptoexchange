@@ -1,4 +1,6 @@
 import { NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from '@/lib/auth/auth';
 import { requireAuth } from '@/lib/auth/require-auth';
 import { connectToDatabase, Referral, User, getReferralSettings, ensureReferralCode } from '@/lib/db';
 import { errorResponse } from '@/lib/utils/errors';
@@ -12,10 +14,18 @@ export async function GET() {
     const auth = await requireAuth();
     await connectToDatabase();
 
-    // Generates + persists the code on first access, so accounts that predate the
-    // referral program still get a working link instead of an empty box.
+    // An admin viewing this account via impersonation must not mutate it. Reading
+    // the panel would otherwise lazily generate and persist a referral code onto
+    // the customer's record — a write they never asked for.
+    const session = await getServerSession(authOptions);
+    const isImpersonating = !!session?.impersonatedBy;
+
     const [referralCode, settings, referrals] = await Promise.all([
-      ensureReferralCode(auth.id, auth.name),
+      // Generates + persists the code on first access, so accounts that predate the
+      // referral program still get a working link instead of an empty box.
+      isImpersonating
+        ? User.findById(auth.id).select('referralCode').lean().then(u => u?.referralCode ?? null)
+        : ensureReferralCode(auth.id, auth.name),
       getReferralSettings(),
       Referral.find({ referrerId: auth.id }).sort({ createdAt: -1 }).lean(),
     ]);

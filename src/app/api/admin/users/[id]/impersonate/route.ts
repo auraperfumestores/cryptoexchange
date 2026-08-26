@@ -46,19 +46,24 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       maxAge: IMPERSONATION_MAX_AGE,
     });
 
-    await ImpersonationLog.create({
-      adminId:     admin.id,
-      adminName:   admin.name,
-      adminEmail:  admin.email,
-      targetId:    target._id,
-      targetName:  target.name,
-      targetEmail: target.email,
-      action:      'start',
-      ip:          req.headers.get('x-forwarded-for')?.split(',')[0]?.trim(),
-      userAgent:   req.headers.get('user-agent') ?? undefined,
-    }).catch(e => console.error('[impersonate] audit log failed:', e));
+    // Audit only in production. Local development produces no record at all, so
+    // test runs never pollute the trail. Gating on NODE_ENV rather than a manual
+    // flag means production auditing cannot be left switched off by accident.
+    if (IS_PROD) {
+      await ImpersonationLog.create({
+        adminId:     admin.id,
+        adminName:   admin.name,
+        adminEmail:  admin.email,
+        targetId:    target._id,
+        targetName:  target.name,
+        targetEmail: target.email,
+        action:      'start',
+        ip:          req.headers.get('x-forwarded-for')?.split(',')[0]?.trim(),
+        userAgent:   req.headers.get('user-agent') ?? undefined,
+      }).catch(e => console.error('[impersonate] audit log failed:', e));
 
-    console.warn(`[impersonate] ${admin.email} started impersonating ${target.email}`);
+      console.warn(`[impersonate] ${admin.email} started impersonating ${target.email}`);
+    }
 
     const response = NextResponse.json({ success: true, data: { name: target.name } });
     response.cookies.set(COOKIE_NAME, sessionToken, {
