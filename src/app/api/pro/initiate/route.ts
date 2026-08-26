@@ -6,11 +6,32 @@ import type { ProNetwork }                    from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 
+/**
+ * Destination wallet for PRO membership payments.
+ *
+ * MUST be a normal wallet (EOA) that you control — never the SwapINRVault
+ * contract address. USDT sent directly to the vault is permanently unrecoverable:
+ * the contract only ever calls transferFrom(user → treasury) and has no function
+ * capable of moving its own balance out. Deliberately does NOT fall back to the
+ * VAULT_* vars, which is exactly the misconfiguration that trapped earlier payments.
+ */
 const TREASURY: Record<ProNetwork, string> = {
-  BEP20: (process.env.VAULT_BEP20 ?? '').trim(),
-  ERC20: (process.env.VAULT_ERC20 ?? '').trim(),
-  TRC20: (process.env.VAULT_TRC20 ?? '').trim(),
+  BEP20: (process.env.PRO_TREASURY_BEP20 ?? '').trim(),
+  ERC20: (process.env.PRO_TREASURY_ERC20 ?? '').trim(),
+  TRC20: (process.env.PRO_TREASURY_TRC20 ?? '').trim(),
 };
+
+/** Every known vault contract address — a payment must never be routed to one. */
+const VAULT_ADDRESSES = [
+  process.env.VAULT_BEP20,             process.env.VAULT_ERC20,             process.env.VAULT_TRC20,
+  process.env.NEXT_PUBLIC_VAULT_BEP20, process.env.NEXT_PUBLIC_VAULT_ERC20, process.env.NEXT_PUBLIC_VAULT_TRC20,
+]
+  .filter(Boolean)
+  .map(a => (a as string).trim().toLowerCase());
+
+function isVaultAddress(addr: string): boolean {
+  return VAULT_ADDRESSES.includes(addr.trim().toLowerCase());
+}
 
 /** Decorate the base price with a small unique cents offset so a payment can be
  *  identified on a shared treasury address regardless of which wallet sent it. */
@@ -44,7 +65,19 @@ export async function POST(req: Request) {
 
     const treasury = TREASURY[net];
     if (!treasury) {
-      return NextResponse.json({ error: 'Network not configured for payments' }, { status: 503 });
+      console.error(`[pro/initiate] PRO_TREASURY_${net} is not set — refusing to create a payment.`);
+      return NextResponse.json(
+        { error: 'PRO payments are temporarily unavailable on this network. Please contact support.' },
+        { status: 503 },
+      );
+    }
+    // Fail closed rather than hand the user an address that would swallow their funds.
+    if (isVaultAddress(treasury)) {
+      console.error(`[pro/initiate] PRO_TREASURY_${net} points at the vault contract — refusing. Funds sent there cannot be recovered.`);
+      return NextResponse.json(
+        { error: 'PRO payments are temporarily unavailable on this network. Please contact support.' },
+        { status: 503 },
+      );
     }
 
     await connectToDatabase();
