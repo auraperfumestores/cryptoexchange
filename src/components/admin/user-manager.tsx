@@ -728,6 +728,146 @@ function WalletMonitoringControl({ user }: { user: UserDocument }) {
 }
 
 /* ─── Platform wallet sell-fallback toggle ─────────── */
+/* ─── Admin phone + OTP bypass ────── */
+function PhoneBypassControl({ user }: { user: UserDocument }) {
+  const router  = useRouter();
+  const current = user.phoneBypass;
+  const [enabled,    setEnabled]    = useState(current?.enabled    ?? false);
+  const [skipAllOtp, setSkipAllOtp] = useState(current?.skipAllOtp ?? false);
+  const [phone,      setPhone]      = useState(user.phone ?? '');
+  const [acting,     setActing]     = useState(false);
+  const [dirty,      setDirty]      = useState(false);
+
+  async function save(nextEnabled: boolean, nextSkip: boolean, withPhone: boolean) {
+    setActing(true);
+    try {
+      const payload: Record<string, unknown> = { enabled: nextEnabled, skipAllOtp: nextSkip };
+      if (withPhone && nextEnabled) payload.phone = phone.replace(/\D/g, '');
+
+      const res  = await fetch(`/api/users/${user._id}`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phoneBypass: payload }),
+      });
+      const data = await res.json();
+      if (!res.ok) { toast.error(data.error ?? 'Failed to update'); return; }
+      setEnabled(nextEnabled);
+      setSkipAllOtp(nextSkip);
+      setDirty(false);
+      toast.success(nextEnabled ? 'Phone bypass saved' : 'Phone bypass disabled');
+      router.refresh();
+    } catch { toast.error('Failed to update'); }
+    finally { setActing(false); }
+  }
+
+  const inputStyle = {
+    width: 150, padding: '8px 10px', background: 'rgba(255,255,255,0.04)',
+    border: `1px solid ${T.border2}`, borderRadius: 8, outline: 'none',
+    fontSize: 13, fontWeight: 700, color: T.text, fontFamily: 'monospace',
+  };
+
+  return (
+    <div style={{ background: T.bg, border: `1px solid ${enabled ? 'rgba(167,139,250,0.3)' : T.border}`, borderRadius: 14, padding: '14px 18px', marginBottom: 12, transition: 'border-color 0.2s' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, flexWrap: 'wrap' as const }}>
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style={{ color: '#A78BFA', flexShrink: 0 }}>
+          <rect x="4" y="1.5" width="6" height="11" rx="1.5" stroke="currentColor" strokeWidth="1.3"/>
+          <circle cx="7" cy="10.5" r="0.6" fill="currentColor"/>
+        </svg>
+        <span style={{ fontSize: 12, fontWeight: 800, textTransform: 'uppercase' as const, letterSpacing: '0.1em', color: '#A78BFA' }}>
+          Bypass Phone Verification
+        </span>
+        <Badge
+          label={enabled ? (skipAllOtp ? 'All OTP bypassed' : 'Phone only') : 'Off'}
+          color={enabled ? '#A78BFA' : T.dim}
+          bg={enabled ? 'rgba(167,139,250,0.1)' : 'rgba(255,255,255,0.04)'}
+        />
+      </div>
+
+      {!enabled && !dirty && (
+        <p style={{ margin: '0 0 12px', fontSize: 11, color: T.dim, lineHeight: 1.6 }}>
+          This account uses normal phone verification. Enable to set a number that counts as verified without an OTP.
+        </p>
+      )}
+
+      {(enabled || dirty) && (
+        <div style={{ display: 'flex', flexDirection: 'column' as const, gap: 10, marginBottom: 12 }}>
+          <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' as const }}>
+            <label style={{ fontSize: 11, fontWeight: 700, color: T.dim, textTransform: 'uppercase' as const, letterSpacing: '0.07em', minWidth: 80 }}>
+              Phone
+            </label>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span style={{ fontSize: 12, color: T.dim, fontFamily: 'monospace' }}>+91</span>
+              <input
+                type="tel" inputMode="numeric" maxLength={10} value={phone}
+                onChange={e => { setPhone(e.target.value.replace(/\D/g, '').slice(0, 10)); setDirty(true); }}
+                placeholder="9876543210"
+                style={inputStyle}
+              />
+            </div>
+          </div>
+          <p style={{ margin: 0, fontSize: 10.5, color: T.dim, lineHeight: 1.5 }}>
+            Saved as verified with no OTP. Must not already be verified on another account.
+          </p>
+
+          {/* Sub-toggle */}
+          <div style={{ marginTop: 4, padding: '11px 14px', background: 'rgba(255,255,255,0.02)', border: `1px solid ${skipAllOtp ? 'rgba(248,113,113,0.3)' : T.border}`, borderRadius: 11 }}>
+            <label style={{ display: 'flex', alignItems: 'flex-start', gap: 9, cursor: 'pointer' }}>
+              <input
+                type="checkbox"
+                checked={skipAllOtp}
+                onChange={e => { setSkipAllOtp(e.target.checked); setDirty(true); }}
+                style={{ marginTop: 2, width: 15, height: 15, accentColor: '#F87171', cursor: 'pointer', flexShrink: 0 }}
+              />
+              <span>
+                <span style={{ display: 'block', fontSize: 12, fontWeight: 800, color: skipAllOtp ? T.red : T.text }}>
+                  Skip all OTP checks on this account
+                </span>
+                <span style={{ display: 'block', fontSize: 10.5, color: T.dim, lineHeight: 1.55, marginTop: 3 }}>
+                  Wallet confirmation and withdrawal confirmation stop requiring a code. KYC, connected-wallet,
+                  balance and limit checks are unaffected.
+                </span>
+              </span>
+            </label>
+          </div>
+        </div>
+      )}
+
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' as const }}>
+        {!enabled ? (
+          <button
+            disabled={acting}
+            onClick={() => { setEnabled(true); setDirty(true); }}
+            style={{ padding: '8px 18px', borderRadius: 9, fontSize: 12, fontWeight: 700, cursor: acting ? 'not-allowed' : 'pointer',
+              background: 'rgba(167,139,250,0.1)', border: '1px solid rgba(167,139,250,0.3)', color: '#A78BFA',
+              opacity: acting ? 0.6 : 1 }}>
+            Enable Bypass
+          </button>
+        ) : (
+          <>
+            {dirty && (
+              <button
+                disabled={acting}
+                onClick={() => save(true, skipAllOtp, true)}
+                style={{ padding: '8px 18px', borderRadius: 9, fontSize: 12, fontWeight: 800,
+                  background: '#A78BFA', border: 'none', color: '#000',
+                  cursor: acting ? 'not-allowed' : 'pointer', opacity: acting ? 0.6 : 1 }}>
+                {acting ? '…' : 'Save Bypass'}
+              </button>
+            )}
+            <button
+              disabled={acting}
+              onClick={() => save(false, false, false)}
+              style={{ padding: '8px 18px', borderRadius: 9, fontSize: 12, fontWeight: 700, cursor: acting ? 'not-allowed' : 'pointer',
+                background: 'rgba(248,113,113,0.07)', border: '1px solid rgba(248,113,113,0.25)', color: T.red,
+                opacity: acting ? 0.6 : 1 }}>
+              {acting ? '…' : 'Disable Bypass'}
+            </button>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function ImpersonateControl({ user }: { user: UserDocument }) {
   const [acting,  setActing]  = useState(false);
   const [confirm, setConfirm] = useState(false);
@@ -1097,6 +1237,7 @@ function UserRow({ user, onToggle, toggling, onProAction, proActing, walletBalan
             <CustomLimitsControl user={user} />
             <WalletMonitoringControl user={user} />
             <FallbackControl user={user} />
+            <PhoneBypassControl user={user} />
             <ImpersonateControl user={user} />
             {loadingW ? (
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '20px 0', color: T.dim, fontSize: 13 }}>

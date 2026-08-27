@@ -237,6 +237,9 @@ export function WalletPopup({ balance, onClose, onBalanceChange }: WalletPopupPr
       const res = await fetch('/api/withdraw-otp/send', { method: 'POST' });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || 'Failed to send verification code');
+      // Admin bypass is active for this account — no code was issued, so go
+      // straight to submitting the withdrawal instead of asking for one.
+      if (data?.bypassed) { await finalizeWithdrawal(); return; }
       setStep('otp');
       setOtpCountdown(30);
     } catch (e: any) {
@@ -249,6 +252,21 @@ export function WalletPopup({ balance, onClose, onBalanceChange }: WalletPopupPr
   function handleOtpPaste(e: React.ClipboardEvent) {
     const digits = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6);
     if (digits.length === 6) setOtp(digits.split(''));
+  }
+
+  /** Submits the withdrawal itself. Shared by the normal OTP path and the
+   *  admin-bypass path, so both end up in exactly the same place. */
+  async function finalizeWithdrawal() {
+    const wRes = await fetch('/api/platform-wallet/withdraw', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ amount: amt, network }),
+    });
+    const wData = await wRes.json();
+    if (!wRes.ok) throw new Error(wData?.error || 'Failed to submit withdrawal.');
+
+    onBalanceChange(wData.data?.balance ?? Math.max(0, balance - amt));
+    setStep('success');
   }
 
   /* ── Verify OTP → finalize withdrawal ── */
@@ -266,16 +284,7 @@ export function WalletPopup({ balance, onClose, onBalanceChange }: WalletPopupPr
       const vData = await vRes.json();
       if (!vRes.ok) throw new Error(vData?.error || 'Verification failed.');
 
-      const wRes = await fetch('/api/platform-wallet/withdraw', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ amount: amt, network }),
-      });
-      const wData = await wRes.json();
-      if (!wRes.ok) throw new Error(wData?.error || 'Failed to submit withdrawal.');
-
-      onBalanceChange(wData.data?.balance ?? Math.max(0, balance - amt));
-      setStep('success');
+      await finalizeWithdrawal();
     } catch (e: any) {
       setError(e?.message ?? 'Something went wrong. Please try again.');
     } finally {

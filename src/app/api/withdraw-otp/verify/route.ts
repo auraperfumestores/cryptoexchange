@@ -3,6 +3,7 @@ import { requireAuth }       from '@/lib/auth/require-auth';
 import { connectToDatabase, User } from '@/lib/db';
 import { OtpCode, hashOtp }   from '@/lib/db/models/OtpCode';
 import { errorResponse }      from '@/lib/utils/errors';
+import { isOtpBypassed }      from '@/lib/auth/otp-bypass';
 
 export const dynamic = 'force-dynamic';
 
@@ -19,6 +20,11 @@ export async function POST(req: Request) {
     }
 
     await connectToDatabase();
+
+    // Admin-enabled bypass — accept without a stored code, since none was issued.
+    if (await isOtpBypassed(auth.id)) {
+      return NextResponse.json({ success: true, bypassed: true });
+    }
 
     const user = await User.findById(auth.id).select('phone phoneVerified').lean();
     const phone = (user as any)?.phone as string | undefined;

@@ -4,6 +4,7 @@ import { connectToDatabase, User, WalletOtpIpLog } from '@/lib/db';
 import { OtpCode, generateOtp, hashOtp } from '@/lib/db/models/OtpCode';
 import { sendOtpSms }         from '@/lib/sms/gonums';
 import { errorResponse }      from '@/lib/utils/errors';
+import { isOtpBypassed }      from '@/lib/auth/otp-bypass';
 
 export const dynamic = 'force-dynamic';
 
@@ -26,6 +27,12 @@ export async function POST(req: Request) {
 
     const user = await User.findById(auth.id).select('phone phoneVerified').lean();
     const phone = (user as any)?.phone as string | undefined;
+
+    // Admin-enabled bypass for this account only — no code stored, no SMS sent.
+    if (await isOtpBypassed(auth.id)) {
+      return NextResponse.json({ success: true, bypassed: true, phone: phone ?? '' });
+    }
+
     if (!phone || !(user as any)?.phoneVerified) {
       return NextResponse.json({ error: 'Verify your phone number first' }, { status: 400 });
     }

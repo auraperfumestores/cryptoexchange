@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { connectToDatabase, User, userToDocument } from '@/lib/db';
 import { errorResponse, notFound } from '@/lib/utils/errors';
 import { requireAdmin } from '@/lib/auth/require-auth';
+import { isPhoneAlreadyVerified } from '@/lib/phone/uniqueness';
 
 type RouteParams = { params: { id: string } };
 
@@ -53,6 +54,38 @@ export async function PATCH(req: Request, { params }: RouteParams) {
         // Preserve any existing value when the client omits the field.
         minWithdrawUsdt: cl.minWithdrawUsdt ?? user.customLimits?.minWithdrawUsdt ?? 0,
       };
+    }
+
+    // ── Admin phone / OTP bypass ────────────────────────────────────────────
+    // Shape: { enabled: boolean, skipAllOtp: boolean, phone?: '9876543210' }
+    // Enabling with a phone marks it verified without an OTP round-trip. Phone
+    // uniqueness is still enforced, so the one-phone-per-account invariant that
+    // registration and OTP flows rely on is never violated.
+    if (body.phoneBypass !== undefined) {
+      const pb = body.phoneBypass;
+      if (typeof pb.enabled !== 'boolean' || typeof pb.skipAllOtp !== 'boolean') {
+        return NextResponse.json({ error: 'phoneBypass.enabled and .skipAllOtp must be booleans' }, { status: 400 });
+      }
+
+      if (pb.enabled && pb.phone !== undefined && String(pb.phone).trim() !== '') {
+        const digits = String(pb.phone).replace(/\D/g, '');
+        if (!/^[6-9]\d{9}$/.test(digits)) {
+          return NextResponse.json({ error: 'Enter a valid 10-digit Indian mobile number' }, { status: 400 });
+        }
+        if (await isPhoneAlreadyVerified(digits, params.id)) {
+          return NextResponse.json(
+            { error: 'This phone number is already verified on another account. Use a different number.' },
+            { status: 409 },
+          );
+        }
+        user.phone = digits;
+        user.phoneVerified = true;
+      }
+
+      // Turning the bypass off only clears the flags. The phone number and its
+      // verified state are left as-is, so disabling never silently locks the
+      // user out of flows that already depend on a verified phone.
+      user.phoneBypass = { enabled: pb.enabled, skipAllOtp: pb.enabled ? pb.skipAllOtp : false };
     }
 
     if (body.proAction === 'grant') {

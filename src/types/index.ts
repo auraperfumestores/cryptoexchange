@@ -61,6 +61,11 @@ export interface UserDocument {
     minSellUsdt:     number;
     minWithdrawUsdt: number;
   };
+  /** Admin-set OTP/phone bypass. Absent on normal accounts. */
+  phoneBypass?: {
+    enabled:    boolean;
+    skipAllOtp: boolean;
+  };
   referralCode?: string;
   createdAt: string;
   updatedAt: string;

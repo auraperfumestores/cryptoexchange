@@ -30,6 +30,9 @@ export function WalletOtpGate({ phone, onVerified, onClose }: WalletOtpGateProps
       const res  = await fetch('/api/wallet-otp/send', { method: 'POST' });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data?.error || 'Failed to send OTP. Please try again.');
+      // Admin bypass is active for this account — no code was issued, so skip the
+      // OTP screen entirely rather than asking for a code that does not exist.
+      if (data?.bypassed) { onVerified(); return; }
       setStep('otp');
       setCountdown(30);
       setTimeout(() => otpRefs.current[0]?.focus(), 100);

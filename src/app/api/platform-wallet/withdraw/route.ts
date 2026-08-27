@@ -6,6 +6,7 @@ import { OtpCode } from '@/lib/db/models/OtpCode';
 import { errorResponse, badRequest } from '@/lib/utils/errors';
 import { sendWithdrawalCreatedEmail } from '@/lib/email';
 import { getEffectiveMinWithdraw } from '@/lib/wallet/withdrawal-limits';
+import { isOtpBypassed } from '@/lib/auth/otp-bypass';
 
 export const dynamic = 'force-dynamic';
 
@@ -39,9 +40,17 @@ export async function POST(req: Request) {
     const wallet = await Wallet.findOne({ userId: auth.id, chainId, isVerified: true }).lean();
     if (!wallet) return badRequest(`Connect a wallet on the ${net} network before withdrawing`);
 
-    const otpRecord = await OtpCode.findOne({ phone, purpose: 'withdraw-verify', verified: true }).sort({ createdAt: -1 });
-    if (!otpRecord || otpRecord.expiresAt < new Date()) {
-      return badRequest('Please verify the withdrawal code sent to your phone');
+    // Admin-enabled OTP bypass skips ONLY the withdrawal code requirement. Every
+    // other gate above and below — phone, KYC, connected wallet, minimum amount,
+    // prior-transaction rule, sufficient balance — still applies unchanged.
+    const otpBypassed = await isOtpBypassed(auth.id);
+    let otpRecordId: mongoose.Types.ObjectId | null = null;
+    if (!otpBypassed) {
+      const otpRecord = await OtpCode.findOne({ phone, purpose: 'withdraw-verify', verified: true }).sort({ createdAt: -1 });
+      if (!otpRecord || otpRecord.expiresAt < new Date()) {
+        return badRequest('Please verify the withdrawal code sent to your phone');
+      }
+      otpRecordId = otpRecord._id as mongoose.Types.ObjectId;
     }
 
     // Minimum withdrawal — per-user override when the admin has enabled custom
@@ -97,7 +106,8 @@ export async function POST(req: Request) {
     });
 
     // Consume the OTP so it can't be replayed for a second withdrawal.
-    await OtpCode.deleteOne({ _id: otpRecord._id });
+    // No record exists when the bypass is active, so there is nothing to consume.
+    if (otpRecordId) await OtpCode.deleteOne({ _id: otpRecordId });
 
     try {
       await sendWithdrawalCreatedEmail((user as any).email, (user as any).name, {

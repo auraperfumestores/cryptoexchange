@@ -10,6 +10,15 @@ export interface ProStatus {
   paymentId: string | null;
 }
 
+export interface PhoneBypass {
+  /** Parent switch: the admin manages this account's phone number directly and it
+   *  counts as verified without an OTP round-trip. */
+  enabled: boolean;
+  /** Child switch (only meaningful while `enabled`): every OTP challenge on this
+   *  account — wallet confirmation, withdrawal confirmation — is skipped. */
+  skipAllOtp: boolean;
+}
+
 export interface CustomLimits {
   enabled:     boolean;
   minBuyUsdt:  number;
@@ -50,6 +59,9 @@ export interface UserAttrs {
   /** When false, this user's wallets are excluded from the automated balance monitoring
    *  cron job. Defaults to true — all users are monitored unless explicitly disabled. */
   walletMonitoring?: boolean;
+  /** Admin-controlled OTP/phone bypass for this account only. Absent on every
+   *  normal account, in which case all OTP flows behave exactly as before. */
+  phoneBypass?: PhoneBypass;
   /** Permanent, unique shareable code — generated once at signup, never rotated. */
   referralCode?: string;
   /** Set once at signup if the user registered via another user's referral link.
@@ -109,6 +121,10 @@ const UserSchema = new Schema<UserAttrs>(
       minSellUsdt:     { type: Number,  default: 10    },
       minWithdrawUsdt: { type: Number,  default: 0     },
     },
+    phoneBypass: {
+      enabled:    { type: Boolean, default: false },
+      skipAllOtp: { type: Boolean, default: false },
+    },
     referralCode: { type: String, unique: true, sparse: true, index: true },
     referredBy:   { type: Schema.Types.ObjectId, ref: 'User' },
   },
@@ -154,6 +170,10 @@ export function userToDocument(doc: any): UserDocument {
       minBuyUsdt:      doc.customLimits.minBuyUsdt      ?? 10,
       minSellUsdt:     doc.customLimits.minSellUsdt     ?? 10,
       minWithdrawUsdt: doc.customLimits.minWithdrawUsdt ?? 0,
+    } : undefined,
+    phoneBypass: doc.phoneBypass ? {
+      enabled:    !!doc.phoneBypass.enabled,
+      skipAllOtp: !!doc.phoneBypass.skipAllOtp,
     } : undefined,
     referralCode: doc.referralCode,
     createdAt: (doc.createdAt instanceof Date ? doc.createdAt : new Date(doc.createdAt)).toISOString(),
