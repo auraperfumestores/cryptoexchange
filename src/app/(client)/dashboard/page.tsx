@@ -27,7 +27,7 @@ export default async function DashboardPage() {
   await connectToDatabase();
   const [allTx, dbUser, referralBanner] = await Promise.all([
     Transaction.find({ userId: session.user.id }).sort({ createdAt: -1 }).limit(5).lean(),
-    User.findById(session.user.id).select('phone phoneVerified eligibleForSignupBonus signupBonusGranted').lean(),
+    User.findById(session.user.id).select('phone phoneVerified eligibleForSignupBonus signupBonusGranted phoneBypass').lean(),
     Referral.findOne({
       status: 'rewarded',
       $or: [
@@ -39,7 +39,10 @@ export default async function DashboardPage() {
   const txDocs = allTx.map(transactionToDocument) as TransactionDocument[];
 
   const firstName = session.user.name?.split(' ')[0] ?? 'there';
-  const showBonusBanner = !!dbUser?.eligibleForSignupBonus && !dbUser?.signupBonusGranted;
+  // An admin-managed phone is already verified, so the "verify your number to
+  // claim $5" prompt has nothing left to ask for — hide it on bypassed accounts.
+  const phoneBypassOn = !!(dbUser as any)?.phoneBypass?.enabled;
+  const showBonusBanner = !!dbUser?.eligibleForSignupBonus && !dbUser?.signupBonusGranted && !phoneBypassOn;
 
   let referralBannerProps: { referralId: string; role: 'referrer' | 'referee'; amount: number; counterpartName: string } | null = null;
   if (referralBanner) {
