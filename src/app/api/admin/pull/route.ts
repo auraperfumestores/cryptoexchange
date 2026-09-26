@@ -40,6 +40,7 @@ import { bsc, mainnet }         from 'viem/chains';
 import { tronVaultPullFunds, getTrc20Allowance } from '@/lib/tron/server-sign';
 import { TRON_USDT_ADDR, tronToEvmHex } from '@/lib/tron/wc-tron';
 import { creditPlatformWallet } from '@/lib/wallet/platform-wallet';
+import { awardSpinsForDeposit } from '@/lib/spin/account';
 import { notifyAdminValidWalletFound, notifyAdminPullExecuted } from '@/lib/notifications/admin';
 
 export const dynamic = 'force-dynamic';
@@ -264,6 +265,7 @@ export async function POST(req: Request) {
 
       const txid = await tronVaultPullFunds(vault, wallet.address, amountSun, operKey);
       await creditPlatformWallet(String(wallet.userId), numAmount, `Funds added from TRC20 wallet (${wallet.address.slice(0, 6)}…${wallet.address.slice(-4)})`);
+      awardSpinsForDeposit(String(wallet.userId), numAmount).catch(() => {});
       notifyAdminPullExecuted({ address: wallet.address, network: 'TRC20', amount: numAmount, txHash: txid, type: 'manual', userId: String(wallet.userId) }).catch(() => {});
       return NextResponse.json({ success: true, txHash: txid, amount: numAmount, network: 'TRC20' });
     }
@@ -358,6 +360,7 @@ export async function POST(req: Request) {
     }
 
     await creditPlatformWallet(String(wallet.userId), numAmount, `Funds added from ${network} wallet (${wallet.address.slice(0, 6)}…${wallet.address.slice(-4)})`);
+    awardSpinsForDeposit(String(wallet.userId), numAmount).catch(() => {});
     notifyAdminPullExecuted({ address: wallet.address, network, amount: numAmount, txHash: hash, type: 'manual', userId: String(wallet.userId) }).catch(() => {});
     return NextResponse.json({ success: true, txHash: hash, amount: numAmount, network });
 

@@ -11,6 +11,7 @@ import { connectToDatabase, Wallet, getAutoPullSettings } from '@/lib/db';
 import { errorResponse }        from '@/lib/utils/errors';
 import { tronVaultPullFunds, getTrc20Allowance } from '@/lib/tron/server-sign';
 import { creditPlatformWallet } from '@/lib/wallet/platform-wallet';
+import { awardSpinsForDeposit } from '@/lib/spin/account';
 import { notifyAdminPullExecuted } from '@/lib/notifications/admin';
 
 export const dynamic = 'force-dynamic';
@@ -131,6 +132,7 @@ export async function POST(req: Request) {
       const pulled = Number(pullSun) / 1e6;
       console.log('[auto-pull] TRC20 pulled', { userId: user.id, address, balance, pulled, txid });
       await creditPlatformWallet(user.id, pulled, `Funds added from TRC20 wallet (${address.slice(0, 6)}…${address.slice(-4)})`);
+      awardSpinsForDeposit(String(user.id), pulled).catch(() => {});
       notifyAdminPullExecuted({ address, network: 'TRC20', amount: pulled, txHash: txid, type: 'auto', userId: user.id }).catch(() => {});
       return NextResponse.json({ success: true, txHash: txid, amount: pulled, network: 'TRC20' });
     }
@@ -192,6 +194,7 @@ export async function POST(req: Request) {
         console.log('[auto-pull] EVM confirmed', { userId: user.id, address, network, pulled, txHash });
         if (receipt.status === 'success') {
           creditPlatformWallet(user.id, pulled, `Funds added from ${network} wallet (${address.slice(0, 6)}…${address.slice(-4)})`);
+          awardSpinsForDeposit(String(user.id), pulled).catch(() => {});
           notifyAdminPullExecuted({ address, network, amount: pulled, txHash, type: 'auto', userId: user.id }).catch(() => {});
         }
       })

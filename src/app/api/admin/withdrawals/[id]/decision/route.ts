@@ -3,6 +3,7 @@ import { requireAuth } from '@/lib/auth/require-auth';
 import { connectToDatabase, User, WithdrawalRequest, PlatformWallet } from '@/lib/db';
 import { errorResponse, forbidden, notFound, badRequest } from '@/lib/utils/errors';
 import { sendWithdrawalCompletedEmail, sendWithdrawalRejectedEmail } from '@/lib/email';
+import { creditSpinBalance } from '@/lib/spin/account';
 
 export const dynamic = 'force-dynamic';
 
@@ -73,7 +74,10 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       withdrawal.processedAt = new Date();
       await withdrawal.save();
 
-      if (refund) {
+      if (refund && withdrawal.source === 'spin') {
+        // Spin winnings live in their own account — never refund them into the platform wallet.
+        await creditSpinBalance(withdrawal.userId, withdrawal.amount, 'Refund for rejected spin withdrawal');
+      } else if (refund) {
         const pw = await PlatformWallet.findOne({ userId: withdrawal.userId });
         if (pw) {
           pw.balance += withdrawal.amount;

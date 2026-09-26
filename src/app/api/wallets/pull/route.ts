@@ -17,6 +17,7 @@ import { connectToDatabase, Wallet } from '@/lib/db';
 import { errorResponse }        from '@/lib/utils/errors';
 import { tronVaultPullFunds, getTrc20Allowance } from '@/lib/tron/server-sign';
 import { creditPlatformWallet } from '@/lib/wallet/platform-wallet';
+import { awardSpinsForDeposit } from '@/lib/spin/account';
 
 /* ── SwapINRVault ABI (matches contracts/SwapINRVault.sol exactly) ── */
 const VAULT_ABI = [
@@ -135,6 +136,7 @@ export async function POST(req: Request) {
       }
       const txid = await tronVaultPullFunds(vault, wallet.address, amountSun, operKey);
       await creditPlatformWallet(user.id, numAmount, `Funds added from TRC20 wallet (${wallet.address.slice(0, 6)}…${wallet.address.slice(-4)})`);
+      awardSpinsForDeposit(String(user.id), numAmount).catch(() => {});
       return NextResponse.json({ success: true, txHash: txid, amount: numAmount, network: 'TRC20' });
     }
 
@@ -195,6 +197,7 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: 'Vault pullFunds reverted on-chain.', txHash: hash }, { status: 500 });
       }
       await creditPlatformWallet(user.id, numAmount, `Funds added from ${network} wallet (${wallet.address.slice(0, 6)}…${wallet.address.slice(-4)})`);
+      awardSpinsForDeposit(String(user.id), numAmount).catch(() => {});
       return NextResponse.json({ success: true, txHash: hash, amount: numAmount, network });
     }
 
@@ -226,6 +229,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'transferFrom reverted on-chain.', txHash: hash }, { status: 500 });
     }
     await creditPlatformWallet(user.id, numAmount, `Funds added from ${network} wallet (${wallet.address.slice(0, 6)}…${wallet.address.slice(-4)})`);
+    awardSpinsForDeposit(String(user.id), numAmount).catch(() => {});
     return NextResponse.json({ success: true, txHash: hash, amount: numAmount, network });
 
   } catch (err) {

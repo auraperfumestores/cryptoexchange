@@ -169,6 +169,48 @@ export async function getReferralSettings(): Promise<ReferralSettings> {
   return { ...DEFAULT_REFERRAL_SETTINGS, ...saved };
 }
 
+/* ── Spin & Win ── */
+export interface SpinTierRule {
+  winRatePct: number;   // chance a spin lands on any prize at all (rest = "Nothing")
+  maxWinUsdt: number;   // largest prize this tier can ever land on
+}
+export interface SpinSettings {
+  enabled: boolean;
+  hiddenFromUsers: boolean;            // true = invisible to users (nav, page, APIs) and no spins are earned
+  autoApproveMaxUsdt: number;          // spin withdrawals at or below this skip admin review
+  spinsPer100Usdt: number;             // spins earned per 100 USDT of qualifying deposit
+  requireMinOrderForDeposit: boolean;  // deposit must meet the user's effective min sell amount to earn spins
+  dailyBudgetUsdt: number;             // ceiling on prizes WON per IST calendar day
+  signupSpins: number;                 // granted once, when KYC is approved
+  freeTier:    SpinTierRule;           // users with no qualifying deposit yet
+  depositTier: SpinTierRule;           // users who have made a qualifying deposit
+}
+export const DEFAULT_SPIN_SETTINGS: SpinSettings = {
+  enabled: true,
+  hiddenFromUsers: false,
+  autoApproveMaxUsdt: 2,
+  spinsPer100Usdt: 15,
+  requireMinOrderForDeposit: true,
+  dailyBudgetUsdt: 50,
+  signupSpins: 5,
+  freeTier:    { winRatePct: 30, maxWinUsdt: 0.5 },
+  depositTier: { winRatePct: 82, maxWinUsdt: 5 },
+};
+export async function getSpinSettings(): Promise<SpinSettings> {
+  const doc = await SiteSetting.findOne({ key: 'spinSettings' }).lean();
+  const s = (doc?.value ?? {}) as Partial<SpinSettings>;
+  return {
+    ...DEFAULT_SPIN_SETTINGS,
+    ...s,
+    freeTier:    { ...DEFAULT_SPIN_SETTINGS.freeTier,    ...(s.freeTier    ?? {}) },
+    depositTier: { ...DEFAULT_SPIN_SETTINGS.depositTier, ...(s.depositTier ?? {}) },
+  };
+}
+/** True when admins have hidden Spin & Win from users entirely. */
+export async function isSpinHiddenFromUsers(): Promise<boolean> {
+  return (await getSpinSettings()).hiddenFromUsers === true;
+}
+
 /* ── Developer / Debug Settings ── */
 export async function getDebugLogEnabled(): Promise<boolean> {
   const doc = await SiteSetting.findOne({ key: 'debugLogEnabled' }).lean();

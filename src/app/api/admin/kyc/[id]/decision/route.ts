@@ -5,6 +5,7 @@ import { errorResponse, forbidden, notFound, badRequest } from '@/lib/utils/erro
 import { sendKycApprovedEmail, sendKycRejectedEmail, sendReferralBonusEmail } from '@/lib/email';
 import { creditPlatformWallet } from '@/lib/wallet/platform-wallet';
 import { notifyAdminReferralReward } from '@/lib/notifications/admin';
+import { grantSignupSpins } from '@/lib/spin/account';
 
 export const dynamic = 'force-dynamic';
 
@@ -56,6 +57,11 @@ export async function POST(req: Request, { params }: { params: { id: string } })
         }
       } catch (e) {
         console.error('[kyc] Failed to send decision email', e);
+      }
+
+      // Signup spins — granted once at KYC approval, count set by the admin. Never blocks the decision.
+      if (action === 'verify') {
+        grantSignupSpins(String(submission.userId)).catch(e => console.error('[kyc] signup spins grant failed:', e));
       }
 
       // Referral reward — fires once, only for users who signed up via a referral link,

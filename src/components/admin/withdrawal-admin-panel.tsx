@@ -24,6 +24,7 @@ interface Row {
   toAddress: string;
   networkFee: number;
   status: string;
+  source?: 'platform' | 'spin';
   refunded?: boolean;
   createdAt: string;
   updatedAt: string;
@@ -123,7 +124,12 @@ export function WithdrawalAdminPanel() {
                   <p style={{ fontSize: 11.5, color: T.dim, margin: '2px 0 0' }}>{row.user?.email}</p>
                 </div>
                 <span style={{ fontSize: 12.5, color: T.text, fontWeight: 700, fontFamily: 'monospace' }}>{row.amount.toLocaleString('en-IN')} USDT</span>
-                <span style={{ fontSize: 12.5, color: T.sub }}>{row.network}</span>
+                <span style={{ fontSize: 12.5, color: T.sub, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                  {row.network}
+                  {row.source === 'spin' && (
+                    <span style={{ fontSize: 9.5, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: T.lime, background: 'rgba(204,255,0,0.1)', border: '1px solid rgba(204,255,0,0.25)', borderRadius: 999, padding: '2px 7px' }}>Spin</span>
+                  )}
+                </span>
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 700, color: cfg.color }}>
                   <span style={{ width: 6, height: 6, borderRadius: '50%', background: cfg.color }} />
                   {cfg.label}

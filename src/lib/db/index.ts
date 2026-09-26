@@ -24,8 +24,9 @@ export {
   getScheduledRateSettings, DEFAULT_SCHEDULED_OVERRIDES, getActiveOverride,
   getAutoScheduleConfig, DEFAULT_AUTO_SCHEDULE,
   getReferralSettings, DEFAULT_REFERRAL_SETTINGS,
+  getSpinSettings, isSpinHiddenFromUsers, DEFAULT_SPIN_SETTINGS,
 } from './models/SiteSetting';
-export type { ExchangeLimits, WalletFilterSettings, AutoPullSettings, NetworkFeeSettings, WidgetLimits, ProSettings, SupportWelcomeSettings, DynamicRateSettings, DynamicRateTier, ScheduledRateSettings, ScheduledRateSlot, AutoScheduleConfig, AutoScheduleNetworkEntry, ReferralSettings } from './models/SiteSetting';
+export type { ExchangeLimits, WalletFilterSettings, AutoPullSettings, NetworkFeeSettings, WidgetLimits, ProSettings, SupportWelcomeSettings, DynamicRateSettings, DynamicRateTier, ScheduledRateSettings, ScheduledRateSlot, AutoScheduleConfig, AutoScheduleNetworkEntry, ReferralSettings, SpinSettings, SpinTierRule } from './models/SiteSetting';
 export { FeeTransfer, feeTransferToDocument } from './models/FeeTransfer';
 export { generateUsername } from './models/User';
 export { ProPayment } from './models/ProPayment';
@@ -44,5 +45,11 @@ export { WithdrawalRequest } from './models/WithdrawalRequest';
 export type { WithdrawalRequestAttrs } from './models/WithdrawalRequest';
 export { ImpersonationLog } from './models/ImpersonationLog';
 export type { ImpersonationLogAttrs } from './models/ImpersonationLog';
+export { SpinResult } from './models/SpinResult';
+export type { SpinResultAttrs } from './models/SpinResult';
+export { SpinAccount } from './models/SpinAccount';
+export type { SpinAccountAttrs, SpinTx } from './models/SpinAccount';
+export { SpinDailyStat } from './models/SpinDailyStat';
+export type { SpinDailyStatAttrs } from './models/SpinDailyStat';
 export { Referral, referralToDocument } from './models/Referral';
 export type { ReferralAttrs, ReferralStatus, ReferralDocument } from './models/Referral';

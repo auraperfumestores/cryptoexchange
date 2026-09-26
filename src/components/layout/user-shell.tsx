@@ -41,6 +41,15 @@ function IcoWallet({ size = 20 }: { size?: number }) {
     </svg>
   );
 }
+function IcoSpin({ size = 20 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 20 20" fill="none">
+      <circle cx="10" cy="10" r="7" stroke="currentColor" strokeWidth="1.6"/>
+      <path d="M10 3V17M3 10H17M5.05 5.05L14.95 14.95M14.95 5.05L5.05 14.95" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
+      <circle cx="10" cy="10" r="1.8" fill="currentColor"/>
+    </svg>
+  );
+}
 function IcoProfile({ size = 20 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 20 20" fill="none">
@@ -54,6 +63,7 @@ const NAV = [
   { href: '/dashboard',    label: 'Exchange', Icon: IcoExchange },
   { href: '/transactions', label: 'Trades',   Icon: IcoTrades   },
   { href: '/wallets',      label: 'Wallet',   Icon: IcoWallet   },
+  { href: '/spin',         label: 'Spin',     Icon: IcoSpin     },
   { href: '/settings',     label: 'Profile',  Icon: IcoProfile  },
 ];
 
@@ -123,14 +133,32 @@ export function UserShell({ user, children }: UserShellProps) {
   const [isPro, setIsPro] = useState<boolean | null>(null);
   const [balance, setBalance] = useState<number | null>(null);
   const [showWalletPopup, setShowWalletPopup] = useState(false);
+  // Hidden until the server confirms it's visible, so an admin-hidden Spin tab never flashes in.
+  const [spinVisible, setSpinVisible] = useState(false);
+  const navItems = spinVisible ? NAV : NAV.filter(n => n.href !== '/spin');
 
   useEffect(() => {
+    fetch('/api/spin/visibility', { cache: 'no-store' }).then(r => r.json()).then(d => {
+      setSpinVisible(d?.data?.visible === true);
+    }).catch(() => {});
     fetch('/api/pro/status').then(r => r.json()).then(d => {
       if (d?.data) setIsPro(!!d.data.isPro);
     }).catch(() => {});
     fetch('/api/user/platform-wallet').then(r => r.json()).then(d => {
       if (d?.success) setBalance(d.balance ?? 0);
     }).catch(() => {});
+  }, []);
+
+  // Lets any page (e.g. Spin & Win) tell the header chip to re-read the balance
+  // after it has changed, without threading callbacks through the tree.
+  useEffect(() => {
+    const refresh = () => {
+      fetch('/api/user/platform-wallet').then(r => r.json()).then(d => {
+        if (d?.success) setBalance(d.balance ?? 0);
+      }).catch(() => {});
+    };
+    window.addEventListener('swapinr:balance-refresh', refresh);
+    return () => window.removeEventListener('swapinr:balance-refresh', refresh);
   }, []);
 
   function isActive(href: string) {
@@ -171,7 +199,7 @@ export function UserShell({ user, children }: UserShellProps) {
 
           {/* Desktop centre nav */}
           <nav className="user-nav-tabs" style={{ alignItems: 'center', gap: 2, background: 'var(--fr-dark-3)', borderRadius: 'var(--fr-radius-lg)', padding: 4, border: '1px solid var(--fr-border-default)' }}>
-            {NAV.map(({ href, label, Icon }) => {
+            {navItems.map(({ href, label, Icon }) => {
               const active = isActive(href);
               return (
                 <Link key={href} href={href} style={{
@@ -262,7 +290,7 @@ export function UserShell({ user, children }: UserShellProps) {
                         Upgrade to PRO
                       </button>
                     )}
-                    {NAV.map(({ href, label, Icon }) => (
+                    {navItems.map(({ href, label, Icon }) => (
                       <Link key={href} href={href} onClick={() => setDropOpen(false)} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '11px 16px', fontSize: 13, color: 'var(--fr-text-secondary)', textDecoration: 'none', borderBottom: '1px solid var(--fr-border-subtle)' }}>
                         <span style={{ color: 'var(--fr-text-tertiary)', display: 'flex' }}><Icon size={15} /></span>
                         {label}
@@ -287,7 +315,7 @@ export function UserShell({ user, children }: UserShellProps) {
 
       {/* ── Mobile floating pill nav ── */}
       <nav className="ubn" aria-label="Main navigation">
-        {NAV.map(({ href, label, Icon }) => {
+        {navItems.map(({ href, label, Icon }) => {
           const active = isActive(href);
           return (
             <Link

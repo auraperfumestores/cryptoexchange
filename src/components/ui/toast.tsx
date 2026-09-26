@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { create } from 'zustand';
 
-type ToastVariant = 'success' | 'error' | 'info' | 'warning';
+type ToastVariant = 'success' | 'error' | 'info' | 'warning' | 'reward';
 type ToastPosition = 'top-right' | 'top-center';
 
 interface Toast {
@@ -34,6 +34,8 @@ export const toast = {
   error:   (message: string, duration?: number, position?: ToastPosition) => useToastStore.getState().add({ message, variant: 'error',   duration, position }),
   info:    (message: string, duration?: number, position?: ToastPosition) => useToastStore.getState().add({ message, variant: 'info',    duration, position }),
   warning: (message: string, duration?: number, position?: ToastPosition) => useToastStore.getState().add({ message, variant: 'warning', duration, position }),
+  /** Lime, centred by default — for money landing in the user's favour (spin prizes, bonuses). */
+  reward:  (message: string, duration?: number, position?: ToastPosition) => useToastStore.getState().add({ message, variant: 'reward',  duration, position: position ?? 'top-center' }),
 };
 
 const THEME: Record<ToastVariant, { bg: string; border: string; icon: string; accent: string }> = {
@@ -41,6 +43,7 @@ const THEME: Record<ToastVariant, { bg: string; border: string; icon: string; ac
   error:   { bg: 'rgba(26,10,14,0.97)',  border: 'rgba(255,92,124,0.28)', icon: '#FF5C7C', accent: '#FF5C7C' },
   info:    { bg: 'rgba(10,15,30,0.97)',  border: 'rgba(77,121,255,0.28)', icon: '#4D79FF', accent: '#4D79FF' },
   warning: { bg: 'rgba(26,20,10,0.97)',  border: 'rgba(243,186,47,0.28)', icon: '#F3BA2F', accent: '#F3BA2F' },
+  reward:  { bg: 'rgba(12,16,4,0.97)',   border: 'rgba(204,255,0,0.32)',  icon: '#CCFF00', accent: '#CCFF00' },
 };
 
 function CheckIcon({ color }: { color: string }) {
@@ -56,10 +59,15 @@ function WarnIcon({ color }: { color: string }) {
   return <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 2L14.5 13.5H1.5Z" stroke={color} strokeWidth="1.5" strokeLinejoin="round"/><path d="M8 7v3M8 11.5v.5" stroke={color} strokeWidth="1.5" strokeLinecap="round"/></svg>;
 }
 
+function SparkleIcon({ color }: { color: string }) {
+  return <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 1.5L9.6 6.4L14.5 8L9.6 9.6L8 14.5L6.4 9.6L1.5 8L6.4 6.4Z" fill={color}/></svg>;
+}
+
 function ToastIcon({ variant, color }: { variant: ToastVariant; color: string }) {
   if (variant === 'success') return <CheckIcon color={color} />;
   if (variant === 'error')   return <XCircleIcon color={color} />;
   if (variant === 'warning') return <WarnIcon color={color} />;
+  if (variant === 'reward')  return <SparkleIcon color={color} />;
   return <InfoIcon color={color} />;
 }
 
@@ -99,6 +107,7 @@ export function ToastContainer() {
 function ToastItem({ toast: t, onClose }: { toast: Toast; onClose: () => void }) {
   const [visible, setVisible] = useState(true);
   const theme = THEME[t.variant];
+  const isReward = t.variant === 'reward';
   const dur = t.duration ?? 4000;
 
   useEffect(() => {
@@ -111,11 +120,13 @@ function ToastItem({ toast: t, onClose }: { toast: Toast; onClose: () => void })
   return (
     <div style={{
       display: 'flex', alignItems: 'center', gap: 10,
-      padding: '12px 14px',
+      padding: isReward ? '12px 16px' : '12px 14px',
       background: theme.bg,
       border: `1px solid ${theme.border}`,
-      borderRadius: 12,
-      boxShadow: `0 8px 32px rgba(0,0,0,0.5), 0 0 0 1px ${theme.border}`,
+      borderRadius: isReward ? 14 : 12,
+      boxShadow: isReward
+        ? `0 8px 32px rgba(0,0,0,0.5), 0 0 26px rgba(204,255,0,0.18), 0 0 0 1px ${theme.border}`
+        : `0 8px 32px rgba(0,0,0,0.5), 0 0 0 1px ${theme.border}`,
       backdropFilter: 'blur(20px)',
       WebkitBackdropFilter: 'blur(20px)',
       pointerEvents: 'auto',
@@ -123,15 +134,25 @@ function ToastItem({ toast: t, onClose }: { toast: Toast; onClose: () => void })
       transform: visible ? 'translateY(0)' : 'translateY(-6px)',
       transition: 'opacity 0.25s ease, transform 0.25s ease',
     }}>
-      {/* Accent left strip */}
-      <div style={{ width: 3, height: 32, borderRadius: 99, background: theme.accent, flexShrink: 0 }} />
-
-      <ToastIcon variant={t.variant} color={theme.icon} />
+      {isReward ? (
+        /* Reward: a lime icon tile instead of the thin status strip — reads as a small celebration, not a log line */
+        <div style={{ width: 32, height: 32, borderRadius: 10, background: 'rgba(204,255,0,0.14)', border: '1px solid rgba(204,255,0,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+          <ToastIcon variant={t.variant} color={theme.icon} />
+        </div>
+      ) : (
+        <>
+          {/* Accent left strip */}
+          <div style={{ width: 3, height: 32, borderRadius: 99, background: theme.accent, flexShrink: 0 }} />
+          <ToastIcon variant={t.variant} color={theme.icon} />
+        </>
+      )}
 
       <p style={{
         flex: 1, margin: 0,
-        fontSize: 13, fontWeight: 600, lineHeight: 1.4,
+        fontSize: isReward ? 13.5 : 13, fontWeight: isReward ? 700 : 600, lineHeight: 1.4,
         color: '#ffffff',
+        textAlign: isReward ? 'center' : 'left',
+        letterSpacing: isReward ? '-0.01em' : 0,
       }}>
         {t.message}
       </p>

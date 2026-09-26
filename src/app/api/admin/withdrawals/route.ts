@@ -22,6 +22,8 @@ export async function GET(req: Request) {
 
     const filter: Record<string, unknown> = {};
     if (status && status !== 'all') filter.status = status;
+    const source = searchParams.get('source');
+    if (source === 'spin' || source === 'platform') filter.source = source;
 
     if (search) {
       const users = await User.find({
@@ -47,6 +49,7 @@ export async function GET(req: Request) {
       toAddress: r.toAddress,
       networkFee: r.networkFee,
       status: r.status,
+      source: r.source ?? 'platform',
       txHash: r.txHash,
       explorerUrl: r.explorerUrl,
       rejectionReason: r.rejectionReason,

@@ -8,6 +8,8 @@ export interface WithdrawalRequestAttrs {
   toAddress: string;
   networkFee: number;
   status: 'pending' | 'processing' | 'completed' | 'rejected';
+  /** Which balance funded this request. Drives where a rejection refund goes. */
+  source?: 'platform' | 'spin';
   txHash?: string;
   explorerUrl?: string;
   adminNotes?: string;
@@ -29,6 +31,7 @@ const WithdrawalRequestSchema = new Schema<WithdrawalRequestAttrs>(
     toAddress:       { type: String, required: true },
     networkFee:      { type: Number, required: true, default: 0 },
     status:          { type: String, enum: ['pending', 'processing', 'completed', 'rejected'], default: 'pending', index: true },
+    source:          { type: String, enum: ['platform', 'spin'], default: 'platform', index: true },
     txHash:          { type: String },
     explorerUrl:     { type: String },
     adminNotes:      { type: String, default: '' },

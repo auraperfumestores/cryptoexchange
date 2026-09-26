@@ -26,6 +26,8 @@ const ADMIN_NAV: NavItem[] = [
     icon: <svg width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M7.5 1.5L2 4v4c0 3 2.4 5.4 5.5 6.5 3.1-1.1 5.5-3.5 5.5-6.5V4L7.5 1.5z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round"/><path d="M5 7.5l1.8 1.8L10 6" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/></svg> },
   { href: '/admin/referrals', label: 'Referrals',
     icon: <svg width="15" height="15" viewBox="0 0 15 15" fill="none"><circle cx="5" cy="4.5" r="2" stroke="currentColor" strokeWidth="1.3"/><circle cx="11" cy="10.5" r="2" stroke="currentColor" strokeWidth="1.3"/><path d="M6.5 5.5L9.5 9.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg> },
+  { href: '/admin/spin', label: 'Spin & Win',
+    icon: <svg width="15" height="15" viewBox="0 0 15 15" fill="none"><circle cx="7.5" cy="7.5" r="5.5" stroke="currentColor" strokeWidth="1.3"/><path d="M7.5 2v11M2 7.5h11M3.6 3.6l7.8 7.8M11.4 3.6l-7.8 7.8" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round"/><circle cx="7.5" cy="7.5" r="1.4" fill="currentColor"/></svg> },
   { href: '/admin/settings', label: 'Settings',
     icon: <svg width="15" height="15" viewBox="0 0 15 15" fill="none"><circle cx="7.5" cy="7.5" r="2" stroke="currentColor" strokeWidth="1.3"/><path d="M7.5 1V2.5M7.5 12.5V14M14 7.5H12.5M2.5 7.5H1M12.2 2.8L11.1 3.9M3.9 11.1L2.8 12.2M12.2 12.2L11.1 11.1M3.9 3.9L2.8 2.8" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg> },
 ];

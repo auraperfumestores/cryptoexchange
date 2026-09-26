@@ -40,20 +40,24 @@ export async function sendOtpSms(phone: string, otp: string, purpose: string = '
 
   const message = buildMessage(otp);
 
-  const res = await fetch('https://my.gonums.com/dev/bulkV2', {
-    method: 'POST',
-    headers: {
-      authorization: authKey,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      route:       'dlt_manual',
-      sender_id:   SENDER_ID,
-      entity_id:   ENTITY_ID,
-      template_id: TEMPLATE_ID,
-      message,
-      numbers:     `91${phone}`,
-    }),
+  // GET https://sms-api.mapthrust.io/dev/bulkV2 — all fields go in the query string.
+  // encodeURIComponent (not URLSearchParams) so spaces become %20, matching the
+  // provider's documented URL exactly.
+  const params: Record<string, string> = {
+    authorization: authKey,
+    route:         'dlt_manual',
+    message,
+    sender_id:     SENDER_ID,
+    entity_id:     ENTITY_ID,
+    template_id:   TEMPLATE_ID,
+    numbers:       `91${phone}`,
+  };
+  const query = Object.entries(params)
+    .map(([k, v]) => `${k}=${encodeURIComponent(v)}`)
+    .join('&');
+
+  const res = await fetch(`https://sms-api.mapthrust.io/dev/bulkV2?${query}`, {
+    method: 'GET',
   });
 
   const data = await res.json().catch(() => ({}));
